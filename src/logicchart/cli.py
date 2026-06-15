@@ -36,10 +36,16 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("path", nargs="?", default=".")
     analyze.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
     analyze.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
+    analyze.add_argument(
+        "--include-gaps",
+        action="store_true",
+        help="Expand the review-only (POTENTIAL_GAP) findings section in the Markdown report.",
+    )
 
     update = subparsers.add_parser("update", help="Incrementally refresh changed source files.")
     update.add_argument("path", nargs="?", default=".")
     update.add_argument("--no-html", action="store_true")
+    update.add_argument("--include-gaps", action="store_true")
 
     impact = subparsers.add_parser("impact", help="Show flows affected by changed files.")
     impact.add_argument("files", nargs="*")
@@ -96,9 +102,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "analyze":
-            return _analyze(Path(args.path), full=args.full, include_html=not args.no_html)
+            return _analyze(
+                Path(args.path),
+                full=args.full,
+                include_html=not args.no_html,
+                include_gaps=args.include_gaps,
+            )
         if args.command == "update":
-            return _analyze(Path(args.path), full=False, include_html=not args.no_html)
+            return _analyze(
+                Path(args.path),
+                full=False,
+                include_html=not args.no_html,
+                include_gaps=args.include_gaps,
+            )
         if args.command == "impact":
             return _impact(Path(args.path), args.files, args.json_output)
         if args.command == "query":
@@ -124,11 +140,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-def _analyze(root: Path, *, full: bool, include_html: bool) -> int:
+def _analyze(root: Path, *, full: bool, include_html: bool, include_gaps: bool = False) -> int:
     root = root.resolve()
     result = ProjectAnalyzer(root).analyze(full=full)
     json_path, markdown_path, html_path = write_artifacts(
-        root, result.model, include_html=include_html
+        root, result.model, include_html=include_html, include_gaps=include_gaps
     )
     print(
         f"Analyzed {len(result.model.files)} files: {len(result.model.flows)} flows, "

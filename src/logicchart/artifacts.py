@@ -29,11 +29,12 @@ def write_artifacts(
     model: ProjectModel,
     *,
     include_html: bool = True,
+    include_gaps: bool = False,
     config: LogicChartConfig | None = None,
 ) -> tuple[Path, Path, Path | None]:
     json_path, markdown_path, html_path = output_paths(root, config)
     write_json(json_path, model.to_dict())
-    markdown_path.write_text(render_markdown(model), encoding="utf-8")
+    markdown_path.write_text(render_markdown(model, include_gaps=include_gaps), encoding="utf-8")
     if include_html:
         html_path.write_text(render_html(model, source_root=root.resolve()), encoding="utf-8")
         return json_path, markdown_path, html_path

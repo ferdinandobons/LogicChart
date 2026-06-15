@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
-from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel
+from logicchart.model import Evidence, Finding, Flow, FlowNode, NodeKind, ProjectModel
 
 
-def render_markdown(model: ProjectModel) -> str:
+def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
     entrypoints = [flow for flow in model.flows if flow.is_entrypoint]
+    confirmed = [f for f in model.findings if f.evidence is not Evidence.POTENTIAL_GAP]
+    gaps = [f for f in model.findings if f.evidence is Evidence.POTENTIAL_GAP]
     lines = [
         "# LogicChart Decision Flows",
         "",
@@ -16,22 +19,33 @@ def render_markdown(model: ProjectModel) -> str:
         f"- **Source root:** `{model.root}`",
         f"- **Flows:** {len(model.flows)}",
         f"- **Entry points:** {len(entrypoints)}",
-        f"- **Potential gaps:** {len(model.findings)}",
+        f"- **Findings:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
         "",
         "## Project Map",
         "",
     ]
     lines.extend(_project_map(model, entrypoints))
     lines.extend(["", "## Findings", ""])
-    if model.findings:
-        for finding in model.findings:
-            source = _source_reference(finding.location.path, finding.location.start_line)
-            lines.append(
-                f"- **{finding.severity.value.upper()} · {finding.kind}** "
-                f"{finding.message} ({source})"
-            )
+    # Signal/noise split (§5.2/§7): verified/inferred facts in the main section,
+    # POTENTIAL_GAP review candidates grouped under a collapsible block so a reader
+    # always knows what was found vs guessed.
+    if confirmed:
+        lines.extend(_finding_line(finding) for finding in confirmed)
     else:
-        lines.append("No potential gaps were detected.")
+        lines.append("No verified or inferred findings were detected.")
+    if gaps:
+        open_attr = " open" if include_gaps else ""
+        lines.extend(
+            [
+                "",
+                f"<details{open_attr}>",
+                f"<summary>Review-only — {len(gaps)} POTENTIAL_GAP "
+                "(heuristic candidates, not confirmed)</summary>",
+                "",
+            ]
+        )
+        lines.extend(_finding_line(finding) for finding in gaps)
+        lines.extend(["", "</details>"])
 
     lines.extend(["", "## Entry Point Flows", ""])
     for flow in entrypoints:
@@ -102,9 +116,17 @@ def _flow_section(flow: Flow, model: ProjectModel) -> list[str]:
         for node_id, messages in findings_by_node.items():
             node = next(item for item in flow.nodes if item.id == node_id)
             for message in messages:
-                lines.append(f"- `{node.label}`: {message}")
+                lines.append(f"- {_code_span(node.label)}: {_md_inline(message)}")
     lines.append("")
     return lines
+
+
+def _finding_line(finding: Finding) -> str:
+    source = _source_reference(finding.location.path, finding.location.start_line)
+    return (
+        f"- **{finding.severity.value.upper()} · {finding.evidence.value} · "
+        f"{finding.kind}** {_md_inline(finding.message)} ({source})"
+    )
 
 
 def _render_node(node: FlowNode) -> str:
@@ -126,7 +148,31 @@ def _mermaid_id(value: str) -> str:
 
 
 def _escape(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', "&quot;").replace("\n", " ")
+    # Mermaid quoted labels: neutralize the quote breakout and any HTML so a
+    # source-derived label can't malform the diagram or smuggle markup.
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\n", " ")
+    )
+
+
+# Markdown inline metacharacters that could turn a source-derived finding message
+# into a live link, emphasis, code span, table cell, or raw HTML in a committed report.
+_MD_INLINE_SPECIAL = re.compile(r"([\\`*_\[\]()<>|#~])")
+
+
+def _md_inline(value: str) -> str:
+    """Escape a source-derived string for safe inline Markdown prose."""
+    collapsed = re.sub(r"\s+", " ", value)
+    return _MD_INLINE_SPECIAL.sub(r"\\\1", collapsed)
+
+
+def _code_span(value: str) -> str:
+    """Render a label as an inline code span, neutralizing backtick breakout."""
+    return "`" + value.replace("`", "'").replace("\n", " ") + "`"
 
 
 def _source_reference(path: str, line: int) -> str:
