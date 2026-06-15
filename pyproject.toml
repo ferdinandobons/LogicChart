@@ -84,6 +84,9 @@ include = [
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+# Example corpora are fixtures with intentional logical defects and calls into a
+# host application's externals; they are analyzed by LogicChart, not linted.
+extend-exclude = ["examples"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
