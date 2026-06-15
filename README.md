@@ -163,6 +163,7 @@ Single-flow (reason about one flow):
 Cross-flow (compare sibling flows):
 
 - `inconsistent_case_handling`: a value a strict majority of sibling flows branching on the same subject and enum/union handle, but which this flow omits with no explicit default.
+- `enum_exhaustiveness`: a flow dispatches on a declared enum (handling several members) but omits other declared members, with no explicit default.
 
 ## Configuration
 

@@ -119,7 +119,16 @@ class ProjectAnalyzer:
         findings = [finding for analysis in analyses for finding in analysis.findings]
         self._link_calls(flows)
         self._link_tests(flows)
-        findings.extend(self._find_inconsistent_decisions(flows))
+        # Keyed by language so a Python enum and a same-named TS union stay distinct
+        # value universes (they are different closed sets).
+        enums: dict[str, dict[str, list[str]]] = {}
+        for analysis in analyses:
+            language_enums = enums.setdefault(analysis.language, {})
+            for name, members in analysis.enums.items():
+                known = language_enums.setdefault(name, [])
+                known.extend(member for member in members if member not in known)
+        findings.extend(self._find_inconsistent_decisions(flows, enums))
+        findings.extend(self._enum_exhaustiveness(flows, enums))
         findings = _deduplicate_findings(findings)
         files = [
             FileRecord(
@@ -130,14 +139,6 @@ class ProjectAnalyzer:
             )
             for analysis in analyses
         ]
-        # Keyed by language so a Python enum and a same-named TS union stay distinct
-        # value universes (they are different closed sets).
-        enums: dict[str, dict[str, list[str]]] = {}
-        for analysis in analyses:
-            language_enums = enums.setdefault(analysis.language, {})
-            for name, members in analysis.enums.items():
-                known = language_enums.setdefault(name, [])
-                known.extend(member for member in members if member not in known)
         return ProjectModel(
             schema_version="1.1",
             generated_at=datetime.now(timezone.utc).isoformat(),
@@ -223,13 +224,17 @@ class ProjectAnalyzer:
                 if target and flow.symbol not in target.tests:
                     target.tests.append(flow.symbol)
 
-    def _find_inconsistent_decisions(self, flows: list[Flow]) -> list[Finding]:
+    def _find_inconsistent_decisions(
+        self, flows: list[Flow], enums: dict[str, dict[str, list[str]]]
+    ) -> list[Finding]:
         # Quorum-aware cross-flow value coverage. Comparison is per flow (not per
         # decision node) and bucketed by (language, subject, value_namespace) so
         # only flows branching on the *same* subject and enum/union are compared —
         # keeping the same enum reused on different subjects apart, and scoping the
         # explicit-default suppression to the relevant subject. A flow is flagged
         # for a value a strict majority of its siblings handle but it omits.
+        # Namespaces with a declared enum are left to _enum_exhaustiveness (a
+        # stronger declared-set check), so the two never double-flag the same gap.
         buckets: dict[tuple[str, str, str], dict[str, _Coverage]] = {}
         for flow in flows:
             if flow.metadata.get("test"):
@@ -242,17 +247,14 @@ class ProjectAnalyzer:
                 values = {str(item) for item in node.metadata.get("values", []) if str(item)}
                 if not subject or not namespace or not values:
                     continue
-                has_default = any(
-                    not entry.get("implicit") and entry.get("label") in _FALLBACK_LABELS
-                    for entry in node.metadata.get("branches", [])
-                )
+                if enums.get(flow.language, {}).get(namespace):
+                    continue
                 coverages = buckets.setdefault((flow.language, subject, namespace), {})
                 existing = coverages.get(flow.id)
                 if existing is None:
-                    coverages[flow.id] = _Coverage(flow, node, set(values), has_default)
+                    coverages[flow.id] = _Coverage(flow, node, set(values))
                 else:
                     existing.handled |= values
-                    existing.has_default = existing.has_default or has_default
 
         findings: list[Finding] = []
         for (_language, subject, namespace), coverages in buckets.items():
@@ -265,7 +267,7 @@ class ProjectAnalyzer:
             quorum = siblings // 2 + 1  # strict majority, so a single outlier can't set quorum
             expected = {value for value, count in counts.items() if count >= quorum}
             for coverage in coverages.values():
-                if coverage.has_default:
+                if _has_subject_default(coverage.flow, subject, namespace):
                     continue
                 missing = sorted(expected - coverage.handled)
                 if missing:
@@ -274,6 +276,44 @@ class ProjectAnalyzer:
                             coverage, subject, namespace, missing, quorum, siblings
                         )
                     )
+        return findings
+
+    def _enum_exhaustiveness(
+        self, flows: list[Flow], enums: dict[str, dict[str, list[str]]]
+    ) -> list[Finding]:
+        # A flow that dispatches on a declared enum — handling at least two of its
+        # members — but omits other declared members with no explicit default is
+        # likely non-exhaustive. This uses the declared closed set, so unlike the
+        # quorum check it needs no sibling flows.
+        findings: list[Finding] = []
+        for flow in flows:
+            if flow.metadata.get("test"):
+                continue
+            coverage: dict[tuple[str, str], _Coverage] = {}
+            for node in flow.nodes:
+                if node.kind is not NodeKind.DECISION:
+                    continue
+                subject = str(node.metadata.get("subject", ""))
+                namespace = str(node.metadata.get("value_namespace", ""))
+                values = {str(item) for item in node.metadata.get("values", []) if str(item)}
+                if not subject or not values or not enums.get(flow.language, {}).get(namespace):
+                    continue
+                existing = coverage.get((subject, namespace))
+                if existing is None:
+                    coverage[(subject, namespace)] = _Coverage(flow, node, set(values))
+                else:
+                    existing.handled |= values
+
+            for (subject, namespace), cov in coverage.items():
+                declared = enums[flow.language][namespace]
+                declared_set = set(declared)
+                if len(cov.handled & declared_set) < 2:
+                    continue
+                if _has_subject_default(flow, subject, namespace):
+                    continue
+                missing = sorted(declared_set - cov.handled)
+                if missing:
+                    findings.append(_enum_finding(cov, subject, namespace, missing, declared))
         return findings
 
 
@@ -290,7 +330,41 @@ class _Coverage:
     flow: Flow
     node: FlowNode
     handled: set[str]
-    has_default: bool
+
+
+def _has_subject_default(flow: Flow, subject: str, namespace: str) -> bool:
+    """Whether the flow has a real else/default on decisions for (subject, namespace).
+
+    An elif continuation also emits a non-implicit "No" branch, so a branch counts
+    as a default only when its edge target is NOT another same-subject decision —
+    i.e. a genuine else/default body, not the next link in an if/elif chain.
+    """
+    nodes = {node.id: node for node in flow.nodes}
+
+    def on_subject(node_id: str) -> bool:
+        node = nodes.get(node_id)
+        return (
+            node is not None
+            and node.kind is NodeKind.DECISION
+            and node.metadata.get("subject") == subject
+            and node.metadata.get("value_namespace") == namespace
+        )
+
+    sources = {node.id for node in flow.nodes if on_subject(node.id)}
+    for edge in flow.edges:
+        if edge.source not in sources or edge.label not in _FALLBACK_LABELS:
+            continue
+        branch = next(
+            (
+                entry
+                for entry in nodes[edge.source].metadata.get("branches", [])
+                if entry.get("label") == edge.label
+            ),
+            None,
+        )
+        if branch is not None and not branch.get("implicit") and not on_subject(edge.target):
+            return True
+    return False
 
 
 def _inconsistent_finding(
@@ -321,6 +395,32 @@ def _inconsistent_finding(
             "missing": missing,
             "confidence": round(quorum / siblings, 2),
             "quorum": {"required": quorum, "siblings": siblings},
+        },
+    )
+
+
+def _enum_finding(
+    coverage: _Coverage, subject: str, namespace: str, missing: list[str], declared: list[str]
+) -> Finding:
+    return Finding(
+        id=stable_id(coverage.flow.id, coverage.node.id, "enum-exhaustiveness"),
+        kind="enum_exhaustiveness",
+        severity=Severity.WARNING,
+        message=f"Declared {namespace} members not handled for {subject}: {', '.join(missing)}",
+        evidence=Evidence.INFERRED,
+        flow_id=coverage.flow.id,
+        node_id=coverage.node.id,
+        location=coverage.node.location,
+        detail=(
+            "The flow dispatches on this enum (handling several members) but omits "
+            "declared members of it, with no explicit default."
+        ),
+        metadata={
+            "category": "cross_flow",
+            "subject": subject,
+            "value_namespace": namespace,
+            "missing": missing,
+            "declared": list(declared),
         },
     )
 

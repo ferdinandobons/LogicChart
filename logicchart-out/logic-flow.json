@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T18:38:21.321809+00:00",
+  "generated_at": "2026-06-15T18:46:59.671379+00:00",
   "root": ".",
   "flows": [
     {
@@ -3346,6 +3346,69 @@
       "metadata": {}
     },
     {
+      "id": "a461a64fc5c6ab34",
+      "kind": "enum_exhaustiveness",
+      "severity": "warning",
+      "message": "Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED",
+      "evidence": "INFERRED",
+      "flow_id": "flow-4e833d53a700855c",
+      "location": {
+        "path": "examples/shop/backend/orders_service.py",
+        "start_line": 8,
+        "end_line": 16
+      },
+      "node_id": "flow-4e833d53a700855c:n3",
+      "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+      "metadata": {
+        "category": "cross_flow",
+        "subject": "order.status",
+        "value_namespace": "OrderStatus",
+        "missing": [
+          "OrderStatus.CANCELLED",
+          "OrderStatus.DELIVERED",
+          "OrderStatus.REFUNDED"
+        ],
+        "declared": [
+          "OrderStatus.CART",
+          "OrderStatus.PLACED",
+          "OrderStatus.PAID",
+          "OrderStatus.SHIPPED",
+          "OrderStatus.DELIVERED",
+          "OrderStatus.CANCELLED",
+          "OrderStatus.REFUNDED"
+        ]
+      }
+    },
+    {
+      "id": "a0c7d93350b38d96",
+      "kind": "enum_exhaustiveness",
+      "severity": "warning",
+      "message": "Declared PaymentResult members not handled for result: PaymentResult.FRAUD_REVIEW",
+      "evidence": "INFERRED",
+      "flow_id": "flow-d8c77f3ddc158387",
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 11,
+        "end_line": 11
+      },
+      "node_id": "flow-d8c77f3ddc158387:n3",
+      "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+      "metadata": {
+        "category": "cross_flow",
+        "subject": "result",
+        "value_namespace": "PaymentResult",
+        "missing": [
+          "PaymentResult.FRAUD_REVIEW"
+        ],
+        "declared": [
+          "PaymentResult.APPROVED",
+          "PaymentResult.DECLINED",
+          "PaymentResult.PENDING",
+          "PaymentResult.FRAUD_REVIEW"
+        ]
+      }
+    },
+    {
       "id": "59fd4827af2add96",
       "kind": "broad_except_swallow",
       "severity": "warning",
@@ -3466,7 +3529,7 @@
     ],
     "entrypoint_count": 14,
     "flow_count": 17,
-    "finding_count": 6,
+    "finding_count": 8,
     "enums": {
       "python": {
         "UserStatus": [
