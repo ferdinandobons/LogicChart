@@ -60,6 +60,12 @@ def _make_php(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
     return build_analyzer(root, config)
 
 
+def _make_terraform(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
+    from logicchart.analysis.languages.terraform import build_analyzer
+
+    return build_analyzer(root, config)
+
+
 # The order is the dispatch precedence when two specs claim the same suffix (none do today).
 LANGUAGES: tuple[LanguageSpec, ...] = (
     LanguageSpec("python", (".py",), PythonAnalyzer),
@@ -70,6 +76,7 @@ LANGUAGES: tuple[LanguageSpec, ...] = (
     LanguageSpec("java", (".java",), _make_java),
     LanguageSpec("csharp", (".cs",), _make_csharp),
     LanguageSpec("php", (".php",), _make_php),
+    LanguageSpec("terraform", (".tf",), _make_terraform),
 )
 
 _BY_SUFFIX: dict[str, LanguageSpec] = {
