@@ -26,6 +26,7 @@ from logicchart.analysis.common import (
     FALLS_THROUGH,
     RAISES,
     RETURNS,
+    SUCCESS,
     SWITCH,
     YES,
     FlowBuilder,
@@ -101,10 +102,29 @@ class LanguageProfile:
     break_types: frozenset[str] = frozenset({"break_statement"})
     call_types: frozenset[str] = frozenset({"call_expression"})
     call_function_field: str = "function"
+    call_name: Callable[[Any, bytes], str] | None = None
+    try_type: str | None = None
+    try_body_field: str = "body"
+    catch_types: frozenset[str] = frozenset()
+    catch_body_field: str = "body"
+    finally_types: frozenset[str] = frozenset()
+    # Override case extraction for switch/case grammars that don't fit the simple
+    # "case nodes with a value field" shape (e.g. Java's switch_block groups).
+    switch_cases: Callable[[Any, bytes, LanguageProfile], list[CaseInfo]] | None = None
     assignment_types: frozenset[str] = frozenset()
     assignment_target_field: str = "left"
     nested_def_types: frozenset[str] = field(default_factory=frozenset)
     inert_types: frozenset[str] = frozenset({"comment"})
+
+
+@dataclass(slots=True)
+class CaseInfo:
+    """One switch/case branch: its label, dispatched values, and body statements."""
+
+    label: str
+    is_default: bool
+    values: list[str]
+    body: list[Any]
 
 
 class TreeSitterAnalyzer:
@@ -215,6 +235,10 @@ class TreeSitterAnalyzer:
                 endpoints = self._walk_if(statement, endpoints, builder, findings, source, relative)
             elif node_type in profile.switch_types:
                 endpoints = self._walk_switch(
+                    statement, endpoints, builder, findings, source, relative
+                )
+            elif profile.try_type is not None and node_type == profile.try_type:
+                endpoints = self._walk_try(
                     statement, endpoints, builder, findings, source, relative
                 )
             elif node_type in profile.loop_types:
@@ -375,36 +399,26 @@ class TreeSitterAnalyzer:
                 namespace="",
             ),
         )
-        container = (
-            statement.child_by_field_name(profile.switch_body_field)
-            if profile.switch_body_field
-            else statement
+        cases = (
+            profile.switch_cases(statement, source, profile)
+            if profile.switch_cases
+            else (self._default_cases(statement, source))
         )
         endpoints: list[PendingEdge] = []
         values: list[str] = []
         has_default = False
         branches: list[dict[str, Any]] = []
-        for case in _named_children(container):
-            case_value = case.child_by_field_name(profile.case_value_field)
-            if case.type in profile.default_types:
+        for case in cases:
+            if case.is_default:
                 label = DEFAULT_LABEL
                 has_default = True
-            elif case.type in profile.case_types:
-                label = _text(case_value, source) or "case"
-                values.append(label)
             else:
-                continue
-            children = [
-                child
-                for child in _named_children(case)
-                if case_value is None
-                or child.start_byte != case_value.start_byte
-                or child.end_byte != case_value.end_byte
-            ]
-            branches.append(branch(label, self._branch_outcome(children)))
+                label = case.label
+                values.extend(case.values)
+            branches.append(branch(label, self._branch_outcome(case.body)))
             endpoints.extend(
                 self._walk_statements(
-                    children, [PendingEdge(node.id, label)], builder, findings, source, relative
+                    case.body, [PendingEdge(node.id, label)], builder, findings, source, relative
                 )
             )
         node.metadata["values"] = sorted(set(values))
@@ -414,6 +428,107 @@ class TreeSitterAnalyzer:
             endpoints.append(PendingEdge(node.id, DEFAULT_LABEL))
         node.metadata["branches"] = branches
         return endpoints
+
+    def _default_cases(self, statement: Any, source: bytes) -> list[CaseInfo]:
+        profile = self.profile
+        container = (
+            statement.child_by_field_name(profile.switch_body_field)
+            if profile.switch_body_field
+            else statement
+        )
+        cases: list[CaseInfo] = []
+        for case in _named_children(container):
+            case_value = case.child_by_field_name(profile.case_value_field)
+            body = self._case_body(case, case_value)
+            if case.type in profile.default_types:
+                cases.append(CaseInfo(DEFAULT_LABEL, True, [], body))
+            elif case.type in profile.case_types:
+                label = _text(case_value, source) or "case"
+                cases.append(CaseInfo(label, False, [label], body))
+        return cases
+
+    def _case_body(self, case: Any, case_value: Any) -> list[Any]:
+        children = [
+            child
+            for child in _named_children(case)
+            if case_value is None
+            or child.start_byte != case_value.start_byte
+            or child.end_byte != case_value.end_byte
+        ]
+        flattened: list[Any] = []
+        for child in children:
+            if child.type in self.profile.block_types:
+                flattened.extend(_named_children(child))
+            else:
+                flattened.append(child)
+        return flattened
+
+    def _walk_try(
+        self,
+        statement: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        findings: list[Finding],
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        profile = self.profile
+        body = statement.child_by_field_name(profile.try_body_field)
+        node = builder.add_node(
+            NodeKind.DECISION,
+            "Operation succeeds?",
+            _location(relative, statement),
+            incoming,
+            evidence=Evidence.INFERRED,
+            detail=_text(statement, source),
+            metadata=decision_identity(
+                condition="exception boundary",
+                subject="exception",
+                operator="",
+                domain="error",
+                namespace="",
+            ),
+        )
+        branches: list[dict[str, Any]] = [
+            branch(SUCCESS, self._branch_outcome(self._statement_children(body)))
+        ]
+        endpoints = self._walk_statements(
+            self._statement_children(body),
+            [PendingEdge(node.id, SUCCESS)],
+            builder,
+            findings,
+            source,
+            relative,
+        )
+        for catch in (c for c in _named_children(statement) if c.type in profile.catch_types):
+            catch_body = self._statement_children(self._block_of(catch))
+            branches.append(branch("Error", self._branch_outcome(catch_body)))
+            endpoints.extend(
+                self._walk_statements(
+                    catch_body, [PendingEdge(node.id, "Error")], builder, findings, source, relative
+                )
+            )
+        node.metadata["branches"] = branches
+        finals = [c for c in _named_children(statement) if c.type in profile.finally_types]
+        if finals:
+            final_body = self._statement_children(self._block_of(finals[0]))
+            body_terminated = not endpoints
+            finally_incoming = endpoints or [PendingEdge(node.id, "finally")]
+            endpoints = self._walk_statements(
+                final_body, finally_incoming, builder, findings, source, relative
+            )
+            if body_terminated:
+                endpoints = []
+        return endpoints
+
+    def _block_of(self, node: Any) -> Any:
+        body = node.child_by_field_name(self.profile.catch_body_field)
+        if body is not None:
+            return body
+        for child in _named_children(node):
+            if child.type in self.profile.block_types:
+                return child
+        return node
 
     def _branch_outcome(self, statements: list[Any]) -> str:
         profile = self.profile
@@ -458,8 +573,10 @@ class TreeSitterAnalyzer:
         return NodeKind.ACTION, compact_text(_text(statement, source).rstrip(";"), 90), []
 
     def _calls_in(self, statement: Any, source: bytes) -> list[str]:
+        field_name = self.profile.call_function_field
+        extract = self.profile.call_name or (lambda call, src: _call_name(call, src, field_name))
         names = [
-            _call_name(item, source, self.profile.call_function_field)
+            extract(item, source)
             for item in self._descendants(statement)
             if item.type in self.profile.call_types
         ]

@@ -42,6 +42,12 @@ def _make_go(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
     return build_analyzer(root, config)
 
 
+def _make_java(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
+    from logicchart.analysis.languages.java import build_analyzer
+
+    return build_analyzer(root, config)
+
+
 # The order is the dispatch precedence when two specs claim the same suffix (none do today).
 LANGUAGES: tuple[LanguageSpec, ...] = (
     LanguageSpec("python", (".py",), PythonAnalyzer),
@@ -49,6 +55,7 @@ LANGUAGES: tuple[LanguageSpec, ...] = (
     # the Next.js / React entry-point detection; the IR labels it "javascript".
     LanguageSpec("typescript", (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"), TypeScriptAnalyzer),
     LanguageSpec("go", (".go",), _make_go),
+    LanguageSpec("java", (".java",), _make_java),
 )
 
 _BY_SUFFIX: dict[str, LanguageSpec] = {
