@@ -72,6 +72,7 @@ class PythonAnalyzer:
             language="python",
             sha256=file_sha256(path),
             enums=_harvest_enums(tree),
+            constants=_harvest_constants(tree),
             flows=flows,
             findings=findings,
         )
@@ -547,6 +548,26 @@ def _is_enum_class(node: ast.ClassDef) -> bool:
 def _is_enum_member(name: str) -> bool:
     # Skip Enum directives and private attributes (e.g. _ignore_, __dunder__).
     return not name.startswith("_")
+
+
+def _harvest_constants(tree: ast.Module) -> dict[str, bool]:
+    """Module-level boolean constants (``FLAG = False``) — the smallest data-flow fact
+    a guard's always-true/false check needs."""
+    constants: dict[str, bool] = {}
+    for node in tree.body:
+        target: ast.expr | None = None
+        value: ast.expr | None = None
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign):
+            target, value = node.target, node.value
+        if (
+            isinstance(target, ast.Name)
+            and isinstance(value, ast.Constant)
+            and isinstance(value.value, bool)
+        ):
+            constants[target.id] = value.value
+    return constants
 
 
 def _module_name(relative: str) -> str:

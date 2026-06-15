@@ -65,12 +65,7 @@ def query_model(model: ProjectModel, question: str, limit: int = 10) -> list[Que
 
 def impact_model(model: ProjectModel, changed_files: list[str]) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
-    direct = [
-        flow
-        for flow in model.flows
-        if _normalize_path(flow.location.path) in normalized
-        or any(_normalize_path(path) == _normalize_path(flow.location.path) for path in normalized)
-    ]
+    direct = [flow for flow in model.flows if _normalize_path(flow.location.path) in normalized]
     by_id = {flow.id: flow for flow in model.flows}
     impacted_ids = {flow.id for flow in direct}
     queue = list(impacted_ids)

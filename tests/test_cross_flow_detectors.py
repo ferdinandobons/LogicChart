@@ -136,6 +136,38 @@ def test_auth_divergence_is_off_by_default(tmp_path: Path) -> None:
     assert not any(f.kind == "auth_divergence" for f in model.findings)
 
 
+def test_dead_guard_on_always_false_constant(tmp_path: Path) -> None:
+    (tmp_path / "svc.py").write_text(
+        "ENABLE = False\n\n\n"
+        "def charge(account):\n    if ENABLE:\n        raise Error()\n    return ok()\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    charge = next(f for f in model.flows if f.name == "charge")
+    flagged = [f for f in model.findings if f.kind == "dead_guard" and f.flow_id == charge.id]
+    assert flagged
+    assert flagged[0].metadata["always"] is False
+
+
+def test_dead_guard_silent_on_runtime_value(tmp_path: Path) -> None:
+    (tmp_path / "svc.py").write_text(
+        "def charge(account, enabled):\n    if enabled:\n        raise Error()\n    return ok()\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert not any(f.kind == "dead_guard" for f in model.findings)
+
+
+def test_config_loads_gated_detectors_flag(tmp_path: Path) -> None:
+    from logicchart.config import LogicChartConfig
+
+    (tmp_path / "logicchart.toml").write_text(
+        "[logicchart]\ngated_detectors = true\n", encoding="utf-8"
+    )
+    assert LogicChartConfig.load(tmp_path).gated_detectors is True
+    assert LogicChartConfig.load(tmp_path / "absent").gated_detectors is False
+
+
 def test_outcome_inconsistency_ignores_logging_before_raise(tmp_path: Path) -> None:
     # Two flows log before raising the identical error; one raises directly. Same outcome.
     guard = (

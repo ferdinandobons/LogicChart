@@ -128,10 +128,12 @@ class ProjectAnalyzer:
             for name, members in analysis.enums.items():
                 known = language_enums.setdefault(name, [])
                 known.extend(member for member in members if member not in known)
+        constants_by_path = {analysis.path: analysis.constants for analysis in analyses}
         findings.extend(self._find_inconsistent_decisions(flows, enums))
         findings.extend(self._enum_exhaustiveness(flows, enums))
         findings.extend(self._outcome_inconsistency(flows))
         findings.extend(self._logging_asymmetry(flows))
+        findings.extend(self._dead_guard(flows, constants_by_path))
         if self.config.gated_detectors:
             findings.extend(self._auth_divergence(flows))
         findings = _suppress_redundant_missing_branch(findings)
@@ -407,6 +409,29 @@ class ProjectAnalyzer:
             )
         return findings
 
+    def _dead_guard(
+        self, flows: list[Flow], constants_by_path: dict[str, dict[str, bool]]
+    ) -> list[Finding]:
+        # A truthiness guard on a module-level boolean constant: the branch is always
+        # taken or never taken. INFERRED — the constant could be reassigned elsewhere.
+        findings: list[Finding] = []
+        for flow in flows:
+            if flow.metadata.get("test"):
+                continue
+            constants = constants_by_path.get(flow.location.path, {})
+            if not constants:
+                continue
+            for node in flow.nodes:
+                if node.kind is not NodeKind.DECISION or node.metadata.get("operator"):
+                    continue
+                subject = str(node.metadata.get("subject", ""))
+                if subject not in constants:
+                    continue
+                value = constants[subject]
+                always = (not value) if node.metadata.get("negation") else value
+                findings.append(_dead_guard_finding(flow, node, subject, always))
+        return findings
+
 
 # Cross-flow quorum needs a real majority context: with fewer siblings, a single
 # differing flow could not form a meaningful majority.
@@ -679,6 +704,24 @@ def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]
         for item in findings
         if not (item.kind == "missing_branch" and (item.flow_id, item.node_id) in enum_nodes)
     ]
+
+
+def _dead_guard_finding(flow: Flow, node: FlowNode, subject: str, always: bool) -> Finding:
+    return Finding(
+        id=stable_id(flow.id, node.id, "dead-guard"),
+        kind="dead_guard",
+        severity=Severity.WARNING,
+        message=f"Guard on the constant {subject} is always {always}",
+        evidence=Evidence.INFERRED,
+        flow_id=flow.id,
+        node_id=node.id,
+        location=node.location,
+        detail=(
+            "The condition is a module-level boolean constant, so one branch is dead. "
+            "Confirm the constant is not reassigned elsewhere."
+        ),
+        metadata={"category": "single_flow", "constant": subject, "always": always},
+    )
 
 
 def _deduplicate_findings(findings: list[Finding]) -> list[Finding]:

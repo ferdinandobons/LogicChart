@@ -103,6 +103,7 @@ class FileAnalysis:
     flows: list[Flow] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     enums: dict[str, list[str]] = field(default_factory=dict)
+    constants: dict[str, bool] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -116,6 +117,7 @@ class FileAnalysis:
             flows=[_flow_from_dict(item) for item in data.get("flows", [])],
             findings=[_finding_from_dict(item) for item in data.get("findings", [])],
             enums=data.get("enums", {}),
+            constants=data.get("constants", {}),
         )
 
 

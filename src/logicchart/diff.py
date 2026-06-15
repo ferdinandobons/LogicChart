@@ -56,15 +56,26 @@ def render_diff_markdown(diff: ModelDiff) -> str:
 
 
 def render_sarif(diff: ModelDiff) -> dict[str, object]:
-    """A minimal SARIF 2.1.0 log of the introduced findings."""
+    """A minimal SARIF 2.1.0 log of the introduced findings.
+
+    Each result carries the stable finding id as a partial fingerprint, so a code
+    scanner re-keys alerts on the structural id (the diff premise) rather than on
+    location, and each rule declares its default severity level.
+    """
     rules = {
-        finding.kind: {"id": finding.kind, "name": finding.kind} for finding in diff.introduced
+        finding.kind: {
+            "id": finding.kind,
+            "name": finding.kind,
+            "defaultConfiguration": {"level": _SARIF_LEVEL.get(finding.severity.value, "warning")},
+        }
+        for finding in diff.introduced
     }
     results = [
         {
             "ruleId": finding.kind,
             "level": _SARIF_LEVEL.get(finding.severity.value, "warning"),
             "message": {"text": finding.message},
+            "partialFingerprints": {"logicchartFindingId/v1": finding.id},
             "locations": [
                 {
                     "physicalLocation": {

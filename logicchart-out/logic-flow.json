@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T19:35:34.558305+00:00",
+  "generated_at": "2026-06-15T19:54:36.860332+00:00",
   "root": ".",
   "flows": [
     {
@@ -6515,6 +6515,26 @@
       "metadata": {}
     },
     {
+      "id": "8fc720508c09144c",
+      "kind": "dead_guard",
+      "severity": "warning",
+      "message": "Guard on the constant ENABLE_DOUBLE_CHARGE_GUARD is always False",
+      "evidence": "INFERRED",
+      "flow_id": "flow-3fb7f77aa3ec9fd5",
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 21,
+        "end_line": 21
+      },
+      "node_id": "flow-3fb7f77aa3ec9fd5:n3",
+      "detail": "The condition is a module-level boolean constant, so one branch is dead. Confirm the constant is not reassigned elsewhere.",
+      "metadata": {
+        "category": "single_flow",
+        "constant": "ENABLE_DOUBLE_CHARGE_GUARD",
+        "always": false
+      }
+    },
+    {
       "id": "9c21bdd1fbd3f70c",
       "kind": "dead_code",
       "severity": "warning",
@@ -6705,7 +6725,7 @@
     ],
     "entrypoint_count": 29,
     "flow_count": 33,
-    "finding_count": 11,
+    "finding_count": 12,
     "enums": {
       "python": {
         "UserStatus": [

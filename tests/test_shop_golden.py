@@ -35,6 +35,7 @@ def test_shop_planted_defects_fire(tmp_path: Path) -> None:
     assert "dead_code" in by_flow.get("load_profile", set())
     assert "no_op_branch" in by_flow.get("summarize", set())
     assert "broad_except_swallow" in by_flow.get("charge", set())
+    assert "dead_guard" in by_flow.get("charge", set())
     assert "broad_except_swallow" in by_flow.get("processCheckout", set())
     assert "enum_exhaustiveness" in by_flow.get("change_email", set())
     assert "enum_exhaustiveness" in by_flow.get("handle_result", set())

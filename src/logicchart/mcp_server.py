@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
+from logicchart.diff import diff_models
+from logicchart.model import ProjectModel
 from logicchart.query import (
     explain_finding,
     find_decisions,
@@ -13,6 +16,16 @@ from logicchart.query import (
     query_model,
     where_is_state_handled,
 )
+from logicchart.util import read_json
+
+# Rough tokens per returned list item, used to honor an agent's token_budget cap.
+_TOKENS_PER_ITEM = 60
+
+
+def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
+    if token_budget <= 0:
+        return items
+    return items[: max(1, token_budget // _TOKENS_PER_ITEM)]
 
 
 def run_mcp(root: Path) -> None:
@@ -27,22 +40,25 @@ def run_mcp(root: Path) -> None:
     server = FastMCP("LogicChart", json_response=True)
 
     @server.tool()
-    def list_flows(entrypoints_only: bool = True) -> list[dict[str, Any]]:
+    def list_flows(entrypoints_only: bool = True, token_budget: int = 0) -> list[dict[str, Any]]:
         """List known decision flows in the current project."""
         model = load_model(project_root)
-        return [
-            {
-                "id": flow.id,
-                "name": flow.name,
-                "symbol": flow.symbol,
-                "entry_kind": flow.entry_kind,
-                "framework": flow.framework,
-                "source": f"{flow.location.path}:{flow.location.start_line}",
-                "findings": sum(item.flow_id == flow.id for item in model.findings),
-            }
-            for flow in model.flows
-            if flow.is_entrypoint or not entrypoints_only
-        ]
+        return _cap(
+            [
+                {
+                    "id": flow.id,
+                    "name": flow.name,
+                    "symbol": flow.symbol,
+                    "entry_kind": flow.entry_kind,
+                    "framework": flow.framework,
+                    "source": f"{flow.location.path}:{flow.location.start_line}",
+                    "findings": sum(item.flow_id == flow.id for item in model.findings),
+                }
+                for flow in model.flows
+                if flow.is_entrypoint or not entrypoints_only
+            ],
+            token_budget,
+        )
 
     @server.tool()
     def get_flow(flow_id: str) -> dict[str, Any]:
@@ -52,12 +68,8 @@ def run_mcp(root: Path) -> None:
         if flow is None:
             return {"error": f"Unknown flow: {flow_id}"}
         return {
-            "flow": flow.__dict__ if hasattr(flow, "__dict__") else _flow_dict(flow),
-            "findings": [
-                item.__dict__ if hasattr(item, "__dict__") else _finding_dict(item)
-                for item in model.findings
-                if item.flow_id == flow.id
-            ],
+            "flow": _flow_dict(flow),
+            "findings": [_finding_dict(item) for item in model.findings if item.flow_id == flow.id],
         }
 
     @server.tool()
@@ -76,14 +88,17 @@ def run_mcp(root: Path) -> None:
         ]
 
     @server.tool()
-    def get_findings(flow_id: str | None = None) -> list[dict[str, Any]]:
+    def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
         """List potential gaps and inconsistent case handling."""
         model = load_model(project_root)
-        return [
-            _finding_dict(item)
-            for item in model.findings
-            if flow_id is None or item.flow_id == flow_id
-        ]
+        return _cap(
+            [
+                _finding_dict(item)
+                for item in model.findings
+                if flow_id is None or item.flow_id == flow_id
+            ],
+            token_budget,
+        )
 
     @server.tool()
     def logicchart_summary() -> dict[str, Any]:
@@ -97,29 +112,31 @@ def run_mcp(root: Path) -> None:
         return result if result is not None else {"error": f"Unknown finding: {finding_id}"}
 
     @server.tool()
-    def where_state_handled(domain: str, value: str | None = None) -> list[dict[str, Any]]:
+    def where_state_handled(
+        domain: str, value: str | None = None, token_budget: int = 0
+    ) -> list[dict[str, Any]]:
         """Every flow that branches on a domain/value-namespace, with the values it covers."""
-        return where_is_state_handled(load_model(project_root), domain, value)
+        return _cap(where_is_state_handled(load_model(project_root), domain, value), token_budget)
 
     @server.tool()
     def find_decision_nodes(
-        domain: str | None = None, subject: str | None = None, missing_fallback: bool = False
+        domain: str | None = None,
+        subject: str | None = None,
+        missing_fallback: bool = False,
+        token_budget: int = 0,
     ) -> list[dict[str, Any]]:
         """Structured search over decision nodes (by domain/subject/missing-fallback)."""
-        return find_decisions(
+        decisions = find_decisions(
             load_model(project_root),
             domain=domain,
             subject=subject,
             missing_fallback=missing_fallback,
         )
+        return _cap(decisions, token_budget)
 
     @server.tool()
     def diff_findings(base_path: str) -> dict[str, Any]:
         """Compare the current model against a baseline logic-flow.json (the CI primitive)."""
-        from logicchart.diff import diff_models
-        from logicchart.model import ProjectModel
-        from logicchart.util import read_json
-
         base = ProjectModel.from_dict(read_json(Path(base_path)))
         diff = diff_models(base, load_model(project_root))
         return {
@@ -170,12 +187,8 @@ def _flow_summary(flow: Any) -> dict[str, Any]:
 
 
 def _flow_dict(flow: Any) -> dict[str, Any]:
-    from dataclasses import asdict
-
     return asdict(flow)
 
 
 def _finding_dict(finding: Any) -> dict[str, Any]:
-    from dataclasses import asdict
-
     return asdict(finding)

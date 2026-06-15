@@ -18,6 +18,7 @@ detectors are enabled here (`gated_detectors = true`). Regenerate with
 | `enum_exhaustiveness` | `change_email` | `backend/api/users_routes.py` | #3 omits AccountStatus ACTIVE/PENDING_VERIFICATION |
 | `no_op_branch` | `summarize` | `backend/orders_service.py` | #10 empty refunded branch |
 | `broad_except_swallow` | `charge` | `backend/payments_service.py` | #6 `except: pass` |
+| `dead_guard` | `charge` | `backend/payments_service.py` | #11 `ENABLE_DOUBLE_CHARGE_GUARD` is always `False` |
 | `broad_except_swallow` | `processCheckout` | `frontend/app/api/checkout/route.ts` | empty `catch` |
 | `logging_asymmetry` | `capture_payment` | `backend/payments_service.py` | #14 silent where `refund_payment` logs+raises |
 | `auth_divergence` (gated) | `purge_user` | `backend/api/admin_routes.py` | #12 missing the `require_role` its sibling `delete_user` performs |
@@ -53,7 +54,5 @@ carry only the more actionable `enum_exhaustiveness`.
 - **#7/#8** `cancel` (404) vs `request_refund` (409) divergent refundable set / status code — both
   are `not in` guards over different sets, sharing no `(subject, value)`; needs a future
   guard-set-divergence detector.
-- **#11** `ENABLE_DOUBLE_CHARGE_GUARD` always-false guard — the always-true/false-guard detector is
-  a later single-flow increment.
 - **#13** `quick_order` missing the validation `create` has — a validation-divergence detector,
   still to come (def/use data-flow primitive).

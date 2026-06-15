@@ -35,6 +35,13 @@ def authorize(user):
                 tools = await session.list_tools()
                 names = {tool.name for tool in tools.tools}
                 assert {"list_flows", "get_flow", "query_logic", "update_logicchart"} <= names
+                assert {
+                    "logicchart_summary",
+                    "explain_finding_chain",
+                    "where_state_handled",
+                    "find_decision_nodes",
+                    "diff_findings",
+                } <= names
 
                 response = await session.call_tool(
                     "query_logic",
@@ -42,5 +49,13 @@ def authorize(user):
                 )
                 assert not response.isError
                 assert "authorize" in str(response.content)
+
+                summary = await session.call_tool("logicchart_summary", {})
+                assert not summary.isError
+                assert "flows" in str(summary.content)
+
+                state = await session.call_tool("where_state_handled", {"domain": "role"})
+                assert not state.isError
+                assert "authorize" in str(state.content)
 
     asyncio.run(exercise_server())

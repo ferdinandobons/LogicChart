@@ -184,6 +184,7 @@ Single-flow (reason about one flow):
 - `broad_except_swallow`: an exception handler whose body silently discards the error.
 - `no_op_branch`: an explicit `if` branch with an empty body.
 - `asymmetric_return`: a dispatch where most cases return/raise but one falls through (a likely missing return).
+- `dead_guard`: a truthiness guard on a module-level boolean constant, so one branch is always dead.
 
 Cross-flow (compare sibling flows):
 
