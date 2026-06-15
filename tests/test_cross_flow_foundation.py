@@ -163,7 +163,7 @@ def handle_partial(account, payment):
         for f in model.findings
         if f.kind == "inconsistent_case_handling" and f.flow_id == partial.id
     ]
-    # The else is on payment.status, a different subject — it must not hide the
+    # The else is on payment.status, a different subject - it must not hide the
     # genuine account.status gap.
     assert any("DELETED" in f.message for f in flagged)
 

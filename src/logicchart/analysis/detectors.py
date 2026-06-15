@@ -83,7 +83,7 @@ def _missing_else_in_chain(flow: Flow, decisions: dict[str, FlowNode]) -> list[F
 
     Only true `elif` links are followed: a parent whose "No" branch is an explicit
     else-clause. Two sequential same-subject `if` guards each leave an *implicit*
-    "No" that the walker happens to wire to the next decision — that is not an
+    "No" that the walker happens to wire to the next decision - that is not an
     elif chain and must not be fused into one.
     """
 
@@ -189,7 +189,7 @@ def _swallow_finding(flow: Flow, node: FlowNode, label: str, *, log_only: bool) 
 
 def _branch_effects(flow: Flow, node: FlowNode, label: str) -> set[str]:
     """The union of call effects reachable along one branch, before any nested
-    decision or terminal — used to recognize a log-only handler body."""
+    decision or terminal - used to recognize a log-only handler body."""
     nodes = {item.id: item for item in flow.nodes}
     out: dict[str, list[tuple[str, str]]] = {}
     for edge in flow.edges:
@@ -237,7 +237,7 @@ def _no_op_branch(flow: Flow) -> list[Finding]:
                         severity=Severity.INFO,
                         evidence=Evidence.INFERRED,
                         message=f"Branch '{entry['label']}' has an empty body",
-                        detail="The branch is taken but performs no work — likely unfinished.",
+                        detail="The branch is taken but performs no work - likely unfinished.",
                         key=("no-op", str(entry["label"])),
                     )
                 )
@@ -256,7 +256,7 @@ def _asymmetric_return(flow: Flow) -> list[Finding]:
         if len(explicit) < 3:
             continue
         exiting = [b for b in explicit if b["outcome"] in _EARLY_EXIT]
-        # Only count cases that do work but never exit — the "forgot to return"
+        # Only count cases that do work but never exit - the "forgot to return"
         # shape. An empty case is usually an intentional fall-through.
         fallthrough = [b for b in explicit if b["outcome"] == FALLS_THROUGH]
         if fallthrough and len(exiting) > len(fallthrough):

@@ -1,4 +1,4 @@
-# examples/shop — expected findings
+# examples/shop - expected findings
 
 A worked corpus: a small shop backend (Python) + frontend (Next.js/TS) with
 **planted defects** and **controls**, used to validate LogicChart end-to-end and
@@ -31,28 +31,28 @@ carry only the more actionable `enum_exhaustiveness`.
 ## Gated-detector false positive (candidly shown)
 
 - `auth_divergence` also flags `load_profile` (`users_service.py`) because its file-mate
-  `authenticate` performs an authorization check. `load_profile` does not need that gate —
+  `authenticate` performs an authorization check. `load_profile` does not need that gate -
   this is the exact false positive the **gated, opt-in** framing warns about (middleware/DI
   authorize invisibly; the heuristic groups by file). It is `POTENTIAL_GAP` (review-tier) and
   off by default for this reason.
 
 ## Controls that correctly stay silent
 
-- `authenticate` — handles every AccountStatus with a final `else`.
-- `GET` (`frontend/app/api/users/route.ts`) — **cross-language scoping (#15)**: the frontend
+- `authenticate` - handles every AccountStatus with a final `else`.
+- `GET` (`frontend/app/api/users/route.ts`) - **cross-language scoping (#15)**: the frontend
   `AccountStatus` union is a different closed set than the Python enum (no `pending_verification`);
   the switch is exhaustive over the union and has a default, so it is not flagged against the
   Python enum's extra member.
-- `AccountPage`, `middleware.ts` — a switch with a default and a lone auth guard.
-- `reset_password`, `get_profile` — single-value guards (one member is a guard, not a dispatch).
-- `cancel`, `request_refund` — `not in {...}` allow-list guards, excluded from positive-dispatch.
+- `AccountPage`, `middleware.ts` - a switch with a default and a lone auth guard.
+- `reset_password`, `get_profile` - single-value guards (one member is a guard, not a dispatch).
+- `cancel`, `request_refund` - `not in {...}` allow-list guards, excluded from positive-dispatch.
 
 ## Planted defects not yet caught (deferred, with reason)
 
-- **#2** `reset_password` omits DELETED/PENDING — a single-value guard, intentionally not flagged
+- **#2** `reset_password` omits DELETED/PENDING - a single-value guard, intentionally not flagged
   to keep false positives low.
-- **#7/#8** `cancel` (404) vs `request_refund` (409) divergent refundable set / status code — both
+- **#7/#8** `cancel` (404) vs `request_refund` (409) divergent refundable set / status code - both
   are `not in` guards over different sets, sharing no `(subject, value)`; needs a future
   guard-set-divergence detector.
-- **#13** `quick_order` missing the validation `create` has — a validation-divergence detector,
+- **#13** `quick_order` missing the validation `create` has - a validation-divergence detector,
   still to come (def/use data-flow primitive).

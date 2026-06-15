@@ -306,7 +306,7 @@ def _terms(question: str) -> list[str]:
 
 
 def _normalize_path(value: str) -> str:
-    # Strip only a leading "./" prefix — never a *set* of {'.', '/'} characters,
+    # Strip only a leading "./" prefix - never a *set* of {'.', '/'} characters,
     # which would corrupt dot-prefixed paths like ".github/workflows/ci.yml".
     value = value.replace("\\", "/")
     return value[2:] if value.startswith("./") else value

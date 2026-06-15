@@ -39,7 +39,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
             [
                 "",
                 f"<details{open_attr}>",
-                f"<summary>Review-only — {len(gaps)} POTENTIAL_GAP "
+                f"<summary>Review-only - {len(gaps)} POTENTIAL_GAP "
                 "(heuristic candidates, not confirmed)</summary>",
                 "",
             ]

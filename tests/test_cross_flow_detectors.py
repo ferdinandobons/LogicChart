@@ -61,7 +61,7 @@ def test_enum_exhaustiveness_silent_on_single_guard(tmp_path: Path) -> None:
 
 
 def test_enum_exhaustiveness_silent_on_negative_guard(tmp_path: Path) -> None:
-    # `not in {...}` allows the remaining members — a guard, not an exhaustive dispatch.
+    # `not in {...}` allows the remaining members - a guard, not an exhaustive dispatch.
     (tmp_path / "domain.py").write_text(_ENUM, encoding="utf-8")
     (tmp_path / "svc.py").write_text(
         "def handle(result):\n"

@@ -2,7 +2,7 @@
 
 `hook install` writes managed post-commit / post-checkout hooks that run the
 deterministic `update`, and registers a union merge driver for `logic-flow.json`
-so teammates do not conflict on it. All deterministic — no LLM, no API key.
+so teammates do not conflict on it. All deterministic - no LLM, no API key.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 import stat
 from pathlib import Path
 
-_MARKER = "# LogicChart auto-sync (managed — remove this block to disable)"
+_MARKER = "# LogicChart auto-sync (managed - remove this block to disable)"
 _MANAGED_BLOCK = (
     f"{_MARKER}\n"
     "command -v logicchart >/dev/null 2>&1 && logicchart update --no-html >/dev/null 2>&1 || true\n"

@@ -4,7 +4,7 @@ from backend.domain import ApiError, Order, OrderStatus
 
 
 def cancel(order: Order) -> None:
-    """Refundable set {PLACED, PAID}; rejects with 404 — sibling of request_refund."""
+    """Refundable set {PLACED, PAID}; rejects with 404 - sibling of request_refund."""
     if order.status not in (OrderStatus.PLACED, OrderStatus.PAID):
         raise ApiError(404, "order is not cancellable")
     do_cancel(order)

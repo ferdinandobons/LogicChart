@@ -114,7 +114,7 @@ def test_relative_import_in_package_init_makes_no_false_edge(tmp_path: Path) -> 
     call = _call_node(run)
 
     # `from . import helper` binds the submodule, so `helper.do_work` resolves to the
-    # real same-package target at high confidence — not the wrong-package decoy.
+    # real same-package target at high confidence - not the wrong-package decoy.
     assert call.metadata["link_confidence"] == "high"
     assert call.metadata["target_flow"] == target.id
     assert call.metadata.get("target_flow") != decoy.id

@@ -339,7 +339,7 @@ class PythonAnalyzer:
         for case in statement.cases:
             pattern = _safe_unparse(case.pattern)
             # A guarded wildcard `case _ if cond:` only matches when the guard holds,
-            # so it is NOT an exhaustive default — the unmatched fall-through and any
+            # so it is NOT an exhaustive default - the unmatched fall-through and any
             # missing enum members must still be surfaced.
             is_default = pattern == WILDCARD and case.guard is None
             has_default = has_default or is_default
@@ -562,7 +562,7 @@ _ENUM_BASES = {"Enum", "IntEnum", "StrEnum", "IntFlag", "Flag", "ReprEnum"}
 
 
 def _harvest_enums(tree: ast.Module) -> dict[str, list[str]]:
-    """Map each Enum class to its members (``X.MEMBER``) — the value universe."""
+    """Map each Enum class to its members (``X.MEMBER``) - the value universe."""
     enums: dict[str, list[str]] = {}
     for node in tree.body:
         if not isinstance(node, ast.ClassDef) or not _is_enum_class(node):
@@ -600,7 +600,7 @@ def _is_enum_member(name: str) -> bool:
 
 
 def _harvest_constants(tree: ast.Module) -> dict[str, bool]:
-    """Module-level boolean constants (``FLAG = False``) — the smallest data-flow fact
+    """Module-level boolean constants (``FLAG = False``) - the smallest data-flow fact
     a guard's always-true/false check needs."""
     constants: dict[str, bool] = {}
     for node in tree.body:

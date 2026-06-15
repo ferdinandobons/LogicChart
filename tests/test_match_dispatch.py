@@ -61,7 +61,7 @@ def test_guarded_wildcard_leaves_no_spurious_dead_code(tmp_path: Path) -> None:
         "    return 'fallthrough'\n"
     )
     model = _analyze(tmp_path, body)
-    # The trailing return is live for C/D when the guard is false — not dead code.
+    # The trailing return is live for C/D when the guard is false - not dead code.
     assert "dead_code" not in _kinds(model, "handle")
 
 

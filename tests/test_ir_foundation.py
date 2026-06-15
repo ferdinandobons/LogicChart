@@ -156,7 +156,7 @@ export async function POST(request: Request) {
     node = next(n for n in flow.nodes if n.kind is NodeKind.DECISION)
     branches = _branches(node)
 
-    # A case that works then breaks exits the switch — it does not terminate.
+    # A case that works then breaks exits the switch - it does not terminate.
     paid = next(b for label, b in branches.items() if "PAID" in label)
     assert paid["outcome"] == "falls_through"
     assert all(b["outcome"] in BRANCH_OUTCOMES for b in node.metadata["branches"])

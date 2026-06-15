@@ -47,9 +47,9 @@ flowcharts, with evidence-tiered findings (`VERIFIED` / `INFERRED` / `POTENTIAL_
   `view`, `install`, `hook` (install/uninstall/status), `mcp`, and `diff`.
 - CI diff gate: `diff` compares two models by stable finding id and emits a GitHub
   Markdown summary and SARIF (stable `partialFingerprints`), with `--fail-on-introduced`.
-- Markdown report with a signal/noise split — `VERIFIED`/`INFERRED` in the main
+- Markdown report with a signal/noise split - `VERIFIED`/`INFERRED` in the main
   section, `POTENTIAL_GAP` folded under a collapsible review-only block (`--include-gaps`
-  to expand) — plus injection-safe escaping of source-derived finding text.
+  to expand) - plus injection-safe escaping of source-derived finding text.
 - Interactive local HTML viewer.
 - MCP server with 11 tools and a `token_budget` cap on every query/list tool.
 - Agent instruction installer (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Cursor rules) and

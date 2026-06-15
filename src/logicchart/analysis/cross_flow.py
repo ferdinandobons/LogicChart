@@ -54,7 +54,7 @@ def _find_inconsistent_decisions(
 ) -> list[Finding]:
     # Quorum-aware cross-flow value coverage. Comparison is per flow (not per
     # decision node) and bucketed by (language, subject, value_namespace) so
-    # only flows branching on the *same* subject and enum/union are compared —
+    # only flows branching on the *same* subject and enum/union are compared -
     # keeping the same enum reused on different subjects apart, and scoping the
     # explicit-default suppression to the relevant subject. A flow is flagged
     # for a value a strict majority of its siblings handle but it omits.
@@ -105,8 +105,8 @@ def _find_inconsistent_decisions(
 def _enum_exhaustiveness(
     flows: list[Flow], enums: dict[str, dict[str, list[str]]]
 ) -> list[Finding]:
-    # A flow that dispatches on a declared enum — handling at least two of its
-    # members — but omits other declared members with no explicit default is
+    # A flow that dispatches on a declared enum - handling at least two of its
+    # members - but omits other declared members with no explicit default is
     # likely non-exhaustive. This uses the declared closed set, so unlike the
     # quorum check it needs no sibling flows.
     findings: list[Finding] = []
@@ -229,7 +229,7 @@ def _auth_divergence(flows: list[Flow]) -> list[Finding]:
 
 def _dead_guard(flows: list[Flow], constants_by_path: dict[str, dict[str, bool]]) -> list[Finding]:
     # A truthiness guard on a module-level boolean constant: the branch is always
-    # taken or never taken. INFERRED — the constant could be reassigned elsewhere.
+    # taken or never taken. INFERRED - the constant could be reassigned elsewhere.
     findings: list[Finding] = []
     for flow in flows:
         if flow.metadata.get("test"):
@@ -278,7 +278,7 @@ def _outcome_signature(flow: Flow, node: FlowNode) -> str:
     Walks through intervening calls/actions (e.g. a log before the raise) to the
     first error or terminal node, so an effect-before-raise reads as the raise it
     leads to. A raise is keyed on its exception type plus a status code only when
-    the code is unambiguous — never a bare integer argument.
+    the code is unambiguous - never a bare integer argument.
     """
     nodes = {item.id: item for item in flow.nodes}
     out = _edges_by_source(flow)
@@ -294,7 +294,7 @@ def _outcome_signature(flow: Flow, node: FlowNode) -> str:
         if current.kind is NodeKind.TERMINAL:
             return "return"
         if current.kind is NodeKind.DECISION:
-            return ""  # a nested branch — no single outcome to summarize
+            return ""  # a nested branch - no single outcome to summarize
         successors = out.get(cursor, [])
         cursor = successors[0][1] if len(successors) == 1 else None
     return ""
@@ -307,7 +307,7 @@ def _raise_signature(label: str) -> str:
     code = keyword.group(1) if keyword else None
     if code is None:
         # Symbolic status constants (status.HTTP_403_FORBIDDEN) are the canonical
-        # FastAPI/Starlette spelling — normalize to the numeric code so they compare
+        # FastAPI/Starlette spelling - normalize to the numeric code so they compare
         # equal to the literal form and a symbolic 403-vs-404 still diverges.
         symbolic = re.search(r"\bHTTP_(\d{3})", label)
         code = symbolic.group(1) if symbolic else None
@@ -381,7 +381,7 @@ def _has_subject_default(flow: Flow, subject: str, namespace: str) -> bool:
     """Whether the flow has a real else/default on decisions for (subject, namespace).
 
     An elif continuation also emits a non-implicit "No" branch, so a branch counts
-    as a default only when its edge target is NOT another same-subject decision —
+    as a default only when its edge target is NOT another same-subject decision -
     i.e. a genuine else/default body, not the next link in an if/elif chain.
     """
     nodes = {node.id: node for node in flow.nodes}
@@ -508,7 +508,7 @@ def _logging_finding(flow: Flow, node: FlowNode, condition: str) -> Finding:
         location=node.location,
         detail=(
             "A sibling flow logs or alerts on the same guard while this one proceeds "
-            "silently — an observability gap on a shared condition."
+            "silently - an observability gap on a shared condition."
         ),
         metadata={"category": "cross_flow", "condition": condition},
     )
@@ -527,7 +527,7 @@ def _auth_finding(flow: Flow) -> Finding:
         location=flow.location,
         detail=(
             "Gated heuristic: sibling entry points in this file perform an authorization "
-            "check while this one does not. Middleware or DI may authorize it invisibly — review."
+            "check while this one does not. Middleware or DI may authorize it invisibly - review."
         ),
         metadata={"category": "cross_flow", "rule": "auth_divergence"},
     )

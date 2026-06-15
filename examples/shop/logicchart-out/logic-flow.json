@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T20:49:42.601352+00:00",
+  "generated_at": "2026-06-15T21:35:04.676481+00:00",
   "root": ".",
   "flows": [
     {
@@ -318,14 +318,14 @@
         {
           "id": "flow-cd39f6aa851ac8f1:n2",
           "kind": "action",
-          "label": "'Refundable set {PLACED, PAID}; rejects with 404 — sibling of request_refund.'",
+          "label": "'Refundable set {PLACED, PAID}; rejects with 404 - sibling of request_refund.'",
           "location": {
             "path": "backend/api/orders_routes.py",
             "start_line": 7,
             "end_line": 7
           },
           "evidence": "VERIFIED",
-          "detail": "\"\"\"Refundable set {PLACED, PAID}; rejects with 404 — sibling of request_refund.\"\"\"",
+          "detail": "\"\"\"Refundable set {PLACED, PAID}; rejects with 404 - sibling of request_refund.\"\"\"",
           "metadata": {
             "reachable_from_entry": true,
             "reaches_terminal": true
@@ -5433,7 +5433,7 @@
         "end_line": 22
       },
       "node_id": "flow-454eee0405381967:n4",
-      "detail": "The branch is taken but performs no work — likely unfinished.",
+      "detail": "The branch is taken but performs no work - likely unfinished.",
       "metadata": {
         "category": "single_flow"
       }
@@ -5451,7 +5451,7 @@
         "end_line": 41
       },
       "node_id": "flow-68d596474ebdd0a8:n3",
-      "detail": "A sibling flow logs or alerts on the same guard while this one proceeds silently — an observability gap on a shared condition.",
+      "detail": "A sibling flow logs or alerts on the same guard while this one proceeds silently - an observability gap on a shared condition.",
       "metadata": {
         "category": "cross_flow",
         "condition": "order.total_cents <= 0"
@@ -5673,7 +5673,7 @@
         "end_line": 31
       },
       "node_id": "flow-4e86ebfbebb24a2c:n1",
-      "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly — review.",
+      "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly - review.",
       "metadata": {
         "category": "cross_flow",
         "rule": "auth_divergence"
@@ -5692,7 +5692,7 @@
         "end_line": 15
       },
       "node_id": "flow-10ef2d061b27b88c:n1",
-      "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly — review.",
+      "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly - review.",
       "metadata": {
         "category": "cross_flow",
         "rule": "auth_divergence"
@@ -5712,7 +5712,7 @@
     {
       "path": "backend/api/orders_routes.py",
       "language": "python",
-      "sha256": "b6e85f77e66433ecc477b08637343c1c23caa7e575a466b464f6edc5fb03ec19",
+      "sha256": "6590b7e199cfd1c19e020ffee343bd1d37da547dd1ddc86091afbd9cb762121f",
       "flow_ids": [
         "flow-cd39f6aa851ac8f1",
         "flow-663a7ab889d99781",
@@ -5779,7 +5779,7 @@
     {
       "path": "frontend/app/account/page.tsx",
       "language": "typescript",
-      "sha256": "1488feabdc8435541a6940c256bcb62f9298fdb4c7eadee9f70d3f7eaf341850",
+      "sha256": "4bf5c7c638f7e52ce27c451570ea5cbe8b9dfad00da94cc36817770d2f192bc7",
       "flow_ids": [
         "flow-0d2030fc4f935984"
       ]
@@ -5819,13 +5819,13 @@
     {
       "path": "frontend/lib/status.ts",
       "language": "typescript",
-      "sha256": "0ec995a85d3d438bc000ef84556f7f8a97be698b13ca704b138aa90c5da294f8",
+      "sha256": "e915f97f780b127e5864adc4b5cce8f9c1ac39d5e1e0d97cc740e1d6cc011550",
       "flow_ids": []
     },
     {
       "path": "frontend/middleware.ts",
       "language": "typescript",
-      "sha256": "44826672db0f4c175941347b0ca75a0598ebd4c5380e3b093e098fdb8ac5fb1f",
+      "sha256": "896797092b08b33fd412280c35aa7e6b189ceff64368e6d24ded0d14a3c42d24",
       "flow_ids": [
         "flow-2153fa8dd4bc4919"
       ]

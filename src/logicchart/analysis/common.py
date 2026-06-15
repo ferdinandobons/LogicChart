@@ -200,7 +200,7 @@ def decision_identity(
 ) -> dict[str, Any]:
     """Assemble the canonical decision-node metadata key set.
 
-    Single constructor so every decision node — if/elif, match, switch, try —
+    Single constructor so every decision node - if/elif, match, switch, try -
     carries the same shape (condition/domain/values plus the identity fields).
     """
     sorted_values = sorted(set(values or []))

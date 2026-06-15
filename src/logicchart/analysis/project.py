@@ -38,7 +38,7 @@ from logicchart.util import (
 CACHE_VERSION = "2"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker)
-# must never abort the whole run — the tool's promise is to stay in sync on every
+# must never abort the whole run - the tool's promise is to stay in sync on every
 # commit. These are the errors the analyzers raise while ingesting one file.
 _INGEST_ERRORS = (SyntaxError, UnicodeDecodeError, ValueError, OSError)
 
@@ -129,7 +129,7 @@ class ProjectAnalyzer:
 
         A single un-parseable or non-UTF-8 file (common while editing, on a merge
         conflict, or in a mixed-language repo) is recorded as a skipped file and the
-        rest of the model is still built — the "always in sync" guarantee can't hinge
+        rest of the model is still built - the "always in sync" guarantee can't hinge
         on every file parsing cleanly.
         """
         try:
@@ -146,7 +146,7 @@ class ProjectAnalyzer:
         try:
             return FileAnalysis.from_dict(read_json(cache_file))
         except (ValueError, KeyError, TypeError, OSError):
-            # A corrupt cache entry is never fatal — fall back to a fresh analysis.
+            # A corrupt cache entry is never fatal - fall back to a fresh analysis.
             return None
 
     def _load_index(self) -> dict[str, dict[str, str]]:

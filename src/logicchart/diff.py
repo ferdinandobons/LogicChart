@@ -1,4 +1,4 @@
-"""Model diffing — the CI primitive.
+"""Model diffing - the CI primitive.
 
 Compare two `logic-flow.json` models by stable finding id to report findings
 introduced, resolved, and persisting, and render the result as GitHub Markdown
@@ -108,7 +108,7 @@ def render_sarif(diff: ModelDiff) -> dict[str, object]:
 
 def _markdown_row(finding: Finding) -> str:
     location = f"{finding.location.path}:{finding.location.start_line}"
-    return f"- **{finding.kind}** ({finding.evidence.value}) — {finding.message} `{location}`"
+    return f"- **{finding.kind}** ({finding.evidence.value}) - {finding.message} `{location}`"
 
 
 def _finding_sort_key(finding: Finding) -> tuple[str, str, int]:

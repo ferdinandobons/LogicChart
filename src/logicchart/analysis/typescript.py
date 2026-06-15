@@ -706,7 +706,7 @@ def _resolve_module(specifier: str, relative: str) -> str | None:
 
 
 def _harvest_enums(root: Any, source: bytes) -> dict[str, list[str]]:
-    """Map each TS enum / string-literal union to its members — the value universe."""
+    """Map each TS enum / string-literal union to its members - the value universe."""
     enums: dict[str, list[str]] = {}
     for top in root.children:
         nodes = list(_named_children(top)) if top.type == "export_statement" else [top]

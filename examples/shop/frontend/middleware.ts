@@ -1,4 +1,4 @@
-// Control: a single authentication guard (not a chain) — not flagged.
+// Control: a single authentication guard (not a chain) - not flagged.
 export function middleware(request: Request) {
   const token = request.headers.get("authorization");
   if (!token) {
