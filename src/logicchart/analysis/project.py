@@ -12,9 +12,8 @@ from logicchart.analysis.common import (
     DEFAULT_EXPORT_MARKER,
 )
 from logicchart.analysis.cross_flow import cross_flow_findings
-from logicchart.analysis.discovery import discover_source_files, language_for
-from logicchart.analysis.python import PythonAnalyzer
-from logicchart.analysis.typescript import TypeScriptAnalyzer
+from logicchart.analysis.discovery import discover_source_files
+from logicchart.analysis.registry import LanguageAnalyzer, language_for, spec_for_language
 from logicchart.config import LogicChartConfig
 from logicchart.model import (
     FileAnalysis,
@@ -59,8 +58,9 @@ class ProjectAnalyzer:
         self.cache_dir = self.root / ".logicchart" / "cache"
         self.index_path = self.cache_dir / "index.json"
         self.previous_generated_at: str | None = None
-        self.python = PythonAnalyzer(self.root, self.config)
-        self.typescript = TypeScriptAnalyzer(self.root, self.config)
+        # Language analyzers are built lazily from the registry, so a grammar is loaded
+        # only when a file of that language is actually present.
+        self._analyzers: dict[str, LanguageAnalyzer] = {}
 
     def analyze(self, *, full: bool = False) -> AnalysisResult:
         files = discover_source_files(self.root, self.config)
@@ -117,10 +117,14 @@ class ProjectAnalyzer:
         )
 
     def _analyze_file(self, path: Path) -> FileAnalysis:
-        language = language_for(path)
-        if language == "python":
-            return self.python.analyze(path)
-        return self.typescript.analyze(path)
+        return self._analyzer_for(language_for(path)).analyze(path)
+
+    def _analyzer_for(self, language: str) -> LanguageAnalyzer:
+        analyzer = self._analyzers.get(language)
+        if analyzer is None:
+            analyzer = spec_for_language(language).factory(self.root, self.config)
+            self._analyzers[language] = analyzer
+        return analyzer
 
     def _safe_analyze_file(
         self, path: Path, relative: str, digest: str

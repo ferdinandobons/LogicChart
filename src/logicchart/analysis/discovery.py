@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from logicchart.analysis.registry import supported_suffixes
 from logicchart.config import LogicChartConfig
 from logicchart.util import relpath
-
-SUPPORTED_SUFFIXES = {".py", ".ts", ".tsx"}
 
 # The running LogicChart package directory. discovery.py lives at
 # <pkg>/analysis/discovery.py, so two parents up is <pkg> (".../logicchart").
@@ -14,6 +13,7 @@ _SELF_PACKAGE_DIR = Path(__file__).resolve().parent.parent
 
 def discover_source_files(root: Path, config: LogicChartConfig) -> list[Path]:
     excluded_roots = _self_exclude_roots(root) if config.self_exclude else []
+    suffixes = supported_suffixes()
     files: set[Path] = set()
     for source_root in config.source_roots:
         base = (root / source_root).resolve()
@@ -21,7 +21,7 @@ def discover_source_files(root: Path, config: LogicChartConfig) -> list[Path]:
             continue
         candidates = [base] if base.is_file() else base.rglob("*")
         for candidate in candidates:
-            if not candidate.is_file() or candidate.suffix.lower() not in SUPPORTED_SUFFIXES:
+            if not candidate.is_file() or candidate.suffix.lower() not in suffixes:
                 continue
             # Self-exclusion is a resolved-path prefix check, not a glob in
             # `config.exclude`, because the running package may be installed
@@ -47,11 +47,3 @@ def _self_exclude_roots(root: Path) -> list[Path]:
     if (root / "src" / "logicchart").resolve() == _SELF_PACKAGE_DIR:
         roots.append((root / "tests").resolve())
     return roots
-
-
-def language_for(path: Path) -> str:
-    if path.suffix == ".py":
-        return "python"
-    if path.suffix in {".ts", ".tsx"}:
-        return "typescript"
-    raise ValueError(f"Unsupported source file: {path}")
