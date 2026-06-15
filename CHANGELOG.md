@@ -6,8 +6,9 @@ The project follows Semantic Versioning once public releases begin.
 
 ## Unreleased
 
-- Viewer UI refresh: a new logo - an entry-node circle linked to a decision diamond, drawn
-  with a continuous blue-to-amber gradient (and a matching favicon); a light/dark theme
+- Viewer UI refresh: a new logo - a blue entry-node circle, a violet connector, and an
+  amber decision diamond in three solid colors with clear spacing (and a matching favicon);
+  a light/dark theme
   toggle (remembered across sessions); refined palette; node hover and shadow states;
   selecting a block now highlights it and its connected edges while dimming the rest; and
   the legend now includes the cyan "outcome" (terminal) node color it was missing.

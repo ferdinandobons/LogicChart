@@ -20,7 +20,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LogicChart</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 40'%3E%3Cdefs%3E%3ClinearGradient id='g' gradientUnits='userSpaceOnUse' x1='13' y1='2' x2='13' y2='37'%3E%3Cstop offset='0' stop-color='%233b78ff'/%3E%3Cstop offset='0.46' stop-color='%237b6bf0'/%3E%3Cstop offset='1' stop-color='%23eaa516'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cline x1='13' y1='14.5' x2='13' y2='23' stroke='url(%23g)' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='13' cy='8' r='5.5' fill='url(%23g)'/%3E%3Cpolygon points='13,24 19.5,30.5 13,37 6.5,30.5' fill='url(%23g)'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 40'%3E%3Ccircle cx='13' cy='7.5' r='5.5' fill='%232f63ef'/%3E%3Cline x1='13' y1='17.5' x2='13' y2='21' stroke='%237458dc' stroke-width='3' stroke-linecap='round'/%3E%3Cpolygon points='13,25 19.5,31 13,37 6.5,31' fill='%23df9a12'/%3E%3C/svg%3E">
   <style>
     :root {
       --paper: #eef2fa;
@@ -132,9 +132,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
     /* The mark is a mini decision flow: an entry node (circle) linked to a decision
        (diamond), in the same blue/amber the chart uses for those node kinds. */
     .brand-mark svg { height: 34px; width: auto; display: block; overflow: visible; }
-    .logo-node { fill: url(#lcLogo); }
-    .logo-link { stroke: url(#lcLogo); stroke-width: 3; stroke-linecap: round; }
-    .logo-decision { fill: url(#lcLogo); }
+    .logo-node { fill: var(--blue); }
+    .logo-link { stroke: var(--violet); stroke-width: 3; stroke-linecap: round; }
+    .logo-decision { fill: var(--amber); }
     .brand h1 {
       font-family: Georgia, "Times New Roman", serif;
       font-size: 23px;
@@ -460,16 +460,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 26 40" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="lcLogo" gradientUnits="userSpaceOnUse" x1="13" y1="2" x2="13" y2="37">
-                <stop offset="0" stop-color="#3b78ff"></stop>
-                <stop offset="0.46" stop-color="#7b6bf0"></stop>
-                <stop offset="1" stop-color="#eaa516"></stop>
-              </linearGradient>
-            </defs>
-            <line class="logo-link" x1="13" y1="14.5" x2="13" y2="23"></line>
-            <circle class="logo-node" cx="13" cy="8" r="5.5"></circle>
-            <polygon class="logo-decision" points="13,24 19.5,30.5 13,37 6.5,30.5"></polygon>
+            <circle class="logo-node" cx="13" cy="7.5" r="5.5"></circle>
+            <line class="logo-link" x1="13" y1="17.5" x2="13" y2="21"></line>
+            <polygon class="logo-decision" points="13,25 19.5,31 13,37 6.5,31"></polygon>
           </svg>
         </div>
         <div><h1>LogicChart</h1><small>Decision flow index</small></div>
