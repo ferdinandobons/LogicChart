@@ -387,3 +387,7 @@ format is documented by [schema/logic-flow.schema.json](schema/logic-flow.schema
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+LogicChart was created by Ferdinando Bonsegna. If you use, fork, or build on it,
+please keep the [`NOTICE`](NOTICE) file intact and credit the project with a link
+back to this repository.
