@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.analysis.registry import supported_language_ids
@@ -101,9 +103,8 @@ def _validate_languages(model: ProjectModel, report: ValidationReport) -> None:
 
 
 def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) -> None:
-    schema_path = Path(__file__).parents[2] / "schema" / "logic-flow.schema.json"
     try:
-        schema = read_json(schema_path)
+        schema = _read_bundled_schema()
     except (OSError, ValueError) as error:
         report.add_error(f"Could not read bundled schema: {error}")
         return
@@ -133,3 +134,14 @@ def _without_generated_at(payload: dict[str, Any]) -> dict[str, Any]:
     clone = dict(payload)
     clone.pop("generated_at", None)
     return clone
+
+
+def _read_bundled_schema() -> dict[str, Any]:
+    checkout_schema = Path(__file__).parents[2] / "schema" / "logic-flow.schema.json"
+    if checkout_schema.exists():
+        return read_json(checkout_schema)
+
+    schema_resource = (
+        resources.files("logicchart").joinpath("schema").joinpath("logic-flow.schema.json")
+    )
+    return cast(dict[str, Any], json.loads(schema_resource.read_text(encoding="utf-8")))

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logicchart"
-version = "0.4.0"
+version = "0.4.1"
 description = "Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 10 languages, no API key."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -73,6 +73,9 @@ logicchart = "logicchart.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/logicchart"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schema/logic-flow.schema.json" = "logicchart/schema/logic-flow.schema.json"
 
 [tool.hatch.build.targets.sdist]
 include = [

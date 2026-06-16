@@ -21,7 +21,7 @@ coding agents alike. Every finding is tagged by confidence (`VERIFIED`, `INFERRE
 > **Status:** early alpha. The logical model is versioned, but its schema may still evolve
 > before 1.0.
 >
-> **Latest release:** [v0.4.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.4.0) ·
+> **Latest release:** [v0.4.1](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.4.1) ·
 > [Changelog](CHANGELOG.md)
 
 ## See it in 30 seconds

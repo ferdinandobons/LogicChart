@@ -6,6 +6,13 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.4.1 - 2026-06-16
+
+### Fixed
+
+- Fixed packaged `logicchart validate` so installed wheels include and load the bundled JSON
+  Schema outside the source checkout.
+
 ## 0.4.0 - 2026-06-16
 
 ### Added
