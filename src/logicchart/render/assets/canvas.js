@@ -1,7 +1,7 @@
 
     // Codebase canvas (Phase 2). Owns the two top levels of the viewer:
     //   L0 = one super-node per scope, edges = aggregated cross-scope calls.
-    //   L1 = one focused scope's files/flows only, call edges among the visible set.
+    //   L1 = the whole codebase map plus one expanded scope's files/flows in place.
     // Selecting a flow (here or from the tree) still defers to shell.js's
     // renderFlow via LC.selectFlow -- that is the L2 renderer (Phase 3 inlines it).
     //
@@ -13,9 +13,10 @@
     // breadcrumb, expand/collapse) funnels through renderCanvas().
     //
     // LAZY INVARIANT: renderL0 builds only `scopes.length` super-node groups + the
-    // scope_edges paths -- O(scopes), never O(flows). Expanding a scope draws ONLY that
-    // scope's file groups; unrelated scopes stay in the left tree and breadcrumb, not in
-    // the focused canvas. Collapsing replaceChildren() back to L0.
+    // scope_edges paths -- O(scopes), never O(flows). Expanding a scope keeps those
+    // super-nodes visible and draws ONLY the active scope's file groups in an attached
+    // detail area; unrelated scopes remain collapsed context nodes. Collapsing
+    // replaceChildren() back to L0.
     (function () {
       const LC = window.LC;
       if (!LC || !LC.svg) return; // shell.js must have booted and exposed the seam.
@@ -84,7 +85,8 @@
       function inlineWrapId(flowId) {
         return "inline-flow-" + String(flowId).replace(/[^A-Za-z0-9_-]/g, "_");
       }
-      // cache key ("L0" | "L1:"+scope) -> computed layout {nodePos|fileBoxes, flowPos, bounds}.
+      // Cache the scope-grid geometry; file/detail layouts stay per-render because they
+      // depend on expanded files and the selected inline flow.
       const layoutCache = new Map();
 
       // --- Data precompute (cached on LC) ------------------------------------------
@@ -134,6 +136,12 @@
         ? model.scope_edges
         : deriveScopeEdges();
 
+      const filePaths = new Set();
+      byId.forEach(flow => {
+        const path = flow.location && flow.location.path;
+        if (path) filePaths.add(path);
+      });
+
       // flowId -> [scope], derived from the payload's scope index (the same membership
       // the canvas groups by, which already excludes test flows). Lets a flow opened
       // from the tree or a #flow= deep link recover its scope crumb.
@@ -162,6 +170,37 @@
         const path = (flow.location && flow.location.path) || "";
         const parts = path.split("/").filter(Boolean);
         return parts.length ? parts[0] : path || null;
+      }
+
+      function scopeOfPath(path) {
+        const value = String(path || "");
+        if (!value) return null;
+        if (Object.prototype.hasOwnProperty.call(scopeFlows, value)) return value;
+        const names = Object.keys(scopeFlows).sort();
+        const prefixScope = names.find(scope => value === scope || value.startsWith(scope + "/"));
+        if (prefixScope) return prefixScope;
+
+        // Declared scopes can have logical names that do not mirror filesystem prefixes.
+        // For folder/file deep links, recover the strongest owning scope from flows under
+        // that path instead of assuming `scopeName/child` is always the path shape.
+        const candidates = new Map();
+        byId.forEach(flow => {
+          const flowPath = flow.location && flow.location.path;
+          if (!flowPath || !(flowPath === value || flowPath.startsWith(value + "/"))) {
+            return;
+          }
+          const scopes = scopeOfFlowIndex.get(flow.id) || [scopeOfFlow(flow)].filter(Boolean);
+          scopes.forEach(scope => {
+            if (Object.prototype.hasOwnProperty.call(scopeFlows, scope)) {
+              candidates.set(scope, (candidates.get(scope) || 0) + 1);
+            }
+          });
+        });
+        return (
+          [...candidates.entries()].sort(
+            (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+          )[0]?.[0] || null
+        );
       }
 
       // --- Geometry helpers --------------------------------------------------------
@@ -396,6 +435,26 @@
         return count;
       }
 
+      function pathKind(path) {
+        return filePaths.has(path) ? "file" : "folder";
+      }
+
+      function pathContains(parent, child) {
+        return !!(
+          parent &&
+          child &&
+          (child === parent || String(child).startsWith(String(parent) + "/"))
+        );
+      }
+
+      function pathTouchesActive(path) {
+        const selected = canvasState.selectedPath;
+        return !!(
+          selected &&
+          (pathContains(selected, path) || pathContains(path, selected))
+        );
+      }
+
       function findingCountForPath(path) {
         let count = 0;
         byId.forEach(flow => {
@@ -471,7 +530,48 @@
         return { minX, maxX, minY, maxY };
       }
 
-      // --- L1 layout: one focused scope; flows in a file-grouped grid --------------
+      function offsetBounds(bounds, dx, dy) {
+        return {
+          minX: bounds.minX + dx,
+          maxX: bounds.maxX + dx,
+          minY: bounds.minY + dy,
+          maxY: bounds.maxY + dy,
+        };
+      }
+
+      function mergeBounds(boundsList) {
+        const valid = boundsList.filter(Boolean);
+        if (!valid.length) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+        return {
+          minX: Math.min(...valid.map(bounds => bounds.minX)),
+          maxX: Math.max(...valid.map(bounds => bounds.maxX)),
+          minY: Math.min(...valid.map(bounds => bounds.minY)),
+          maxY: Math.max(...valid.map(bounds => bounds.maxY)),
+        };
+      }
+
+      function offsetLayout(layout, dx, dy) {
+        layout.fileBoxes.forEach(box => {
+          box.x += dx;
+          box.y += dy;
+        });
+        layout.flowPos.forEach(pos => {
+          pos.x += dx;
+          pos.y += dy;
+        });
+        if (layout.inlineAnchor) {
+          layout.inlineAnchor.x += dx;
+          layout.inlineAnchor.y += dy;
+          layout.inlineAnchor.bounds = offsetBounds(layout.inlineAnchor.bounds, dx, dy);
+          layout.inlineBounds = layout.inlineAnchor.bounds;
+        } else if (layout.inlineBounds) {
+          layout.inlineBounds = offsetBounds(layout.inlineBounds, dx, dy);
+        }
+        layout.bounds = offsetBounds(layout.bounds, dx, dy);
+        return layout;
+      }
+
+      // --- L1 detail layout: one expanded scope's files in a grouped grid ----------
 
       // L1 layout. Each FILE in the expanded scope is a collapsed header chip by
       // default (file name + flow count); a file's flow nodes are laid out ONLY when
@@ -481,10 +581,9 @@
       // (cheap: only expanded files materialize their flows) rather than cached by
       // scope alone.
       function layoutL1(scope) {
-        // Focused scope's flows, grouped by file. Files become chips; flows inside an
-        // expanded file are materialized, the rest are not. No unrelated scope nodes are
-        // drawn in L1: once the user chooses a scope, the canvas becomes a clean work area
-        // for that scope only.
+        // Expanded scope's flows, grouped by file. Files become chips; flows inside an
+        // expanded file are materialized, the rest are not. The caller offsets this local
+        // detail layout into the global codebase map.
         const visibleFlows = (scopeFlows[scope] || [])
           .map(id => byId.get(id))
           .filter(Boolean);
@@ -643,6 +742,31 @@
         };
       }
 
+      function layoutExpandedCodebase(scope) {
+        const names = Object.keys(scopeFlows).sort();
+        const l0 = layoutL0(names);
+        const detail = layoutL1(scope);
+        const scopeNode = l0.nodePos.get(scope);
+        if (scopeNode) {
+          const detailCenter = (detail.bounds.minX + detail.bounds.maxX) / 2;
+          const detailTop = detail.bounds.minY;
+          const dx = scopeNode.x - detailCenter;
+          const targetTop = Math.max(
+            scopeNode.y + scopeNode.h / 2 + GAP_Y + 35,
+            l0.bounds.maxY + GAP_Y
+          );
+          const dy = targetTop - detailTop;
+          offsetLayout(detail, dx, dy);
+        }
+        return {
+          names,
+          nodePos: l0.nodePos,
+          scopeBounds: l0.bounds,
+          detail,
+          bounds: mergeBounds([l0.bounds, detail.bounds]),
+        };
+      }
+
       // --- Node builders -----------------------------------------------------------
 
       function makeSuperNode(name, count, pos, opts) {
@@ -653,6 +777,7 @@
           "class",
           "scope-node" +
             (opts.expanded ? " expanded" : "") +
+            (opts.dimmed ? " dimmed" : "") +
             (stats.review ? " has-finding" : "")
         );
         group.setAttribute("data-scope", name);
@@ -721,7 +846,10 @@
         const group = svgEl("g");
         group.setAttribute(
           "class",
-          "file-box" + (box.expanded ? " expanded" : "") + (reviewCount ? " has-finding" : "")
+          "file-box" +
+            (box.expanded ? " expanded" : "") +
+            (pathTouchesActive(path) ? " active-area" : "") +
+            (reviewCount ? " has-finding" : "")
         );
         group.setAttribute("data-path", path);
         group.setAttribute("transform", `translate(${box.x} ${box.y})`);
@@ -806,6 +934,7 @@
             (isEntry ? "entry" : "action") +
             (findingFlowIds.has(flow.id) ? " has-finding" : "") +
             (flow.id === canvasState.selectedFlowId ? " selected" : "") +
+            (pathTouchesActive(flow.location && flow.location.path) ? " active-area" : "") +
             (isExpanded ? " flow-open" : "")
         );
         group.setAttribute("data-flow-id", flow.id);
@@ -949,29 +1078,79 @@
       }
 
       function renderL1(scope) {
+        if (!scope || !Object.prototype.hasOwnProperty.call(scopeFlows, scope)) {
+          canvasState.level = 0;
+          renderL0();
+          return;
+        }
         // L1 by default; an inline-expanded flow puts a decision flowchart on the canvas,
         // so the level reads L2 (the decisions are L2 in the spec) without leaving L1.
         setCanvasLevel(canvasState.expandedFlow ? "2" : "1");
         setEmptyMessage(defaultEmptyMessage);
         if (emptyState) emptyState.style.display = "none";
 
-        const layout = layoutL1(scope);
+        const layout = layoutExpandedCodebase(scope);
+        const detail = layout.detail;
         svg.replaceChildren();
         svg.appendChild(defsBlock());
 
+        // Keep the global codebase map in view while one scope is expanded. Scope edges
+        // stay aggregate-level context; detailed intra-scope edges are drawn inside the
+        // active detail area below.
+        const scopeEdgeLayer = svgEl("g");
+        scopeEdges.forEach(edge => {
+          if (edge.from === edge.to) return;
+          const a = layout.nodePos.get(edge.from);
+          const b = layout.nodePos.get(edge.to);
+          if (!a || !b) return;
+          const geometry = straightEdge(a, b, 0);
+          const path = edgePath(geometry, edge.count);
+          if (edge.from !== scope && edge.to !== scope) {
+            path.classList.add("dimmed-edge");
+          }
+          scopeEdgeLayer.appendChild(path);
+          scopeEdgeLayer.appendChild(edgeLabel(edge.count, geometry));
+        });
+        svg.appendChild(scopeEdgeLayer);
+
+        const activeScopeNode = layout.nodePos.get(scope);
+        if (activeScopeNode && detail.fileBoxes.size) {
+          const centerX = (detail.bounds.minX + detail.bounds.maxX) / 2;
+          const topY = detail.bounds.minY;
+          const startY = activeScopeNode.y + activeScopeNode.h / 2;
+          const link = svgEl("path");
+          link.setAttribute("class", "scope-expansion-link");
+          link.setAttribute(
+            "d",
+            `M ${activeScopeNode.x} ${startY} C ${activeScopeNode.x} ${startY + 34}, ${centerX} ${topY - 34}, ${centerX} ${topY}`
+          );
+          svg.appendChild(link);
+        }
+
+        const scopeNodeLayer = svgEl("g");
+        layout.names.forEach(name => {
+          const pos = layout.nodePos.get(name);
+          scopeNodeLayer.appendChild(
+            makeSuperNode(name, (scopeFlows[name] || []).length, pos, {
+              expanded: name === scope,
+              dimmed: name !== scope,
+            })
+          );
+        });
+        svg.appendChild(scopeNodeLayer);
+
         // Intra-scope call edges among the VISIBLE set only, deduped by min|max id.
-        // Cross-scope calls are NOT drawn here (already shown as the L0 aggregate), so
-        // L1 deliberately shows only intra-scope structure.
+        // Cross-scope calls remain represented by the aggregate scope edges above.
         const edgeLayer = svgEl("g");
         const drawn = new Set();
         let fanIndex = 0;
-        layout.visibleIds.forEach(id => {
+        detail.visibleIds.forEach(id => {
           const flow = byId.get(id);
           if (!flow) return;
           (flow.calls || []).forEach(target => {
-            if (!layout.visibleIds.has(target)) return; // skip cross-scope / unresolved.
-            const a = layout.flowPos.get(id);
-            const b = layout.flowPos.get(target);
+            if (!detail.visibleIds.has(target)) return; // skip cross-scope / unresolved.
+            const a = detail.flowPos.get(id);
+            const b = detail.flowPos.get(target);
             if (!a || !b) return;
             const key = id < target ? id + "|" + target : target + "|" + id;
             if (drawn.has(key)) return;
@@ -982,17 +1161,18 @@
         });
         svg.appendChild(edgeLayer);
 
-        // File boxes + the focused scope's flow nodes (the only scope content in the DOM).
+        // File boxes + the expanded scope's visible flow nodes. Other scopes are still in
+        // the DOM as collapsed super-nodes, but their files/flows remain lazy.
         const fileLayer = svgEl("g");
-        layout.fileBoxes.forEach((box, path) => {
+        detail.fileBoxes.forEach((box, path) => {
           fileLayer.appendChild(makeFileBox(path, box));
         });
         svg.appendChild(fileLayer);
 
         const nodeLayer = svgEl("g");
-        layout.visibleIds.forEach(id => {
+        detail.visibleIds.forEach(id => {
           const flow = byId.get(id);
-          const pos = layout.flowPos.get(id);
+          const pos = detail.flowPos.get(id);
           if (flow && pos) nodeLayer.appendChild(makeFlowNode(flow, pos));
         });
         svg.appendChild(nodeLayer);
@@ -1000,7 +1180,7 @@
         // Inline L2: unfold the expanded flow's decision flowchart in place, anchored
         // under its flow node in the reserved band. Lazy: the sub-graph enters the DOM
         // ONLY here, only while expandedFlow is set; collapse re-renders without it.
-        renderInlineFlow(layout);
+        renderInlineFlow(detail);
 
         // Fit the viewBox to the NON-INLINE L1 content only, and ONLY when no flow is
         // inline-expanded. While a flow is expanded we must NOT refit: folding the (often
@@ -1009,7 +1189,7 @@
         // and we keep the user's current zoom/pan, nudging only enough to keep the host
         // flow node on-screen (the user pans to reach a tall/wide sub-graph).
         if (canvasState.expandedFlow) {
-          const hostNode = layout.flowPos.get(canvasState.expandedFlow);
+          const hostNode = detail.flowPos.get(canvasState.expandedFlow);
           ensureNodeVisible(hostNode);
         } else {
           fitBounds(layout.bounds);
@@ -1101,7 +1281,7 @@
         canvasState.expandedScope = name;
       }
 
-      function expandScope(name) {
+      function expandScope(name, updateHash) {
         if (!Object.prototype.hasOwnProperty.call(scopeFlows, name)) return;
         setScope(name);
         canvasState.selectedFlowId = null;
@@ -1110,7 +1290,7 @@
           name,
           `${(scopeFlows[name] || []).length} flow${(scopeFlows[name] || []).length === 1 ? "" : "s"} · scope`
         );
-        location.hash = "scope=" + encodeURIComponent(name);
+        if (updateHash !== false) location.hash = "scope=" + encodeURIComponent(name);
         // Publish the scope so the logical-errors panel scopes to this L1 subtree's
         // findings. Clear any prior flow/node so the panels reflect the level, not a
         // stale selection from a deeper view.
@@ -1165,11 +1345,12 @@
 
       function selectFile(path) {
         const count = flowCountForPath(path);
+        const kind = pathKind(path);
         canvasState.selectedPath = path;
         canvasState.selectedFlowId = null;
         setLevelHeader(
           shortPathLabel(path),
-          `${count} flow${count === 1 ? "" : "s"} · file`
+          `${count} flow${count === 1 ? "" : "s"} · ${kind}`
         );
         if (LC.select) {
           LC.select({
@@ -1180,6 +1361,23 @@
             findingId: null,
           });
         }
+      }
+
+      function focusPath(path, updateHash) {
+        const scope = scopeOfPath(path);
+        if (!scope) return false;
+        if (path === scope) {
+          expandScope(scope, updateHash);
+          return true;
+        }
+        setScope(scope);
+        clearInlineFlow();
+        canvasState.expandedFiles.clear();
+        if (filePaths.has(path)) canvasState.expandedFiles.add(path);
+        selectFile(path);
+        if (updateHash !== false) replaceHash("path=" + encodeURIComponent(path));
+        renderCanvas();
+        return true;
       }
 
       // Toggle the inline decision sub-graph for `id`. Expanding ensures the host scope +
@@ -1397,12 +1595,16 @@
         }
         renderCanvas();
       };
+      LC.showPath = function (path) {
+        if (!focusPath(path, false)) LC.showL0();
+      };
       // Inline-L2 entry shell.js's selectFlow delegates to (tree click, #flow= deep link).
       // Reveals the flow's scope + file and unfolds its decisions in place within L1.
       LC.expandFlowInline = expandFlowInline;
-      // Tree-driven scope focus. Unlike LC.showScope (used by hash dispatch), this follows
-      // the normal user action path and updates the hash.
+      // Tree-driven focus. Unlike LC.showScope / LC.showPath (used by hash dispatch), these
+      // follow the normal user action path and update the hash.
       LC.focusScope = expandScope;
+      LC.focusPath = focusPath;
       // When shell.js enters flow mode (renderFlow), refresh the breadcrumb so it
       // gains the flow crumb. A flow opened from the tree or a #flow= deep link may
       // have no scope set yet, so derive the flow's scope (first membership, mirroring

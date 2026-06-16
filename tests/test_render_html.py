@@ -109,9 +109,10 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert match is not None
     payload = json.loads(match.group(1).replace("<\\/", "</"))
     assert isinstance(payload["scope_edges"], list)
-    # A focused scope should be a clean workspace: unrelated scope nodes are not kept as
-    # dimmed residual nodes inside L1. Scope switching is driven by the tree/breadcrumb.
-    assert "residualPos" not in html
+    # A focused scope remains inside the global codebase map: sibling scopes stay visible
+    # as dimmed context nodes while the active scope's files/flows expand in place.
+    assert "layoutExpandedCodebase" in html
+    assert "dimmed" in html
     assert "focusScope" in html
 
 
@@ -213,12 +214,14 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # must clear the deep selection instead of leaving tree/canvas on different worlds.
     assert "clearCanvasSelectionForLanguageFilter" in html
 
-    # Opening a top-level tree directory that is also a scope should focus the canvas on
-    # that scope, instead of only expanding the tree while the canvas remains global.
-    assert "scopeNames.has(node.path)" in html
+    # Opening a tree directory/file should focus that area on the integrated canvas,
+    # including nested folders via the path hash route.
+    assert "focusPath" in html
+    assert 'key === "path"' in html
+    assert "active-folder" in html
     # Revealing the active flow in the tree is programmatic; it must not fire the same
-    # scope-focus side effect as an intentional user click, or #flow deep links collapse
-    # back to #scope while the inline decision graph is open.
+    # path-focus side effect as an intentional user click, or #flow deep links collapse
+    # back to #path while the inline decision graph is open.
     assert "suppressScopeFocus" in html
 
     # Large-codebase scan aids: scope/file finding density and tree empty state for

@@ -720,6 +720,7 @@
     // the right owner so a deep link / refresh / back-button restores the level.
     //   #flow=<id>   -> selectFlow (mode flow, L2)
     //   #scope=<name> (name in model.scopes) -> canvas L1 for that scope
+    //   #path=<path>  -> canvas L1 with that folder/file area selected
     //   bare #<id> with byId.has(decoded) -> treated as #flow=<id> (back-compat)
     //   empty / unrecognized -> canvas L0
     function routeFromHash() {
@@ -732,6 +733,10 @@
         if (key === "flow" && byId.has(value)) { selectFlow(value); return; }
         if (key === "scope" && Object.prototype.hasOwnProperty.call(scopes, value)) {
           if (LC.showScope) LC.showScope(value);
+          return;
+        }
+        if (key === "path" && value) {
+          if (LC.showPath) LC.showPath(value);
           return;
         }
       } else if (raw) {

@@ -37,6 +37,7 @@
 
       // Per-render lookup maps, rebuilt every time the tree is (re)rendered so a language
       // change cleanly replaces them.
+      let dirRows = new Map(); // path -> dir <button>
       let fileRows = new Map(); // path -> file <button>
       let flowRows = new Map(); // flowId -> flow <button>
       let childContainers = new Map(); // path -> children <div>
@@ -180,7 +181,8 @@
         childContainers.set(node.path, children);
 
         row.addEventListener("click", () => toggle(node, row, children, depth));
-        if (!isDir) fileRows.set(node.path, row);
+        if (isDir) dirRows.set(node.path, row);
+        else fileRows.set(node.path, row);
         parent.append(row, children);
       }
 
@@ -199,17 +201,15 @@
         row.setAttribute("aria-expanded", String(open));
         const caret = row.querySelector(".tree-caret");
         if (caret) caret.classList.toggle("open", open);
-        // Opening a top-level directory that is also a known scope focuses the canvas on
-        // that scope. The canvas then shows only that scope's file/flow workspace; sibling
-        // scopes stay available in the left tree instead of cluttering the canvas.
-        if (
-          open &&
-          !suppressScopeFocus &&
-          node.type === "dir" &&
-          scopeNames.has(node.path) &&
-          LC.focusScope
-        ) {
-          LC.focusScope(node.path);
+        // Opening any tree path focuses the same area on the canvas. Top-level scopes use
+        // the scope route; nested folders/files use the path route so the canvas can
+        // highlight that sub-area while keeping the global map visible.
+        if (open && !suppressScopeFocus) {
+          if (LC.focusPath) {
+            LC.focusPath(node.path);
+          } else if (node.type === "dir" && scopeNames.has(node.path) && LC.focusScope) {
+            LC.focusScope(node.path);
+          }
         }
       }
 
@@ -245,6 +245,7 @@
 
       function highlightActive(flowId) {
         flowRows.forEach((row, id) => row.classList.toggle("active", id === flowId));
+        dirRows.forEach(row => row.classList.remove("active-folder"));
         fileRows.forEach(row => row.classList.remove("active-file"));
         const flow = byId.get(flowId);
         if (flow) {
@@ -255,11 +256,15 @@
 
       function highlightPath(path) {
         flowRows.forEach(row => row.classList.remove("active"));
+        dirRows.forEach(row => row.classList.remove("active-folder"));
         fileRows.forEach(row => row.classList.remove("active-file"));
         if (!path) return;
         revealPath(path);
         const row = structureRow(path);
-        if (row) row.classList.add("active-file");
+        if (row) {
+          row.classList.toggle("active-folder", row.classList.contains("tree-dir"));
+          row.classList.toggle("active-file", row.classList.contains("tree-file"));
+        }
       }
 
       function setLanguageFilterAvailability(sel) {
@@ -313,6 +318,7 @@
         if (!rows.length) return;
         let target =
           (lastActiveFlowId && flowRows.get(lastActiveFlowId)) ||
+          treeEl.querySelector(".tree-dir.active-folder") ||
           treeEl.querySelector(".tree-file.active-file");
         if (!target || target.offsetParent === null) target = rows[0];
         setRovingTarget(target);
@@ -428,6 +434,7 @@
 
       function render() {
         treeEl.replaceChildren();
+        dirRows = new Map();
         fileRows = new Map();
         flowRows = new Map();
         childContainers = new Map();

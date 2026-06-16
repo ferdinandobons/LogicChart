@@ -255,8 +255,8 @@
       white-space: nowrap;
     }
     .tree-dir .tree-label { font-weight: 600; }
-    .tree-file.active-file { background: var(--active); }
-    .tree-file.active-file .tree-label { color: var(--blue); }
+    .tree-dir.active-folder, .tree-file.active-file { background: var(--active); }
+    .tree-dir.active-folder .tree-label, .tree-file.active-file .tree-label { color: var(--blue); }
     .tree-caret {
       flex: none;
       width: 13px;
@@ -545,9 +545,25 @@
       stroke: var(--violet);
       stroke-width: 2;
       filter: url(#nodeShadow);
-      transition: filter .14s ease, stroke-width .14s ease, opacity .18s ease;
+      transition: filter .14s ease, stroke-width .14s ease, opacity .18s ease, fill .18s ease;
     }
     .scope-node:hover .shape, .scope-node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.8; }
+    .scope-node.dimmed { opacity: .48; }
+    .scope-node.expanded { opacity: 1; }
+    .scope-node.expanded .shape {
+      fill: var(--fill-entry);
+      stroke: var(--blue);
+      stroke-width: 3;
+    }
+    .scope-node.expanded .scope-name { fill: var(--blue); }
+    .dimmed-edge { opacity: .34; }
+    .scope-expansion-link {
+      fill: none;
+      stroke: var(--blue);
+      stroke-width: 2;
+      stroke-dasharray: 6 7;
+      opacity: .58;
+    }
     /* Distinct keyboard focus (not just the hover lift): a theme-aware outline ring. */
     .scope-node:focus-visible { outline: none; }
     .scope-node:focus-visible .shape {
@@ -555,6 +571,7 @@
       outline-offset: 2px;
     }
     .scope-node.has-finding .shape { stroke: var(--coral); }
+    .scope-node.expanded.has-finding .shape { stroke: var(--blue); }
     .scope-node .scope-name {
       fill: var(--ink);
       font-size: 15px;
@@ -591,6 +608,11 @@
     }
     .file-box:hover .file-frame { stroke: var(--blue); }
     .file-box.expanded .file-frame { stroke: var(--line-strong); }
+    .file-box.active-area .file-frame {
+      fill: var(--active);
+      stroke: var(--blue);
+      stroke-width: 2.4;
+    }
     .file-box.has-finding .file-frame { stroke: var(--coral); }
     /* Distinct theme-aware keyboard focus ring on the chip frame. */
     .file-box:focus-visible { outline: none; }
@@ -643,6 +665,7 @@
     .flow-node { cursor: pointer; }
     .flow-node.entry .shape { fill: var(--fill-entry); stroke: var(--blue); }
     .flow-node.action .shape { fill: var(--node-fill); stroke: var(--blue); }
+    .flow-node.active-area .shape { stroke-width: 2.4; }
     /* A flow node whose decision sub-graph is unfolded in place (L2 inline). */
     .flow-node.flow-open .shape { stroke: var(--violet); stroke-width: 3; }
 
