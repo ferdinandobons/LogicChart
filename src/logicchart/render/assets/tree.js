@@ -23,6 +23,7 @@
       // The languages dropdown only appears for polyglot repos (>1 language), mirroring
       // the old rail's visibility rule. "" means "All languages".
       const languages = Array.isArray(model.languages) ? model.languages : [];
+      const scopeNames = new Set(Object.keys(model.scopes || {}));
       const findings = LC.findings || model.findings || [];
       const findingsByFlow = new Map();
       findings.forEach(finding => {
@@ -40,6 +41,7 @@
       let flowRows = new Map(); // flowId -> flow <button>
       let childContainers = new Map(); // path -> children <div>
       let lastActiveFlowId = LC.activeFlowId ? LC.activeFlowId() : null;
+      let suppressScopeFocus = false;
 
       function svgFolderIcon(open) {
         const ns = "http://www.w3.org/2000/svg";
@@ -197,6 +199,18 @@
         row.setAttribute("aria-expanded", String(open));
         const caret = row.querySelector(".tree-caret");
         if (caret) caret.classList.toggle("open", open);
+        // Opening a top-level directory that is also a known scope focuses the canvas on
+        // that scope. The canvas then shows only that scope's file/flow workspace; sibling
+        // scopes stay available in the left tree instead of cluttering the canvas.
+        if (
+          open &&
+          !suppressScopeFocus &&
+          node.type === "dir" &&
+          scopeNames.has(node.path) &&
+          LC.focusScope
+        ) {
+          LC.focusScope(node.path);
+        }
       }
 
       function cssEscape(value) {
@@ -218,7 +232,14 @@
           prefix = prefix ? `${prefix}/${segment}` : segment;
           const children = childContainers.get(prefix);
           const row = structureRow(prefix);
-          if (children && row && children.hidden) row.click();
+          if (children && row && children.hidden) {
+            suppressScopeFocus = true;
+            try {
+              row.click();
+            } finally {
+              suppressScopeFocus = false;
+            }
+          }
         });
       }
 
@@ -411,6 +432,12 @@
         flowRows = new Map();
         childContainers = new Map();
         (fullTree.children || []).forEach(child => renderNode(child, treeEl, 0));
+        if (!treeEl.children.length) {
+          const empty = document.createElement("div");
+          empty.className = "tree-empty-state";
+          empty.textContent = "No matching flows";
+          treeEl.appendChild(empty);
+        }
 
         // Re-reveal + re-highlight whatever flow is active so a language switch keeps the
         // canvas selection reflected when the active flow survives the filter.

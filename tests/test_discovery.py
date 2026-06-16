@@ -39,3 +39,29 @@ def test_symlink_pointing_outside_root_is_skipped(tmp_path: Path) -> None:
     # Every returned path has a valid project-relative path (no relpath would raise).
     for path in files:
         assert path.resolve().is_relative_to(project.resolve())
+
+
+def test_large_codebase_default_excludes_skip_generated_trees(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "src").mkdir()
+    (project / "src" / "real.py").write_text("def handler(x):\n    return x\n", encoding="utf-8")
+    (project / "node_modules").mkdir()
+    (project / "node_modules" / "dep.ts").write_text(
+        "export function dep() { return 1; }\n", encoding="utf-8"
+    )
+    nested = project / "apps" / "web" / "dist"
+    nested.mkdir(parents=True)
+    (nested / "bundle.js").write_text("export function built() { return 1; }\n", encoding="utf-8")
+    (project / "target").mkdir()
+    (project / "target" / "gen.cpp").write_text("int generated() { return 1; }\n", encoding="utf-8")
+    (project / "src" / "api.pb.go").write_text(
+        "package src\n\nfunc Generated() int { return 1 }\n", encoding="utf-8"
+    )
+
+    files = {
+        path.relative_to(project).as_posix()
+        for path in discover_source_files(project, LogicChartConfig())
+    }
+
+    assert files == {"src/real.py"}

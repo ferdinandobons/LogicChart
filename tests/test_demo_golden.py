@@ -1,6 +1,6 @@
 """Golden-master precision SLA, measured on examples/demo.
 
-The demo is a polyglot, multi-scope codebase (10 languages across backend,
+The demo is a polyglot, multi-scope codebase (11 languages across backend,
 frontend, and edge). The SLA pins the published-artifact noise budget:
 across the whole codebase LogicChart surfaces exactly one true-positive review
 signal (the TS switch with no default) and nothing else - every other service is
@@ -28,6 +28,7 @@ _EXPECTED_LANGUAGES = {
     "csharp",
     "php",
     "c",
+    "cpp",
     "rust",
     "ruby",
 }

@@ -95,7 +95,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
     <main>
       <nav id="breadcrumb" class="breadcrumb" aria-label="Canvas level"></nav>
       <div class="canvas-toolbar" aria-label="Canvas controls">
-        <button class="tool" id="menuButton" title="Toggle flow list">&#9776;</button>
+        <button class="tool" id="menuButton" title="Toggle codebase tree" aria-label="Toggle codebase tree">&#9776;</button>
+        <button class="tool detail-tool" id="detailButton" title="Show source and findings" aria-label="Toggle source and findings" aria-pressed="false">i</button>
         <button class="tool" id="zoomOut" title="Zoom out">&minus;</button>
         <button class="tool" id="resetView" title="Reset view &amp; layout">0</button>
         <button class="tool" id="zoomIn" title="Zoom in">+</button>
@@ -107,6 +108,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
 
     <aside class="right-rail" id="rightRail">
       <div class="rail-inner">
+        <div class="detail-drawer-head">
+          <span>Details</span>
+          <button class="panel-close" id="detailsClose" type="button" title="Hide source and findings" aria-label="Hide source and findings">&times;</button>
+        </div>
         <section class="panel panel-source" id="sourcePanel" aria-label="Source">
           <div class="panel-head">
             <h2 class="rail-title">Source</h2>

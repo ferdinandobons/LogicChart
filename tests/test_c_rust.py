@@ -1,4 +1,4 @@
-"""C and Rust support via the profile-driven engine (Stage C)."""
+"""C, C++, and Rust support via the profile-driven engine (Stage C)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,22 @@ _C = """int handle(int status) {
   return persist(status);
 }
 static int persist(int status) { return store(status); }
+"""
+
+_CPP = """class Router {
+public:
+  int handle(Status status) {
+    if (status == Status::Active) { return 1; }
+    switch (status) {
+      case Status::Active: return 10;
+      case Status::Suspended: return 20;
+    }
+    return fallback(status);
+  }
+};
+
+static int fallback(Status status) { return 0; }
+int main() { return Router().handle(Status::Active); }
 """
 
 _RUST = """pub fn handle(s: Status) -> i32 {
@@ -49,6 +65,34 @@ def test_c_if_switch_static_and_calls(tmp_path: Path) -> None:
     assert "status == 1" in labels and "Switch on status" in labels
     assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
     assert _flow(model, "persist").id in handle.calls
+
+
+def test_cpp_class_methods_switch_static_and_main(tmp_path: Path) -> None:
+    model = _analyze(tmp_path, "router.cpp", _CPP)
+    by_name = {f.name: f for f in model.flows}
+    assert {"Router.handle", "fallback", "main"} <= set(by_name)
+    assert all(f.language == "cpp" for f in model.flows)
+    assert by_name["Router.handle"].is_entrypoint
+    assert by_name["Router.handle"].entry_kind == "method"
+    assert not by_name["fallback"].is_entrypoint
+    assert by_name["main"].is_entrypoint
+
+    handle = _flow(model, "Router.handle")
+    labels = {n.label for n in handle.nodes if n.kind is NodeKind.DECISION}
+    assert "status == Status::Active" in labels
+    assert "Switch on status" in labels
+    assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
+
+
+def test_cpp_local_static_variable_does_not_hide_public_function(tmp_path: Path) -> None:
+    model = _analyze(
+        tmp_path,
+        "counter.cpp",
+        "int counter() { static int value = 0; return ++value; }\n",
+    )
+
+    flow = _flow(model, "counter")
+    assert flow.is_entrypoint
 
 
 def test_rust_if_match_and_visibility(tmp_path: Path) -> None:

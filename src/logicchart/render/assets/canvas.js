@@ -1,8 +1,7 @@
 
     // Codebase canvas (Phase 2). Owns the two top levels of the viewer:
     //   L0 = one super-node per scope, edges = aggregated cross-scope calls.
-    //   L1 = one expanded scope's flows grouped by file, call edges among the
-    //        visible set; every OTHER scope stays a single L0 super-node.
+    //   L1 = one focused scope's files/flows only, call edges among the visible set.
     // Selecting a flow (here or from the tree) still defers to shell.js's
     // renderFlow via LC.selectFlow -- that is the L2 renderer (Phase 3 inlines it).
     //
@@ -14,9 +13,9 @@
     // breadcrumb, expand/collapse) funnels through renderCanvas().
     //
     // LAZY INVARIANT: renderL0 builds only `scopes.length` super-node groups + the
-    // scope_edges paths -- O(scopes), never O(flows). Expanding a scope adds ONLY
-    // that scope's flows to the DOM; other scopes are re-drawn as their single
-    // super-node. Collapsing replaceChildren() back to L0.
+    // scope_edges paths -- O(scopes), never O(flows). Expanding a scope draws ONLY that
+    // scope's file groups; unrelated scopes stay in the left tree and breadcrumb, not in
+    // the focused canvas. Collapsing replaceChildren() back to L0.
     (function () {
       const LC = window.LC;
       if (!LC || !LC.svg) return; // shell.js must have booted and exposed the seam.
@@ -30,18 +29,24 @@
       const findingFlowIds = new Set(
         findings.map(item => item.flow_id).filter(Boolean)
       );
+      const findingsByFlow = new Map();
+      findings.forEach(item => {
+        if (!item.flow_id) return;
+        const list = findingsByFlow.get(item.flow_id) || [];
+        list.push(item);
+        findingsByFlow.set(item.flow_id, list);
+      });
 
       // World units match the existing ~290px decision nodes so shell.js's pan/zoom
       // (which mutates the shared `view`) reuses exactly, no rescaling.
       const SCOPE_W = 220;
       const SCOPE_H_MIN = 96;
       const SCOPE_H_MAX = 200;
-      const FLOW_W = 210;
-      const FLOW_H = 64;
+      const FLOW_W = 238;
+      const FLOW_H = 68;
       const GAP_X = 70;
       const GAP_Y = 60;
       const FILE_PAD = 24;
-      const BAND_GAP = 120;
 
       const canvasEl = document.getElementById("canvas");
       const breadcrumbEl = document.getElementById("breadcrumb");
@@ -169,13 +174,43 @@
         return document.createElementNS("http://www.w3.org/2000/svg", tag);
       }
 
+      function setCanvasLevel(level) {
+        if (LC.setCanvasLevel) LC.setCanvasLevel(level);
+        else {
+          const value = String(level);
+          canvasEl.setAttribute("data-level", value);
+          document.body.dataset.canvasLevel = value;
+        }
+      }
+
       function superNodeHeight(count) {
         return clamp(SCOPE_H_MIN, SCOPE_H_MIN + 6 * Math.sqrt(count), SCOPE_H_MAX);
       }
 
-      // Wrap a label to at most `max` lines of roughly `width` chars (mirrors shell.js).
-      function wrapLabel(value, width, max) {
-        const words = String(value).split(/\s+/);
+      function splitLongToken(token, width) {
+        let rest = String(token);
+        const chunks = [];
+        while (rest.length > width) {
+          const windowText = rest.slice(0, width);
+          let cut = -1;
+          [".", "::", "/", "_", "-"].forEach(delimiter => {
+            const index = windowText.lastIndexOf(delimiter);
+            if (index > cut) cut = index + delimiter.length;
+          });
+          if (cut < Math.floor(width * 0.45)) cut = width;
+          chunks.push(rest.slice(0, cut));
+          rest = rest.slice(cut);
+        }
+        if (rest) chunks.push(rest);
+        return chunks;
+      }
+
+      function labelLines(value, width) {
+        const words = String(value)
+          .split(/\s+/)
+          .flatMap(word =>
+            word.length > width ? splitLongToken(word, width) : [word]
+          );
         const lines = [];
         let current = "";
         words.forEach(word => {
@@ -187,24 +222,19 @@
           }
         });
         if (current) lines.push(current);
+        return lines;
+      }
+
+      // Wrap a label to at most `max` lines of roughly `width` chars (mirrors shell.js).
+      function wrapLabel(value, width, max) {
+        const lines = labelLines(value, width);
         return lines.slice(0, max);
       }
 
       // True when wrapLabel dropped content: more lines than `max`, so the rendered
       // label is missing the overflow. Lets callers attach a <title> to recover it.
       function isTruncated(value, width, max) {
-        const words = String(value).split(/\s+/);
-        const lines = [];
-        let current = "";
-        words.forEach(word => {
-          if (!current || (current + " " + word).length <= width) {
-            current = current ? current + " " + word : word;
-          } else {
-            lines.push(current);
-            current = word;
-          }
-        });
-        if (current) lines.push(current);
+        const lines = labelLines(value, width);
         return lines.length > max;
       }
 
@@ -343,8 +373,16 @@
         if (kindEl) kindEl.textContent = kind;
       }
 
+      function pathInActiveScope(path) {
+        const value = String(path || "");
+        const scope = canvasState.expandedScope;
+        if (!scope) return value;
+        const prefix = scope + "/";
+        return value.startsWith(prefix) ? value.slice(prefix.length) : value;
+      }
+
       function shortPathLabel(path) {
-        const segments = String(path || "").split("/").filter(Boolean);
+        const segments = pathInActiveScope(path).split("/").filter(Boolean);
         if (segments.length <= 2) return segments.join("/") || String(path || "");
         return segments.slice(-2).join("/");
       }
@@ -356,6 +394,29 @@
           if (p && (p === path || p.startsWith(path + "/"))) count += 1;
         });
         return count;
+      }
+
+      function findingCountForPath(path) {
+        let count = 0;
+        byId.forEach(flow => {
+          const p = flow.location && flow.location.path;
+          if (p && (p === path || p.startsWith(path + "/"))) {
+            count += (findingsByFlow.get(flow.id) || []).length;
+          }
+        });
+        return count;
+      }
+
+      function scopeStats(name) {
+        const ids = scopeFlows[name] || [];
+        const languages = new Set();
+        let review = 0;
+        ids.forEach(id => {
+          const flow = byId.get(id);
+          if (flow && flow.language) languages.add(flow.language);
+          review += (findingsByFlow.get(id) || []).length;
+        });
+        return { languages: languages.size, review };
       }
 
       // Wrapped-grid column count, shared by L0 super-nodes and L1 file boxes.
@@ -410,7 +471,7 @@
         return { minX, maxX, minY, maxY };
       }
 
-      // --- L1 layout: one expanded scope; flows in a file-grouped grid -------------
+      // --- L1 layout: one focused scope; flows in a file-grouped grid --------------
 
       // L1 layout. Each FILE in the expanded scope is a collapsed header chip by
       // default (file name + flow count); a file's flow nodes are laid out ONLY when
@@ -420,34 +481,10 @@
       // (cheap: only expanded files materialize their flows) rather than cached by
       // scope alone.
       function layoutL1(scope) {
-        const names = Object.keys(scopeFlows).sort();
-        const others = names.filter(name => name !== scope);
-
-        // Residual super-nodes for every OTHER scope, in a top band (y=0). This is the
-        // lazy core: those scopes never materialize their flows.
-        const residualPos = new Map();
-        const cols = gridCols(Math.max(1, others.length), SCOPE_W);
-        const rowH = SCOPE_H_MIN;
-        let residualBottom = 0;
-        others.forEach((name, i) => {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const cx = col * (SCOPE_W + GAP_X) + SCOPE_W / 2;
-          const cy = row * (rowH + GAP_Y) + rowH / 2;
-          residualPos.set(name, {
-            x: cx,
-            y: cy,
-            w: SCOPE_W,
-            h: rowH,
-            count: (scopeFlows[name] || []).length,
-          });
-          residualBottom = Math.max(residualBottom, cy + rowH / 2);
-        });
-
-        const bandTop = others.length ? residualBottom + BAND_GAP : 0;
-
-        // Expanded scope's flows, grouped by file. Files become chips; flows inside an
-        // expanded file are materialized, the rest are not.
+        // Focused scope's flows, grouped by file. Files become chips; flows inside an
+        // expanded file are materialized, the rest are not. No unrelated scope nodes are
+        // drawn in L1: once the user chooses a scope, the canvas becomes a clean work area
+        // for that scope only.
         const visibleFlows = (scopeFlows[scope] || [])
           .map(id => byId.get(id))
           .filter(Boolean);
@@ -517,7 +554,7 @@
         // the host row when reservedW is wide; the canvas pans to it), not globally here.
         const rowLimit = outerContainerW;
         let cursorX = 0;
-        let rowTop = bandTop;
+        let rowTop = 0;
         let rowMaxH = 0;
         let rowStart = 0;
         let rowIndex = 0;
@@ -581,7 +618,7 @@
         // The visible flow set is exactly the flows of EXPANDED files -- the only ones
         // with a position, the only ones drawn, and the only edge endpoints.
         const visibleIds = new Set(flowPos.keys());
-        const allNodes = [...residualPos.values(), ...flowPos.values()];
+        const allNodes = [...flowPos.values()];
         // Account for file-box extents too, so the viewBox includes box chrome.
         boxes.forEach(box => {
           allNodes.push({ x: box.x + box.w / 2, y: box.y + box.h / 2, w: box.w, h: box.h });
@@ -589,13 +626,12 @@
         // NOTE: the reserved inline sub-graph band is deliberately EXCLUDED from `bounds`.
         // A large flow's band is ~thousands of world-px tall; folding it into the fit would
         // zoom the SHARED canvas viewBox out to contain it, shrinking every L1 file box /
-        // sibling flow / residual scope to an illegible scale. renderL1 fits only this
+        // sibling flow to an illegible scale. renderL1 fits only this
         // non-inline L1 content (and only on a fresh L1, never on expand) so the surrounding
         // context stays at a readable scale; the inline sub-graph draws at 1x and the user
         // pans to it. `inlineBounds` is exposed separately for the off-screen-nudge check.
 
         return {
-          residualPos,
           fileBoxes,
           flowPos,
           visibleIds,
@@ -611,10 +647,13 @@
 
       function makeSuperNode(name, count, pos, opts) {
         opts = opts || {};
+        const stats = scopeStats(name);
         const group = svgEl("g");
         group.setAttribute(
           "class",
-          "scope-node" + (opts.expanded ? " expanded" : "") + (opts.dimmed ? " dimmed" : "")
+          "scope-node" +
+            (opts.expanded ? " expanded" : "") +
+            (stats.review ? " has-finding" : "")
         );
         group.setAttribute("data-scope", name);
         group.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
@@ -648,9 +687,18 @@
         const meta = svgEl("text");
         meta.setAttribute("class", "scope-meta");
         meta.setAttribute("text-anchor", "middle");
-        meta.setAttribute("y", String(pos.h / 2 - 14));
-        meta.textContent = `${count} flow${count === 1 ? "" : "s"}`;
+        meta.setAttribute("y", String(pos.h / 2 - (stats.review ? 28 : 14)));
+        const langText = `${stats.languages} lang${stats.languages === 1 ? "" : "s"}`;
+        meta.textContent = `${count} flow${count === 1 ? "" : "s"} · ${langText}`;
         group.appendChild(meta);
+        if (stats.review) {
+          const review = svgEl("text");
+          review.setAttribute("class", "scope-review");
+          review.setAttribute("text-anchor", "middle");
+          review.setAttribute("y", String(pos.h / 2 - 11));
+          review.textContent = `${stats.review} review`;
+          group.appendChild(review);
+        }
 
         const activate = () => expandScope(name);
         group.addEventListener("click", activate);
@@ -669,10 +717,11 @@
       // carries button semantics + aria-expanded so it is keyboard-accessible.
       function makeFileBox(path, box) {
         const count = box.flows.length;
+        const reviewCount = findingCountForPath(path);
         const group = svgEl("g");
         group.setAttribute(
           "class",
-          "file-box" + (box.expanded ? " expanded" : "")
+          "file-box" + (box.expanded ? " expanded" : "") + (reviewCount ? " has-finding" : "")
         );
         group.setAttribute("data-path", path);
         group.setAttribute("transform", `translate(${box.x} ${box.y})`);
@@ -711,7 +760,7 @@
         // Show a context-bearing label so repeated names like route.ts stay legible.
         label.textContent = labelText;
         const full = svgEl("title");
-        full.textContent = `${path} (${count} flow${count === 1 ? "" : "s"})`;
+        full.textContent = `${path} (${count} flow${count === 1 ? "" : "s"}${reviewCount ? `, ${reviewCount} review` : ""})`;
         label.appendChild(full);
         group.appendChild(label);
 
@@ -723,6 +772,18 @@
         meta.setAttribute("text-anchor", "end");
         meta.textContent = `${count}`;
         group.appendChild(meta);
+
+        if (reviewCount) {
+          const review = svgEl("circle");
+          review.setAttribute("class", "file-review-dot");
+          review.setAttribute("cx", String(box.w - 8));
+          review.setAttribute("cy", String(8));
+          review.setAttribute("r", "4");
+          const reviewTitle = svgEl("title");
+          reviewTitle.textContent = `${reviewCount} review finding${reviewCount === 1 ? "" : "s"}`;
+          review.appendChild(reviewTitle);
+          group.appendChild(review);
+        }
 
         const toggle = () => toggleFile(path);
         group.addEventListener("click", toggle);
@@ -769,9 +830,9 @@
         rect.setAttribute("rx", isEntry ? "32" : "12");
         group.appendChild(rect);
 
-        const lines = wrapLabel(flow.name, 24, 2);
+        const lines = wrapLabel(flow.name, 28, 2);
         // Recover the full flow name on hover when wrapLabel dropped overflow.
-        if (isTruncated(flow.name, 24, 2)) addTitle(group, flow.name);
+        if (isTruncated(flow.name, 28, 2)) addTitle(group, flow.name);
         lines.forEach((line, index) => {
           const text = svgEl("text");
           text.setAttribute("text-anchor", "middle");
@@ -783,7 +844,7 @@
         meta.setAttribute("class", "meta");
         meta.setAttribute("text-anchor", "middle");
         meta.setAttribute("y", String(FLOW_H / 2 - 7));
-        meta.textContent = `${flow.location.path}:${flow.location.start_line}`;
+        meta.textContent = `${pathInActiveScope(flow.location.path)}:${flow.location.start_line}`;
         group.appendChild(meta);
 
         // Click / Enter / Space toggles the flow's decision sub-graph IN PLACE (L2).
@@ -810,11 +871,33 @@
         return path;
       }
 
+      function edgeLabel(text, geometry) {
+        const value = String(text);
+        const width = Math.max(30, value.length * 7 + 18);
+        const group = svgEl("g");
+        group.setAttribute("class", "edge-label-wrap");
+        group.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
+        const bg = svgEl("rect");
+        bg.setAttribute("class", "edge-label-bg");
+        bg.setAttribute("x", String(-width / 2));
+        bg.setAttribute("y", "-12");
+        bg.setAttribute("width", String(width));
+        bg.setAttribute("height", "20");
+        bg.setAttribute("rx", "10");
+        const label = svgEl("text");
+        label.setAttribute("class", "edge-label");
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("y", "4");
+        label.textContent = value;
+        group.append(bg, label);
+        return group;
+      }
+
       // --- Renderers ---------------------------------------------------------------
 
       function renderL0() {
         const names = Object.keys(scopeFlows).sort();
-        canvasEl.setAttribute("data-level", "0");
+        setCanvasLevel("0");
 
         if (names.length === 0) {
           svg.replaceChildren();
@@ -846,7 +929,9 @@
           const a = nodePos.get(edge.from);
           const b = nodePos.get(edge.to);
           if (!a || !b) return;
-          edgeLayer.appendChild(edgePath(straightEdge(a, b, 0), edge.count));
+          const geometry = straightEdge(a, b, 0);
+          edgeLayer.appendChild(edgePath(geometry, edge.count));
+          edgeLayer.appendChild(edgeLabel(edge.count, geometry));
         });
         svg.appendChild(edgeLayer);
 
@@ -866,10 +951,7 @@
       function renderL1(scope) {
         // L1 by default; an inline-expanded flow puts a decision flowchart on the canvas,
         // so the level reads L2 (the decisions are L2 in the spec) without leaving L1.
-        canvasEl.setAttribute(
-          "data-level",
-          canvasState.expandedFlow ? "2" : "1"
-        );
+        setCanvasLevel(canvasState.expandedFlow ? "2" : "1");
         setEmptyMessage(defaultEmptyMessage);
         if (emptyState) emptyState.style.display = "none";
 
@@ -900,16 +982,7 @@
         });
         svg.appendChild(edgeLayer);
 
-        // Residual super-nodes for every OTHER scope (dimmed, still clickable).
-        const residualLayer = svgEl("g");
-        layout.residualPos.forEach((pos, name) => {
-          residualLayer.appendChild(
-            makeSuperNode(name, pos.count, pos, { dimmed: true })
-          );
-        });
-        svg.appendChild(residualLayer);
-
-        // File boxes + the expanded scope's flow nodes (the only flows in the DOM).
+        // File boxes + the focused scope's flow nodes (the only scope content in the DOM).
         const fileLayer = svgEl("g");
         layout.fileBoxes.forEach((box, path) => {
           fileLayer.appendChild(makeFileBox(path, box));
@@ -932,7 +1005,7 @@
         // Fit the viewBox to the NON-INLINE L1 content only, and ONLY when no flow is
         // inline-expanded. While a flow is expanded we must NOT refit: folding the (often
         // huge) decision band into the fit would shrink every file box / sibling flow /
-        // residual scope to an illegible scale. Instead the inline sub-graph renders at 1x
+        // sibling flow to an illegible scale. Instead the inline sub-graph renders at 1x
         // and we keep the user's current zoom/pan, nudging only enough to keep the host
         // flow node on-screen (the user pans to reach a tall/wide sub-graph).
         if (canvasState.expandedFlow) {
@@ -1327,6 +1400,9 @@
       // Inline-L2 entry shell.js's selectFlow delegates to (tree click, #flow= deep link).
       // Reveals the flow's scope + file and unfolds its decisions in place within L1.
       LC.expandFlowInline = expandFlowInline;
+      // Tree-driven scope focus. Unlike LC.showScope (used by hash dispatch), this follows
+      // the normal user action path and updates the hash.
+      LC.focusScope = expandScope;
       // When shell.js enters flow mode (renderFlow), refresh the breadcrumb so it
       // gains the flow crumb. A flow opened from the tree or a #flow= deep link may
       // have no scope set yet, so derive the flow's scope (first membership, mirroring

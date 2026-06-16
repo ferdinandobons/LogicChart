@@ -1,217 +1,233 @@
 # LogicChart
 
-**Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 10 languages, no API key.**
+LogicChart is a local-first static analyzer that turns large codebases into navigable
+decision flowcharts.
 
-![Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.](docs/assets/why-logicchart.svg)
+It reads source code without running it, extracts the decisions that matter (`if`,
+`switch`, `match`, exceptions, returns, and internal calls), and writes a deterministic model
+you can inspect in the terminal, commit to git, query from coding agents, or study in a
+local interactive viewer.
 
-In the AI era it is easy to lose track of what your own code does. You ship fast, then end up
-unsure how it works or fits together, until no one really knows. LogicChart turns the code
-back into a navigable map of its decisions, so you can see it, reason about it, and spot what
-to change or where the gaps are.
+**Why it exists:** when a frontend/backend system grows quickly, especially with AI-assisted
+changes, it becomes hard to know which states are handled, which entry points call each
+other, and what a change will touch. LogicChart gives humans and agents the same explicit
+control-flow map.
 
-It reads your source (never running it) and turns the branching logic into clear, clickable flowcharts: the `if` / `switch` / `match`
-paths, the error handling, and the calls that link one piece to the next. Deterministic and offline: the same code always gives the same result.
-
-One model covers **a single function, one part of the system (`backend/`, `frontend/`,
-`edge/`), or the whole codebase**, and you can zoom between them. It is committed to git as a
-machine-readable model, reviewable flowcharts, and an interactive viewer, for people and
-coding agents alike. Every finding is tagged by confidence (`VERIFIED`, `INFERRED`, or
-`POTENTIAL_GAP`), so a fact is never dressed up as a guess.
-
-> **Status:** early alpha. The logical model is versioned, but its schema may still evolve
-> before 1.0.
+> **Status:** early alpha. The logical model is versioned, but the schema may evolve before
+> 1.0.
 >
 > **Latest release:** [v0.5.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.5.0) ·
 > [Changelog](CHANGELOG.md)
 
-## See it in 30 seconds
+## What You Get
 
-This Next.js route handler switches on `user.status` but forgets a case the `UserStatus`
-enum declares:
+- A whole-codebase decision map, from one function to a large polyglot repo.
+- A local HTML viewer built for broad codebase study: scope map, file tree, flow search,
+  language filter, expandable flowcharts, source panel, and prioritized findings.
+- A reviewable Markdown report with Mermaid flowcharts.
+- A canonical JSON model for CI, scripts, and MCP/coding-agent context.
+- Evidence labels on every finding: `VERIFIED`, `INFERRED`, or `POTENTIAL_GAP`.
+- No API key, no code execution, and repeatable output for the same source tree.
 
-```ts
-switch (user.status) {            // user.status: UserStatus { ACTIVE, SUSPENDED, DELETED }
-  case UserStatus.ACTIVE:    return Response.json(user);
-  case UserStatus.SUSPENDED: return new Response("Blocked", { status: 403 });
-  // no default, and DELETED is never handled
-}
-```
+## Quick Start
 
-`logicchart analyze` writes this line to the committed report, names the exact missing
-member, and labels how it knows:
-
-```text
-- **WARNING · INFERRED · enum_exhaustiveness** Declared UserStatus members not handled for user.status: UserStatus.DELETED
-```
-
-`INFERRED` means a deterministic heuristic over the declared enum, not a guess. That is the
-**only** finding across the bundled demo's 10-language, 3-scope codebase. The model stays
-precise as it scales. Run it yourself on [`examples/demo`](examples/demo).
-
-## What it's good for
-
-In review and refactoring, at any scope from one function to the whole repo:
-
-- **Catch missing cases** before code review: a `switch` / `match` / `if`-chain with no fallback.
-- **Check state handling is consistent** across sibling flows: a status one route handles
-  but another silently drops, even across files and languages.
-- **See change impact**: which entry points are reachable from the service you're about to edit.
-- **Reason about a whole codebase or one macro-part** (backend, frontend, or edge) from a single model.
-- **Give coding agents a deterministic control-flow map** they can query instead of re-reading files.
-
-## Install
-
-LogicChart is not on PyPI yet. Install it from source with [uv](https://docs.astral.sh/uv/):
+Install from source with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/ferdinandobons/LogicChart.git logicchart
 cd logicchart
-uv tool install .            # the `logicchart` command, available everywhere
-# uv tool install '.[mcp]'   # include the optional MCP server
+uv tool install .
 ```
 
-For development (run without installing globally):
-
-```bash
-uv sync --extra dev --extra mcp
-uv run logicchart --help     # prefix commands with `uv run`
-```
-
-## Quick Start
-
-From the project you want to analyze:
+From the codebase you want to analyze:
 
 ```bash
 logicchart analyze --full
 logicchart view
 ```
 
-No `init` step is required. LogicChart has useful defaults and analyzes the current
-directory (`.`) unless you pass another path. Add configuration only when you need custom
-roots, excludes, scopes, entrypoints, output directories, or gated detectors.
-
-You get three files under `logicchart-out/`:
+No `init` step is required. LogicChart analyzes `.` by default and writes:
 
 | File | Purpose |
 |---|---|
-| `logic-flow.json` | canonical model, consumed by the CLI and MCP; **commit it** |
-| `logic-flow.md` | reviewable Mermaid flowcharts + a findings list; **commit it** |
-| `logic-flow.html` | navigable local viewer (tree + expand-in-place canvas + source/findings); regenerated, git-ignored |
+| `logicchart-out/logic-flow.json` | canonical model consumed by CLI and MCP; commit it |
+| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings; commit it |
+| `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
 
-In the Markdown report, `VERIFIED` / `INFERRED` findings sit in the main section and
-`POTENTIAL_GAP` review candidates are folded under a collapsible block (`--include-gaps`
-expands it). A file that can't be parsed is skipped and reported, never aborting the run.
+For development inside this repository:
+
+```bash
+uv sync --extra dev --extra mcp
+uv run logicchart --help
+```
+
+## The 30-Second Example
+
+This Next.js route switches on `user.status` but forgets a declared enum member:
+
+```ts
+switch (user.status) {
+  case UserStatus.ACTIVE: return Response.json(user);
+  case UserStatus.SUSPENDED: return new Response("Blocked", { status: 403 });
+  // UserStatus.DELETED is declared but never handled
+}
+```
+
+`logicchart analyze` reports:
+
+```text
+- WARNING · INFERRED · enum_exhaustiveness Declared UserStatus members not handled for user.status: UserStatus.DELETED
+```
+
+`INFERRED` means a deterministic heuristic over a declared closed set, not a guess. Run the
+bundled [`examples/demo`](examples/demo) project to see the same finding in an 11-language,
+3-scope codebase.
+
+## Large Codebases
+
+LogicChart is designed for broad frontend/backend repositories, not only small scripts.
+
+- **Scopes:** declare `backend`, `frontend`, `edge`, `services`, or any macro-part once, then
+  filter `query`, `impact`, and the viewer by that scope.
+- **Incremental updates:** changed files are content-hashed and cached under `.logicchart/`.
+- **Generated-code avoidance:** defaults skip common dependency/build trees such as
+  `node_modules`, `.next`, `.turbo`, `.svelte-kit`, `dist`, `build`, `out`, `target`,
+  `coverage`, `vendor`, `Pods`, generated declarations, protobuf outputs, and minified JS.
+- **Viewer scale:** the canvas opens at scope level, expands one scope to file groups, then
+  unfolds one flow's decision chart in place. It does not dump every flow node into the DOM
+  at once.
+- **Bounded source payload:** the HTML embeds source snippets once per file and caps very
+  large functions, so the viewer stays usable offline.
+
+Use `.logicchartignore` or `logicchart.toml` when a repo has project-specific generated
+paths.
+
+## Viewer
+
+```bash
+logicchart view
+```
+
+The viewer is a single local HTML file plus a temporary local server. It shows:
+
+- A left codebase tree with flow search and language filtering.
+- A central canvas with scope-level, file-level, and flow-level navigation.
+- Expand-in-place decision flowcharts, so a flow can be studied without losing its
+  surrounding codebase context.
+- A synchronized source panel and logical-errors panel.
+- Finding density on scope/file nodes, useful for scanning large systems.
+- Light/dark theme, pan/zoom, reset, full-screen canvas, and responsive side panels.
+
+Use `--render-only` to write `logic-flow.html` without serving it.
+
+## Supported Code
+
+LogicChart currently extracts control flow for **11 language ids**:
+
+| Language | Coverage |
+|---|---|
+| Python (`.py`) | full AST analyzer |
+| TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection |
+| JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript |
+| Go (`.go`) | profile-driven tree-sitter analyzer |
+| Java (`.java`) | profile-driven tree-sitter analyzer, including Spring route annotations |
+| C# (`.cs`) | profile-driven tree-sitter analyzer |
+| PHP (`.php`) | profile-driven tree-sitter analyzer |
+| C (`.c`, `.h`) | profile-driven tree-sitter analyzer |
+| C++ (`.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx`, `.ipp`, `.tpp`) | profile-driven tree-sitter analyzer |
+| Rust (`.rs`) | profile-driven tree-sitter analyzer; Rust `match` is treated as compiler-exhaustive |
+| Ruby (`.rb`) | profile-driven tree-sitter analyzer |
+
+Framework-aware entry points include:
+
+- FastAPI routes
+- Next.js route handlers, middleware, server actions, pages, and layouts
+- Shallow React components, hooks, and event handlers
+- Spring route handlers
+- Public/exported functions, package-level functions and methods, CLI commands, and tests
+
+A new control-flow language is a `LanguageProfile` plus a registry entry, not a new
+pipeline.
 
 ## Commands
 
-Every command takes the project path as a positional argument (default `.`). Examples below
-run against the bundled [`examples/demo`](examples/demo).
+Every command takes the project path as a positional argument unless it has `--path`.
+The default project path is `.`.
 
-### `analyze`: build the model
+### `analyze`
 
-```bash
-logicchart analyze examples/demo --full
-```
-```text
-Analyzed 14 files: 25 flows, 1 finding.
-Incremental cache: 0 hits, 14 changed, 0 deleted.
-Wrote .../logic-flow.json
-Wrote .../logic-flow.md
-Wrote .../logic-flow.html
-```
-`--full` ignores the incremental cache; `--no-html` skips the viewer; `--include-gaps`
-expands the review-only findings in the Markdown. Use `--profile demo`, `--profile self`, or
-`--profile project` when you want the public example artifact, a dogfood map of LogicChart's
-own internals, or a whole-checkout map written to separate output directories.
-
-### `update`: incrementally refresh
+Build the model and write JSON, Markdown, and HTML:
 
 ```bash
-logicchart update examples/demo
+logicchart analyze . --full
 ```
-Re-analyzes only the files whose contents changed (content-hash cache), then rewrites the
-JSON and Markdown. Commit those two files after a substantial change.
 
-### `query`: ask the model a question
+Useful flags:
+
+- `--full`: ignore the incremental cache.
+- `--no-html`: skip the viewer artifact.
+- `--include-gaps`: expand review-only `POTENTIAL_GAP` findings in Markdown.
+- `--profile demo|self|project`: use one of the built-in repository profiles.
+
+### `update`
+
+Incrementally refresh changed files:
 
 ```bash
-logicchart query "where is suspended user status handled?" --path examples/demo
+logicchart update .
 ```
-```text
-1. POST [route] frontend/app/api/users/route.ts:4
-   score=19 · `user` appears in a decision or action; `user` appears in a review finding; `status` appears in a decision or action
-2. statusLabel [function] frontend/lib/status.js:3
-   score=13 · `suspended` appears in a decision or action; `status` matches the flow identity; `status` appears in a decision or action
-```
-Ranks the flows most relevant to a behavior, state, or decision. Add `--json` for
-machine-readable output. Query ranking uses flow identity, path/scope/language structure,
-decision metadata, and finding text, so agent-style questions can target more than just
-labels. Restrict with `--scope`, `--language`, or `--finding-kind`:
+
+After substantial source changes, commit the refreshed `logic-flow.json` and
+`logic-flow.md`.
+
+### `query`
+
+Ask the model where behavior is handled:
 
 ```bash
-logicchart query "order status" --path examples/demo --scope backend
-logicchart query "enum exhaustiveness" --path examples/demo --finding-kind enum_exhaustiveness
+logicchart query "where is suspended user status handled?"
+logicchart query "order status" --scope backend
+logicchart query "enum exhaustiveness" --finding-kind enum_exhaustiveness
+logicchart query "routes" --language typescript
 ```
 
-### `impact`: what does a change touch?
+Use `--json` for machine-readable output.
+
+### `impact`
+
+See which flows a change touches:
 
 ```bash
-logicchart impact backend/users.py --path examples/demo
+logicchart impact backend/users.py
+logicchart impact --scope frontend
 ```
-```text
-Changed files: 1
-Directly impacted flows: 3
-Transitively impacted flows: 0
-Related review findings: 0
 
-Direct impact:
-- Repository.fetch (backend/users.py:9)
-- get_user (backend/users.py:23)
-- load_user (backend/users.py:32)
-```
-With no file arguments it uses `git diff` to infer what changed. `--scope <name>` limits the
-impact set to one macro-part.
+With no file arguments, `impact` uses `git diff` to infer changed files.
 
-### `view`: navigable codebase viewer
+### `validate`
 
-```bash
-logicchart view examples/demo
-```
-Renders `logic-flow.html` and serves it at `http://127.0.0.1:8765/logic-flow.html`: one navigable model of the
-whole codebase. The left rail is the directory tree; the center is an **expand-in-place
-canvas** (scope super-nodes unfold into a scope's flows, and a flow unfolds into its decision
-chart, in place); the right column shows the selected flow's **source** and its **logical
-errors**. The left rail includes flow search and language filtering; the errors panel includes
-a prioritized review queue. Selecting a block, a source line, a tree file, or a finding
-highlights the others, and a full-screen toggle maximizes the canvas. Add `--render-only` to
-write the HTML without serving.
-
-![LogicChart interactive viewer showing the codebase tree, expandable canvas, selected flow, and synchronized source/finding panels.](docs/assets/logicchart-viewer.png)
-
-### `validate`: check the artifact contract
+Check the artifact contract:
 
 ```bash
 logicchart validate
 logicchart validate --check-sync
 ```
 
-Validates `logic-flow.json` against the bundled schema and the current analyzer registry.
-`--check-sync` re-analyzes sources and fails if the committed model is stale.
+`--check-sync` re-analyzes sources and fails if the committed JSON model is stale.
 
-### `doctor`: check the active install
+### `doctor`
+
+Check the active install and parser dependencies:
 
 ```bash
 logicchart doctor
 ```
 
-Checks that the `logicchart` command you are running can import every runtime parser
-dependency. This catches stale editable installs after dependency changes and prints the
-repair command for the active Python interpreter.
+This is useful after dependency changes or stale editable installs.
 
-### `init` / `install` / `mcp`
+### `init`, `install`, and `mcp`
 
-These commands are optional. Use them after the first successful analysis when you want
-project configuration, persistent agent instructions, or MCP integration.
+These are optional:
 
 ```bash
 logicchart init
@@ -219,84 +235,13 @@ logicchart install
 logicchart mcp .
 ```
 
-## Whole codebase and scopes
-
-One model can hold an entire polyglot repo. Declare the macro-parts once, and every command
-(and the viewer) can be restricted to one of them:
-
-```toml
-[logicchart.scopes]
-backend  = ["backend/**", "services/**"]
-frontend = ["frontend/**", "web/**"]
-edge     = ["edge/**", "workers/**"]
-```
-
-With no `[logicchart.scopes]` block, the top-level directory is the inferred scope, so a
-codebase splits into backend/frontend/edge-style parts out of the box. Pass `--scope
-<name>` to `query` and `impact`, and use the scope and language filters in the viewer, to
-reason about one part at a time or the whole system at once. Every flow records the scope(s)
-it belongs to, and the Markdown header summarizes the breakdown (e.g. `backend (16) · edge
-(3) · frontend (6)`).
-
-## Supported Code
-
-**Languages: 10 for control flow.** Control flow (functions,
-methods, `if` / `else`, `switch` / `match`, exceptions, returns, and the internal calls that
-link flows) is extracted from:
-
-| | |
-|---|---|
-| **Python** (`.py`) | full AST analyzer |
-| **TypeScript / TSX** (`.ts`, `.tsx`) and **JavaScript** (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer |
-| **Go** (`.go`), **Java** (`.java`), **C#** (`.cs`), **PHP** (`.php`), **C** (`.c`, `.h`), **Rust** (`.rs`), **Ruby** (`.rb`) | profile-driven tree-sitter engine |
-
-A new control-flow language is a small *profile* (grammar vocabulary + a few extractors), not
-a bespoke analyzer, so coverage grows without forking the pipeline. Language-specific
-correctness is respected: e.g. a Rust `match` is compiler-exhaustive, so it is never flagged
-for a missing `default`.
-
-**Framework-aware entry points:**
-
-- FastAPI routes
-- Next.js route handlers, middleware, server actions, pages, and layouts
-- Shallow React components, hooks, and event handlers
-- Public/exported functions, package-level functions and methods, CLI commands, and tests
-
-**Limitations (by design):** LogicChart does not run your code, trace runtime behavior, do
-full symbolic execution, or reconstruct deep React state. "Shallow" React means it reads the
-structure of a component and its hooks, not what they render across re-renders; treat those
-findings as review candidates. It maps each entry point's own control flow plus the internal
-calls that connect flows, not arbitrarily deep call chains.
-
-## Evidence Levels
-
-- `VERIFIED`: directly extracted from syntax or framework conventions.
-- `INFERRED`: produced by an explainable deterministic heuristic.
-- `POTENTIAL_GAP`: a review candidate, never automatically treated as a bug.
-
-## Finding Kinds
-
-Single-flow (reason about one flow):
-
-- `missing_branch`: a `match` / `switch` or `if` / `elif` chain on a state-like subject with no explicit `else` / `default`.
-- `dead_code`: code after a point where every path already returned or raised.
-- `broad_except_swallow`: an exception handler that silently discards the error: an empty body or one that only logs it, with no re-raise or error return.
-- `no_op_branch`: an explicit `if` branch with an empty body.
-- `asymmetric_return`: a dispatch where most cases return/raise but one falls through (a likely missing return).
-- `dead_guard`: a truthiness guard on a module-level boolean constant, so one branch is always dead.
-
-Cross-flow (compare sibling flows):
-
-- `inconsistent_case_handling`: a value a strict majority of sibling flows branching on the same subject and enum/union handle, but which this flow omits with no explicit default.
-- `enum_exhaustiveness`: a flow dispatches on a declared enum (handling several members) but omits other declared members, with no explicit default.
-- `outcome_inconsistency`: the same `subject == value` condition resolves to a different outcome here (e.g. raise 404) than the majority of sibling flows (e.g. raise 410).
-- `logging_asymmetry`: a guard that a sibling flow logs/alerts on while rejecting (raising) is handled silently here.
-- `auth_divergence` (gated, opt-in via `gated_detectors`): an entry point that skips the authorization check its file-mates perform. Middleware/DI can authorize invisibly, so it is a review candidate.
+- `init` creates a starter `logicchart.toml`.
+- `install` writes persistent agent instructions to supported project files.
+- `mcp` starts the optional MCP server over stdio.
 
 ## Configuration
 
-LogicChart works without a config file. Run `logicchart init` only when the defaults are not
-enough; it creates:
+LogicChart works without config. Add `logicchart.toml` only when defaults are not enough:
 
 ```toml
 [logicchart]
@@ -312,24 +257,16 @@ gated_detectors = false
 include = []
 exclude = []
 
-# Named macro-parts of the codebase (otherwise the top-level directory is the scope):
-# [logicchart.scopes]
-# backend = ["backend/**", "services/**"]
-# frontend = ["frontend/**", "web/**"]
-# edge = ["edge/**", "workers/**"]
+[logicchart.scopes]
+backend = ["backend/**", "services/**"]
+frontend = ["frontend/**", "web/**"]
+edge = ["edge/**", "workers/**"]
 ```
 
-`gated_detectors` (default `false`) enables opt-in, review-tier detectors such as
-`auth_divergence` that are more prone to false positives (middleware/DI can authorize
-invisibly), so they are off unless you turn them on.
+With no `[logicchart.scopes]`, top-level directories become inferred scopes. A file can
+belong to multiple declared scopes.
 
-`self_exclude` (default `true`) keeps LogicChart's own installed package (and, when you
-analyze its source checkout, its `tests/`) out of the generated model, so the artifact is
-never polluted by the tool scanning its own internals.
-
-Use `.logicchartignore` for generated files or directories that should not be analyzed.
-
-Built-in profiles are shortcuts layered on top of config and ignore rules:
+Built-in profiles:
 
 | Profile | Source roots | Output directory | Use |
 |---|---|---|---|
@@ -337,89 +274,79 @@ Built-in profiles are shortcuts layered on top of config and ignore rules:
 | `self` | `src/logicchart` | `logicchart-out/self/` | dogfood map for LogicChart internals |
 | `project` | `src`, `tests`, `examples` | `logicchart-out/project/` | whole-checkout map for agents |
 
-## Advanced: agents and MCP
+## Findings
 
-> Optional: start with Quick Start above. These wire LogicChart into coding agents and tooling.
-> The recommended architecture is CLI-first, MCP-enhanced: use commands for the explicit
-> artifact lifecycle and MCP for agent-native, token-bounded context retrieval.
+Evidence levels:
 
-### Agent instructions
+- `VERIFIED`: directly extracted from syntax or framework conventions.
+- `INFERRED`: produced by an explainable deterministic heuristic.
+- `POTENTIAL_GAP`: a review candidate, never automatically treated as a bug.
 
-Install persistent instructions that tell coding agents to consult and refresh LogicChart:
+Single-flow findings:
+
+- `missing_branch`
+- `dead_code`
+- `broad_except_swallow`
+- `no_op_branch`
+- `asymmetric_return`
+- `dead_guard`
+
+Cross-flow findings:
+
+- `inconsistent_case_handling`
+- `enum_exhaustiveness`
+- `outcome_inconsistency`
+- `logging_asymmetry`
+- `auth_divergence` when `gated_detectors = true`
+
+## Limitations
+
+LogicChart does not run your code, trace runtime behavior, perform full symbolic execution,
+or reconstruct deep React state. It maps each entry point's own control flow plus internal
+call links that can be resolved statically. Treat `POTENTIAL_GAP` findings as review
+candidates.
+
+## Agents and MCP
+
+LogicChart is CLI-first and MCP-enhanced. Use CLI commands for the explicit artifact
+lifecycle; use MCP for token-bounded agent context retrieval.
+
+Install persistent instructions:
 
 ```bash
 logicchart install
-logicchart install --mcp-config codex  # optional: also write project-scoped MCP config
+logicchart install --mcp-config codex
 ```
 
-This updates supported project-level files:
+Supported instruction targets:
 
 - `AGENTS.md` for Codex
 - `CLAUDE.md` for Claude Code
 - `GEMINI.md` for Gemini CLI
 - `.cursor/rules/logicchart.mdc` for Cursor
 
-Use `--platform codex`, `claude`, `gemini`, or `cursor` to install one target only.
-Use `--mcp-config codex`, `claude`, `cursor`, or `all` when you also want project-scoped
-MCP configuration generated for clients that support it.
-
-### MCP server
-
-Install the optional MCP dependency (from the source checkout, since LogicChart is not on
-PyPI yet):
+Install the optional MCP dependency from this source checkout:
 
 ```bash
-uv tool install '.[mcp]'   # or, for development: uv sync --extra mcp
+uv tool install '.[mcp]'
 ```
 
-Start the stdio server in the analyzed project:
+Start the server in the analyzed project:
 
 ```bash
 logicchart mcp .
 ```
 
-`logicchart install --mcp-config ...` can generate this for supported clients. The underlying
-stdio shape is:
-
-```json
-{
-  "mcpServers": {
-    "logicchart": {
-      "command": "logicchart",
-      "args": ["mcp", "/absolute/path/to/project"]
-    }
-  }
-}
-```
-
-Available tools:
-
-- `logicchart_summary`: flow/entrypoint counts and findings by kind/severity/evidence
-- `list_flows`
-- `get_flow`
-- `query_logic`
-- `get_findings`
-- `explain_finding_chain`: the deterministic evidence chain behind one finding
-- `where_state_handled`: every flow branching on a domain/value-namespace and the values it covers
-- `find_decision_nodes`: structured search over decision nodes (domain/subject/missing-fallback)
-- `analyze_impact`
-- `review_queue`: prioritized findings for the current scope or whole model
-- `context_pack`: compact summary + query + impact + review context for an agent turn
-- `validate_artifacts`
-- `update_logicchart`
-
-Every query/list tool accepts a `token_budget` cap so an agent can bound how much context a
-single call returns.
+Available MCP tools include summary, flow listing, flow retrieval, query, findings,
+finding-chain explanation, state-handling lookup, decision-node search, impact analysis,
+review queue, context pack, artifact validation, and artifact update.
 
 ## Roadmap
 
-Planned future evolutions, premature for an early, solo-maintained project but a natural fit
-once a team is using LogicChart in earnest:
+Planned future evolutions:
 
-- **CI diff gate**: compare two `logic-flow.json` snapshots and fail a pull request when a
-  finding is newly introduced (with SARIF output for code scanning).
-- **Git auto-sync hooks**: managed post-commit and post-checkout hooks (plus a union merge
-  driver for `logic-flow.json`) that keep the committed model fresh automatically.
+- CI diff gate for introduced findings, including SARIF output.
+- Managed git auto-sync hooks and a merge strategy for `logic-flow.json`.
 
 ## Development
 
@@ -428,6 +355,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy
 uv run pytest --cov
+uv build
 ```
 
 The canonical artifact format is documented by
@@ -437,6 +365,5 @@ The canonical artifact format is documented by
 
 Apache License 2.0. See [LICENSE](LICENSE).
 
-LogicChart was created by Ferdinando Bonsegna. If you use, fork, or build on it,
-please keep the [`NOTICE`](NOTICE) file intact and credit the project with a link
-back to this repository.
+LogicChart was created by Ferdinando Bonsegna. If you use, fork, or build on it, please keep
+the [NOTICE](NOTICE) file intact and credit the project with a link back to this repository.

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "logicchart"
 version = "0.5.0"
-description = "Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 10 languages, no API key."
+description = "Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 11 languages, no API key."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -19,6 +19,7 @@ keywords = [
   "mcp",
   "python",
   "typescript",
+  "cpp",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -39,6 +40,7 @@ dependencies = [
   "jsonschema>=4.23",
   "tree-sitter>=0.25.2,<0.26",
   "tree-sitter-c>=0.23,<0.24",
+  "tree-sitter-cpp>=0.23,<0.24",
   "tree-sitter-c-sharp>=0.23,<0.24",
   "tree-sitter-go>=0.23,<0.24",
   "tree-sitter-java>=0.23,<0.24",

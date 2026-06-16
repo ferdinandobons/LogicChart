@@ -66,6 +66,12 @@ def _make_c(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
     return build_analyzer(root, config)
 
 
+def _make_cpp(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
+    from logicchart.analysis.languages.cpp import build_analyzer
+
+    return build_analyzer(root, config)
+
+
 def _make_rust(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
     from logicchart.analysis.languages.rust import build_analyzer
 
@@ -89,6 +95,7 @@ LANGUAGES: tuple[LanguageSpec, ...] = (
     LanguageSpec("csharp", (".cs",), _make_csharp),
     LanguageSpec("php", (".php",), _make_php),
     LanguageSpec("c", (".c", ".h"), _make_c),
+    LanguageSpec("cpp", (".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ipp", ".tpp"), _make_cpp),
     LanguageSpec("rust", (".rs",), _make_rust),
     LanguageSpec("ruby", (".rb",), _make_ruby),
 )

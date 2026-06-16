@@ -19,7 +19,8 @@ def test_known_suffixes_map_to_languages() -> None:
     assert language_for(Path("a/b.py")) == "python"
     assert language_for(Path("a/b.ts")) == "typescript"
     assert language_for(Path("a/b.tsx")) == "typescript"
-    assert {".py", ".ts", ".tsx"} <= supported_suffixes()
+    assert language_for(Path("a/b.cpp")) == "cpp"
+    assert {".py", ".ts", ".tsx", ".cpp", ".hpp"} <= supported_suffixes()
 
 
 def test_unknown_suffix_is_rejected() -> None:
@@ -39,12 +40,13 @@ def test_project_analyzer_dispatches_and_caches(tmp_path: Path) -> None:
     (tmp_path / "b.ts").write_text(
         "export function g(x: number) {\n  return x;\n}\n", encoding="utf-8"
     )
+    (tmp_path / "c.cpp").write_text("int h(int x) { return x; }\n", encoding="utf-8")
     analyzer = ProjectAnalyzer(tmp_path)
     model = analyzer.analyze(full=True).model
     languages = {flow.language for flow in model.flows}
-    assert {"python", "typescript"} <= languages
+    assert {"python", "typescript", "cpp"} <= languages
     # Analyzers are cached lazily, one per language actually seen.
-    assert set(analyzer._analyzers) == {"python", "typescript"}
+    assert set(analyzer._analyzers) == {"python", "typescript", "cpp"}
 
 
 def _config(root: Path):

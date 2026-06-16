@@ -6,6 +6,20 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added C++ control-flow support for `.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx`, `.ipp`,
+  and `.tpp` files.
+
+### Changed
+
+- Improved large-codebase defaults by excluding more common dependency caches, build output,
+  and generated-code patterns during discovery.
+- Refined the HTML viewer for broad codebase study with scope/file finding density, a
+  responsive details-panel toggle, and an empty state for tree search/filter misses.
+- Restructured the README around project purpose, quick start, scale behavior, viewer usage,
+  and supported languages.
+
 ## 0.5.0 - 2026-06-16
 
 ### Added
@@ -95,8 +109,8 @@ whole-codebase one - 10 control-flow languages plus Terraform, organized by macr
 
 ### Examples & fixes
 
-- `examples/demo` is now a polyglot "users & orders" platform spanning all 11 languages
-  across backend/frontend/edge/infra scopes, with Terraform infrastructure.
+- `examples/demo` is now a polyglot "users & orders" platform spanning all 10
+  control-flow languages plus Terraform/HCL across backend/frontend/edge/infra scopes.
 - `analyze` summary wording: "{n} finding(s)" instead of the ungrammatical, misleading
   "{n} review findings".
 

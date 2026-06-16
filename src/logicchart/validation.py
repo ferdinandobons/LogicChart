@@ -84,9 +84,17 @@ def validate_logicchart(
 
 
 def schema_language_ids(schema: dict[str, Any]) -> tuple[str, ...]:
+    return _schema_language_ids(schema, "flow")
+
+
+def schema_file_language_ids(schema: dict[str, Any]) -> tuple[str, ...]:
+    return _schema_language_ids(schema, "file")
+
+
+def _schema_language_ids(schema: dict[str, Any], definition: str) -> tuple[str, ...]:
     flow_language = (
         schema.get("$defs", {})
-        .get("flow", {})
+        .get(definition, {})
         .get("properties", {})
         .get("language", {})
         .get("enum", [])
@@ -110,11 +118,13 @@ def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) ->
         return
 
     schema_languages = set(schema_language_ids(schema))
+    schema_file_languages = set(schema_file_language_ids(schema))
     supported = set(supported_language_ids())
-    if schema_languages != supported:
+    if schema_languages != supported or schema_file_languages != supported:
         report.add_error(
-            "Schema language enum is out of sync with registry: "
-            f"schema={sorted(schema_languages)} registry={sorted(supported)}"
+            "Schema language enums are out of sync with registry: "
+            f"flow={sorted(schema_languages)} file={sorted(schema_file_languages)} "
+            f"registry={sorted(supported)}"
         )
 
     try:

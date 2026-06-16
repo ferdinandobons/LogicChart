@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-16T14:37:14.613484+00:00",
+  "generated_at": "2026-06-16T15:57:15.021924+00:00",
   "root": ".",
   "flows": [
     {
@@ -2284,6 +2284,864 @@
         "async": true,
         "test": false,
         "decorators": [],
+        "performs_auth_check": false,
+        "scope": [
+          "examples"
+        ]
+      }
+    },
+    {
+      "id": "flow-87070415acedeac3",
+      "name": "NativePolicy.ttl",
+      "symbol": "examples.demo.edge.native:NativePolicy.ttl",
+      "language": "cpp",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/demo/edge/native/policy.cpp",
+        "start_line": 11,
+        "end_line": 25
+      },
+      "nodes": [
+        {
+          "id": "flow-87070415acedeac3:n1",
+          "kind": "entry",
+          "label": "NativePolicy.ttl",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 11,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.demo.edge.native:NativePolicy.ttl",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n2",
+          "kind": "decision",
+          "label": "degraded",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "degraded",
+          "metadata": {
+            "condition": "degraded",
+            "domain": "",
+            "values": [],
+            "subject": "degraded",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n3",
+          "kind": "terminal",
+          "label": "Return 30",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 30;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n4",
+          "kind": "decision",
+          "label": "Switch on tier",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 15,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "tier",
+            "domain": "",
+            "values": [
+              "CacheTier",
+              "Cold",
+              "Hot",
+              "Warm"
+            ],
+            "subject": "tier",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "CacheTier::Cold",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "CacheTier::Warm",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "CacheTier::Hot",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n5",
+          "kind": "terminal",
+          "label": "Return 60",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 60;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n6",
+          "kind": "terminal",
+          "label": "Return 300",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 300;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n7",
+          "kind": "terminal",
+          "label": "Return 900",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 21,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 900;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-87070415acedeac3:n8",
+          "kind": "terminal",
+          "label": "Return 120",
+          "location": {
+            "path": "examples/demo/edge/native/policy.cpp",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 120;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-87070415acedeac3:e1",
+          "source": "flow-87070415acedeac3:n1",
+          "target": "flow-87070415acedeac3:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-87070415acedeac3:e2",
+          "source": "flow-87070415acedeac3:n2",
+          "target": "flow-87070415acedeac3:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-87070415acedeac3:e3",
+          "source": "flow-87070415acedeac3:n2",
+          "target": "flow-87070415acedeac3:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-87070415acedeac3:e4",
+          "source": "flow-87070415acedeac3:n4",
+          "target": "flow-87070415acedeac3:n5",
+          "label": "CacheTier::Cold",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-87070415acedeac3:e5",
+          "source": "flow-87070415acedeac3:n4",
+          "target": "flow-87070415acedeac3:n6",
+          "label": "CacheTier::Warm",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-87070415acedeac3:e6",
+          "source": "flow-87070415acedeac3:n4",
+          "target": "flow-87070415acedeac3:n7",
+          "label": "CacheTier::Hot",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-87070415acedeac3:e7",
+          "source": "flow-87070415acedeac3:n4",
+          "target": "flow-87070415acedeac3:n8",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "examples"
+        ]
+      }
+    },
+    {
+      "id": "flow-cec003912c47415e",
+      "name": "edge.AdmissionControl.allow",
+      "symbol": "examples.demo.edge.native:edge.AdmissionControl.allow",
+      "language": "cpp",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/demo/edge/native/admission.cpp",
+        "start_line": 13,
+        "end_line": 21
+      },
+      "nodes": [
+        {
+          "id": "flow-cec003912c47415e:n1",
+          "kind": "entry",
+          "label": "edge.AdmissionControl.allow",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 13,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.demo.edge.native:edge.AdmissionControl.allow",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cec003912c47415e:n2",
+          "kind": "decision",
+          "label": "!request.authenticated",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "!request.authenticated",
+          "metadata": {
+            "condition": "!request.authenticated",
+            "domain": "",
+            "values": [],
+            "subject": "request.authenticated",
+            "operator": "",
+            "negation": true,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cec003912c47415e:n3",
+          "kind": "terminal",
+          "label": "Return false",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "return false;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cec003912c47415e:n4",
+          "kind": "decision",
+          "label": "request.shard < 0",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "request.shard < 0",
+          "metadata": {
+            "condition": "request.shard < 0",
+            "domain": "",
+            "values": [],
+            "subject": "request.shard < 0",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cec003912c47415e:n5",
+          "kind": "terminal",
+          "label": "Return false",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 18,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "return false;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cec003912c47415e:n6",
+          "kind": "call",
+          "label": "Call route()",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "return route(request.shard) != \"reject\";",
+          "metadata": {
+            "calls": [
+              "route"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.demo.edge.native:route"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-1dedc799025d3620"
+            ],
+            "target_flow": "flow-1dedc799025d3620",
+            "target_symbol": "examples.demo.edge.native:edge.AdmissionControl.route"
+          }
+        },
+        {
+          "id": "flow-cec003912c47415e:n7",
+          "kind": "terminal",
+          "label": "Return route(request.shard) != \"reject\"",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "return route(request.shard) != \"reject\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-cec003912c47415e:e1",
+          "source": "flow-cec003912c47415e:n1",
+          "target": "flow-cec003912c47415e:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cec003912c47415e:e2",
+          "source": "flow-cec003912c47415e:n2",
+          "target": "flow-cec003912c47415e:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cec003912c47415e:e3",
+          "source": "flow-cec003912c47415e:n2",
+          "target": "flow-cec003912c47415e:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cec003912c47415e:e4",
+          "source": "flow-cec003912c47415e:n4",
+          "target": "flow-cec003912c47415e:n5",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cec003912c47415e:e5",
+          "source": "flow-cec003912c47415e:n4",
+          "target": "flow-cec003912c47415e:n6",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cec003912c47415e:e6",
+          "source": "flow-cec003912c47415e:n6",
+          "target": "flow-cec003912c47415e:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-1dedc799025d3620"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "examples"
+        ]
+      }
+    },
+    {
+      "id": "flow-a660cd9b5ca2b50d",
+      "name": "edge.AdmissionControl.retry_budget",
+      "symbol": "examples.demo.edge.native:edge.AdmissionControl.retry_budget",
+      "language": "cpp",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/demo/edge/native/admission.cpp",
+        "start_line": 34,
+        "end_line": 42
+      },
+      "nodes": [
+        {
+          "id": "flow-a660cd9b5ca2b50d:n1",
+          "kind": "entry",
+          "label": "edge.AdmissionControl.retry_budget",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 34,
+            "end_line": 42
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.demo.edge.native:edge.AdmissionControl.retry_budget",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:n2",
+          "kind": "decision",
+          "label": "request.warm_cache && attempts < 2",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 35,
+            "end_line": 35
+          },
+          "evidence": "VERIFIED",
+          "detail": "request.warm_cache && attempts < 2",
+          "metadata": {
+            "condition": "request.warm_cache && attempts < 2",
+            "domain": "",
+            "values": [],
+            "subject": "request.warm_cache && attempts < 2",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:n3",
+          "kind": "terminal",
+          "label": "Return 2 - attempts",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 36,
+            "end_line": 36
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 2 - attempts;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:n4",
+          "kind": "decision",
+          "label": "!request.warm_cache && attempts == 0",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 38,
+            "end_line": 38
+          },
+          "evidence": "VERIFIED",
+          "detail": "!request.warm_cache && attempts == 0",
+          "metadata": {
+            "condition": "!request.warm_cache && attempts == 0",
+            "domain": "",
+            "values": [],
+            "subject": "request.warm_cache && attempts",
+            "operator": "==",
+            "negation": true,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:n5",
+          "kind": "terminal",
+          "label": "Return 1",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 39,
+            "end_line": 39
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 1;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:n6",
+          "kind": "terminal",
+          "label": "Return 0",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 41,
+            "end_line": 41
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 0;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-a660cd9b5ca2b50d:e1",
+          "source": "flow-a660cd9b5ca2b50d:n1",
+          "target": "flow-a660cd9b5ca2b50d:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:e2",
+          "source": "flow-a660cd9b5ca2b50d:n2",
+          "target": "flow-a660cd9b5ca2b50d:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:e3",
+          "source": "flow-a660cd9b5ca2b50d:n2",
+          "target": "flow-a660cd9b5ca2b50d:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:e4",
+          "source": "flow-a660cd9b5ca2b50d:n4",
+          "target": "flow-a660cd9b5ca2b50d:n5",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a660cd9b5ca2b50d:e5",
+          "source": "flow-a660cd9b5ca2b50d:n4",
+          "target": "flow-a660cd9b5ca2b50d:n6",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "examples"
+        ]
+      }
+    },
+    {
+      "id": "flow-1dedc799025d3620",
+      "name": "edge.AdmissionControl.route",
+      "symbol": "examples.demo.edge.native:edge.AdmissionControl.route",
+      "language": "cpp",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/demo/edge/native/admission.cpp",
+        "start_line": 23,
+        "end_line": 32
+      },
+      "nodes": [
+        {
+          "id": "flow-1dedc799025d3620:n1",
+          "kind": "entry",
+          "label": "edge.AdmissionControl.route",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 23,
+            "end_line": 32
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.demo.edge.native:edge.AdmissionControl.route",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1dedc799025d3620:n2",
+          "kind": "decision",
+          "label": "Switch on shard % 3",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 24,
+            "end_line": 31
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "shard % 3",
+            "domain": "",
+            "values": [
+              "0",
+              "1"
+            ],
+            "subject": "shard % 3",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "0",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "1",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1dedc799025d3620:n3",
+          "kind": "terminal",
+          "label": "Return \"primary\"",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 26,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"primary\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1dedc799025d3620:n4",
+          "kind": "terminal",
+          "label": "Return \"secondary\"",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 28,
+            "end_line": 28
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"secondary\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1dedc799025d3620:n5",
+          "kind": "terminal",
+          "label": "Return \"overflow\"",
+          "location": {
+            "path": "examples/demo/edge/native/admission.cpp",
+            "start_line": 30,
+            "end_line": 30
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"overflow\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-1dedc799025d3620:e1",
+          "source": "flow-1dedc799025d3620:n1",
+          "target": "flow-1dedc799025d3620:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1dedc799025d3620:e2",
+          "source": "flow-1dedc799025d3620:n2",
+          "target": "flow-1dedc799025d3620:n3",
+          "label": "0",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1dedc799025d3620:e3",
+          "source": "flow-1dedc799025d3620:n2",
+          "target": "flow-1dedc799025d3620:n4",
+          "label": "1",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1dedc799025d3620:e4",
+          "source": "flow-1dedc799025d3620:n2",
+          "target": "flow-1dedc799025d3620:n5",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-cec003912c47415e"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
         "performs_auth_check": false,
         "scope": [
           "examples"
@@ -10181,6 +11039,24 @@
       ]
     },
     {
+      "path": "examples/demo/edge/native/admission.cpp",
+      "language": "cpp",
+      "sha256": "e5fd79f61592037a584835c5655400ac1b00140f380221d131a233e8893a08a4",
+      "flow_ids": [
+        "flow-cec003912c47415e",
+        "flow-1dedc799025d3620",
+        "flow-a660cd9b5ca2b50d"
+      ]
+    },
+    {
+      "path": "examples/demo/edge/native/policy.cpp",
+      "language": "cpp",
+      "sha256": "bf42aec6d75b68c6fc72265a80fc7cb004600dc12e7d5875e68eb44aa5a7e3b7",
+      "flow_ids": [
+        "flow-87070415acedeac3"
+      ]
+    },
+    {
       "path": "examples/demo/edge/router/src/lib.rs",
       "language": "rust",
       "sha256": "a4705e097ad7dcf738b14602de0d26ffa1eed7315d0325a4a1d437832ab71a4d",
@@ -10377,6 +11253,7 @@
   "metadata": {
     "languages": [
       "c",
+      "cpp",
       "csharp",
       "go",
       "java",
@@ -10387,8 +11264,8 @@
       "rust",
       "typescript"
     ],
-    "entrypoint_count": 43,
-    "flow_count": 52,
+    "entrypoint_count": 47,
+    "flow_count": 56,
     "finding_count": 12,
     "enums": {
       "csharp": {},
@@ -10431,6 +11308,7 @@
         ]
       },
       "c": {},
+      "cpp": {},
       "rust": {},
       "typescript": {
         "UserStatus": [
@@ -10462,7 +11340,7 @@
       "javascript": {}
     },
     "scopes": {
-      "examples": 52
+      "examples": 56
     }
   }
 }

@@ -47,6 +47,7 @@ RUNTIME_DEPENDENCIES = (
     RuntimeDependency("tree-sitter-go", "tree_sitter_go", "Go"),
     RuntimeDependency("tree-sitter-java", "tree_sitter_java", "Java"),
     RuntimeDependency("tree-sitter-php", "tree_sitter_php", "PHP"),
+    RuntimeDependency("tree-sitter-cpp", "tree_sitter_cpp", "C++"),
     RuntimeDependency("tree-sitter-ruby", "tree_sitter_ruby", "Ruby"),
     RuntimeDependency("tree-sitter-rust", "tree_sitter_rust", "Rust"),
 )

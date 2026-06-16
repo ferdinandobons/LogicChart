@@ -109,6 +109,10 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert match is not None
     payload = json.loads(match.group(1).replace("<\\/", "</"))
     assert isinstance(payload["scope_edges"], list)
+    # A focused scope should be a clean workspace: unrelated scope nodes are not kept as
+    # dimmed residual nodes inside L1. Scope switching is driven by the tree/breadcrumb.
+    assert "residualPos" not in html
+    assert "focusScope" in html
 
 
 def test_render_html_wires_inline_decision_expansion(tmp_path: Path) -> None:
@@ -139,6 +143,8 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert "prioritizedFindings" in html
     # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
     assert 'data-action="fullscreen"' in html
+    assert 'id="detailButton"' in html
+    assert 'id="detailsClose"' in html
     assert "aria-pressed" in html
     # The shared selection store the four surfaces publish/subscribe through.
     assert "LC.select" in html
@@ -195,6 +201,33 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # Full-screen canvas hides rails, so the rail menu must not remain as a no-op control.
     assert "body[data-fullscreen] #menuButton" in html
 
+    # Narrow-view study mode keeps the canvas primary: source/findings are a stateful
+    # details drawer, and the canvas level is mirrored onto the body for responsive styling.
+    assert "setRightRailOpen(" in html
+    assert "data-detail-open" in html
+    assert "data-nav-open" in html
+    assert "dataset.canvasLevel" in html
+    assert "translateY(100%)" in html
+
     # Language filtering is tree-local; changing it while a deep canvas selection is active
     # must clear the deep selection instead of leaving tree/canvas on different worlds.
     assert "clearCanvasSelectionForLanguageFilter" in html
+
+    # Opening a top-level tree directory that is also a scope should focus the canvas on
+    # that scope, instead of only expanding the tree while the canvas remains global.
+    assert "scopeNames.has(node.path)" in html
+    # Revealing the active flow in the tree is programmatic; it must not fire the same
+    # scope-focus side effect as an intentional user click, or #flow deep links collapse
+    # back to #scope while the inline decision graph is open.
+    assert "suppressScopeFocus" in html
+
+    # Large-codebase scan aids: scope/file finding density and tree empty state for
+    # search/filter misses should stay wired into the static viewer assets.
+    assert "scopeStats(" in html
+    assert "findingCountForPath(" in html
+    assert "No matching flows" in html
+
+    # Canvas component polish: edge labels are readable pills and decision blocks carry a
+    # compact semantic kind badge, so dense flowcharts retain their visual grammar.
+    assert "edge-label-bg" in html
+    assert "node-kind-badge" in html

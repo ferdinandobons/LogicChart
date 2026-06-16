@@ -62,6 +62,9 @@
     const svg = document.getElementById("canvas");
     const rightRail = document.getElementById("rightRail");
     const leftRail = document.getElementById("leftRail");
+    const detailButton = document.getElementById("detailButton");
+    const detailsClose = document.getElementById("detailsClose");
+    const menuButton = document.getElementById("menuButton");
     const themeToggleBtn = document.getElementById("themeToggle");
     let activeFlow = null;
     let view = { x: 0, y: 0, width: 1000, height: 800 };
@@ -71,6 +74,31 @@
     const manualPositions = new Map();
     // Element references for the currently rendered flow, for selection highlighting.
     let currentRender = null;
+
+    function setCanvasLevel(level) {
+      const value = String(level);
+      svg.setAttribute("data-level", value);
+      document.body.dataset.canvasLevel = value;
+    }
+
+    function setLeftRailOpen(open) {
+      leftRail.classList.toggle("open", !!open);
+      document.body.toggleAttribute("data-nav-open", !!open);
+    }
+
+    function setRightRailOpen(open) {
+      rightRail.classList.toggle("open", !!open);
+      document.body.toggleAttribute("data-detail-open", !!open);
+      if (detailButton) {
+        detailButton.setAttribute("aria-pressed", open ? "true" : "false");
+        detailButton.title = open ? "Hide source and findings" : "Show source and findings";
+      }
+    }
+
+    function eventTargetIsTextInput(event) {
+      const target = event.target;
+      return !!(target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || ""));
+    }
 
     document.getElementById("flowCount").textContent = flows.length;
     document.getElementById("entryCount").textContent = flows.filter(item => item.is_entrypoint).length;
@@ -107,7 +135,7 @@
         inspectFlow(flow);
         if (window.LC.onCanvasFlow) window.LC.onCanvasFlow(flow);
       }
-      leftRail.classList.remove("open");
+      setLeftRailOpen(false);
       // Let other inlined scripts (e.g. tree.js) reflect the active flow.
       if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
     }
@@ -166,6 +194,48 @@
         labelX: (start.x + end.x) / 2 + 7,
         labelY: middleY - 6,
       };
+    }
+
+    function edgeLabel(text, geometry) {
+      const value = String(text);
+      const width = Math.max(30, value.length * 7 + 18);
+      const group = svgEl("g");
+      group.setAttribute("class", "edge-label-wrap");
+      group.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
+      const bg = svgEl("rect");
+      bg.setAttribute("class", "edge-label-bg");
+      bg.setAttribute("x", String(-width / 2));
+      bg.setAttribute("y", "-12");
+      bg.setAttribute("width", String(width));
+      bg.setAttribute("height", "20");
+      bg.setAttribute("rx", "10");
+      const label = svgEl("text");
+      label.setAttribute("class", "edge-label");
+      label.setAttribute("text-anchor", "middle");
+      label.setAttribute("y", "4");
+      label.textContent = value;
+      group.append(bg, label);
+      return group;
+    }
+
+    function nodeKindBadge(kind) {
+      const labelText = kind === "terminal" ? "outcome" : String(kind || "node");
+      const width = Math.max(48, labelText.length * 6 + 16);
+      const group = svgEl("g");
+      group.setAttribute("class", "node-kind-badge");
+      group.setAttribute("transform", "translate(0 -30)");
+      const bg = svgEl("rect");
+      bg.setAttribute("x", String(-width / 2));
+      bg.setAttribute("y", "-9");
+      bg.setAttribute("width", String(width));
+      bg.setAttribute("height", "18");
+      bg.setAttribute("rx", "9");
+      const text = svgEl("text");
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("y", "4");
+      text.textContent = labelText;
+      group.append(bg, text);
+      return group;
     }
 
     // Decision-flow defs (shadow filters + arrow marker). canvas.js draws its own copy
@@ -235,11 +305,7 @@
         edgeLayer.appendChild(path);
         let label = null;
         if (edge.label) {
-          label = svgEl("text");
-          label.setAttribute("class", "edge-label");
-          label.setAttribute("x", String(geometry.labelX));
-          label.setAttribute("y", String(geometry.labelY));
-          label.textContent = edge.label;
+          label = edgeLabel(edge.label, geometry);
           edgeLayer.appendChild(label);
         }
         const record = { edge, path, label };
@@ -256,10 +322,7 @@
           if (!start || !end) return;
           const geometry = edgeGeometry(start, end);
           path.setAttribute("d", geometry.d);
-          if (label) {
-            label.setAttribute("x", String(geometry.labelX));
-            label.setAttribute("y", String(geometry.labelY));
-          }
+          if (label) label.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
         });
       }
 
@@ -328,6 +391,7 @@
         const shape = nodeShape(node.kind);
         shape.setAttribute("class", "shape");
         group.appendChild(shape);
+        group.appendChild(nodeKindBadge(node.kind));
         const lines = wrapLabel(node.label, node.kind === "decision" ? 25 : 31);
         lines.forEach((line, index) => {
           const text = svgEl("text");
@@ -367,7 +431,7 @@
       svg.replaceChildren();
       // The L2 decision chart is canvas level 2; keep the level attribute correct so a
       // reader (or test) can tell which level is on screen (L0 scopes / L1 flows / L2).
-      svg.setAttribute("data-level", "2");
+      setCanvasLevel("2");
       if (!flow.nodes.length) {
         document.getElementById("emptyState").style.display = "grid";
         currentRender = null;
@@ -446,7 +510,7 @@
     // duplicated here); the source panel highlights the node's source line(s) and the
     // errors panel lists the node's findings, both via the same store.
     function inspectNode(flow, node) {
-      rightRail.classList.add("open");
+      setRightRailOpen(true);
       LC.select({ flowId: flow.id, nodeId: node.id, path: node.location.path, findingId: null });
     }
 
@@ -500,7 +564,27 @@
         LC.resetCanvas();
       }
     });
-    document.getElementById("menuButton").addEventListener("click", () => leftRail.classList.toggle("open"));
+    if (menuButton) {
+      menuButton.addEventListener("click", () => setLeftRailOpen(!leftRail.classList.contains("open")));
+    }
+    if (detailButton) {
+      detailButton.addEventListener("click", () => setRightRailOpen(!rightRail.classList.contains("open")));
+    }
+    if (detailsClose) {
+      detailsClose.addEventListener("click", () => setRightRailOpen(false));
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Escape" || eventTargetIsTextInput(event)) return;
+      if (rightRail.classList.contains("open")) {
+        setRightRailOpen(false);
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (leftRail.classList.contains("open")) {
+        setLeftRailOpen(false);
+        event.stopImmediatePropagation();
+      }
+    });
 
     svg.addEventListener("wheel", event => {
       event.preventDefault();
@@ -552,6 +636,7 @@
     // work for BOTH renderers untouched (generic over `view`).
     LC.renderFlow = renderFlow;
     LC.svg = svg;
+    LC.setCanvasLevel = setCanvasLevel;
     LC.setView = v => { view = v; updateViewBox(); };
     LC.updateViewBox = updateViewBox;
     LC.getView = () => view;

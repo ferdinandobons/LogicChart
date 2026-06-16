@@ -9,6 +9,7 @@ set), while genuine test files are still recognized.
 from __future__ import annotations
 
 from logicchart.analysis.languages.c import _is_test as c_is_test
+from logicchart.analysis.languages.cpp import _is_test as cpp_is_test
 from logicchart.analysis.languages.csharp import _is_test as csharp_is_test
 from logicchart.analysis.languages.java import _is_test as java_is_test
 from logicchart.analysis.languages.php import _is_test as php_is_test
@@ -37,6 +38,15 @@ def test_c_real_function_named_like_test_is_not_a_test() -> None:
     assert c_is_test("tests/network.c", "anything")
     assert c_is_test("src/test_network.c", "anything")
     assert c_is_test("src/network_test.c", "anything")
+
+
+def test_cpp_real_function_named_like_test_is_not_a_test() -> None:
+    assert not cpp_is_test("src/network.cpp", "test_connection")
+    assert not cpp_is_test("src/contest.cpp", "score")
+    assert not cpp_is_test("src/latest/router.hpp", "route")
+    assert cpp_is_test("tests/network.cpp", "anything")
+    assert cpp_is_test("src/test_network.cpp", "anything")
+    assert cpp_is_test("src/network_test.hpp", "anything")
 
 
 def test_rust_real_function_named_like_test_is_not_a_test() -> None:

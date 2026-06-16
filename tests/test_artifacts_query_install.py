@@ -11,7 +11,11 @@ from logicchart.config import LogicChartConfig
 from logicchart.install import END, START, install_agent_instructions, install_mcp_config
 from logicchart.query import impact_model, query_model
 from logicchart.util import read_json
-from logicchart.validation import schema_language_ids, validate_logicchart
+from logicchart.validation import (
+    schema_file_language_ids,
+    schema_language_ids,
+    validate_logicchart,
+)
 
 
 def test_artifacts_query_impact_and_agent_install(tmp_path: Path) -> None:
@@ -39,6 +43,7 @@ def get_user(user_id: str):
     artifact = read_json(json_path)
     Draft202012Validator(schema).validate(artifact)
     assert schema_language_ids(schema) == supported_language_ids()
+    assert schema_file_language_ids(schema) == supported_language_ids()
     assert artifact["root"] == "."
     assert str(tmp_path) not in markdown_path.read_text(encoding="utf-8")
     assert str(tmp_path) in html_path.read_text(encoding="utf-8")

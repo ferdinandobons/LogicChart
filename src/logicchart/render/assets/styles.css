@@ -20,6 +20,7 @@
       --tool: rgba(255, 255, 255, 0.92);
       --finding-bg: #fff7e6;
       --finding-error-bg: #ffefef;
+      --drawer-backdrop: rgba(12, 19, 32, .22);
       /* Text on a saturated accent fill (tier badges). White reads on the deep light-theme
          accents; dark mode overrides it because its accents are lighter. */
       --on-accent: #ffffff;
@@ -56,6 +57,7 @@
       --tool: rgba(20, 29, 48, 0.92);
       --finding-bg: #2a2412;
       --finding-error-bg: #2e1a1d;
+      --drawer-backdrop: rgba(0, 0, 0, .44);
       /* Dark theme accents are lighter (cyan/blue/coral above), so dark text on a badge
          reads better than white -- keep the badge label legible in both themes. */
       --on-accent: #0c1320;
@@ -371,6 +373,13 @@
       transition: border-color .15s ease, transform .15s ease;
     }
     .tool:hover, .tool:focus-visible { border-color: var(--blue); outline: none; transform: translateY(-1px); }
+    .tool[aria-pressed="true"],
+    body[data-detail-open] .detail-tool {
+      border-color: var(--blue);
+      color: var(--blue);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue), transparent 82%);
+    }
+    .detail-tool { display: none; font-weight: 800; font-family: ui-serif, Georgia, serif; }
     #canvas { width: 100%; height: 100%; cursor: grab; user-select: none; -webkit-user-select: none; }
     #canvas.dragging { cursor: grabbing; }
     .empty {
@@ -441,11 +450,28 @@
     .node.dragging .shape { filter: url(#nodeLift); }
     .node.selected .shape { stroke-width: 3.4; filter: url(#nodeLift); }
     .node.dimmed { opacity: .26; }
+    .node-kind-badge {
+      pointer-events: none;
+    }
     .node text {
       fill: var(--ink);
       font-size: 13px;
       font-weight: 650;
       pointer-events: none;
+    }
+    .node .node-kind-badge rect {
+      fill: var(--panel);
+      stroke: var(--line);
+      stroke-width: 1;
+      filter: url(#nodeShadow);
+    }
+    .node .node-kind-badge text {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
     }
     .node .meta {
       fill: var(--muted);
@@ -459,17 +485,22 @@
     .edge { fill: none; stroke: var(--edge); stroke-width: 2; marker-end: url(#arrow); transition: stroke .18s ease, opacity .18s ease; }
     .edge.incident { stroke: var(--blue); stroke-width: 2.6; }
     .edge.dimmed { opacity: .18; }
+    .edge-label-wrap { transition: opacity .18s ease; pointer-events: none; }
+    .edge-label-wrap.dimmed { opacity: .18; }
+    .edge-label-bg {
+      fill: var(--panel);
+      stroke: var(--line);
+      stroke-width: 1;
+      opacity: .94;
+    }
     .edge-label {
-      fill: var(--muted);
+      fill: var(--ink);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 10px;
-      font-weight: 700;
-      paint-order: stroke;
-      stroke: var(--paper);
-      stroke-width: 6px;
-      transition: opacity .18s ease;
+      font-weight: 800;
+      letter-spacing: .03em;
+      text-transform: uppercase;
     }
-    .edge-label.dimmed { opacity: .18; }
     .decision-spine { stroke: var(--cyan); opacity: .16; stroke-width: 5; stroke-dasharray: 3 10; }
 
     /* --- Codebase canvas (L0 scopes / L1 files+flows) ------------------------- */
@@ -507,7 +538,7 @@
     }
     .crumb.current { color: var(--ink); border-color: var(--line-strong); cursor: default; }
     .crumb-sep { color: var(--muted); font-size: 11px; }
-    /* Scope super-node (L0, and residual at L1). */
+    /* Scope super-node (L0 codebase overview). */
     .scope-node { cursor: pointer; }
     .scope-node .shape {
       fill: var(--fill-call);
@@ -523,8 +554,7 @@
       outline: 2px solid var(--blue);
       outline-offset: 2px;
     }
-    .scope-node.dimmed .shape { fill: var(--panel-2); stroke: var(--line-strong); opacity: .7; }
-    .scope-node.dimmed { opacity: .8; }
+    .scope-node.has-finding .shape { stroke: var(--coral); }
     .scope-node .scope-name {
       fill: var(--ink);
       font-size: 15px;
@@ -536,6 +566,15 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 10px;
       font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .scope-node .scope-review {
+      fill: var(--coral);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 750;
       letter-spacing: .05em;
       text-transform: uppercase;
       pointer-events: none;
@@ -552,6 +591,7 @@
     }
     .file-box:hover .file-frame { stroke: var(--blue); }
     .file-box.expanded .file-frame { stroke: var(--line-strong); }
+    .file-box.has-finding .file-frame { stroke: var(--coral); }
     /* Distinct theme-aware keyboard focus ring on the chip frame. */
     .file-box:focus-visible { outline: none; }
     .file-box:focus-visible .file-frame {
@@ -585,6 +625,18 @@
       font-weight: 700;
       pointer-events: none;
     }
+    .file-review-dot {
+      fill: var(--coral);
+      stroke: var(--panel-2);
+      stroke-width: 2;
+      pointer-events: none;
+    }
+    .tree-empty-state {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
     /* Flow node (L1). Reuses .node base; entry/action fills below. Canvas nodes open a
        flow on click -- they are NOT drag-to-arrange (that is out of scope for Phase 2),
        so the cursor is a pointer, overriding the L2-only .node{cursor:grab}. */
@@ -614,6 +666,40 @@
        long snippet or a long findings list scrolls inside its panel and never pushes
        the other off-screen. */
     .right-rail .rail-inner { display: flex; flex-direction: column; min-height: 0; }
+    .detail-drawer-head {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      flex: none;
+    }
+    .panel-close {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+    }
+    .panel-close:hover,
+    .panel-close:focus-visible {
+      border-color: var(--blue);
+      color: var(--blue);
+      outline: none;
+    }
     .panel {
       display: flex;
       flex-direction: column;
@@ -817,7 +903,6 @@
 
     /* --- Full-screen canvas (Phase 4.5) --------------------------------------- */
     /* The toggle is aria-pressed; show its pressed state distinctly. */
-    .tool[aria-pressed="true"] { border-color: var(--blue); color: var(--blue); }
     /* In-page maximize fallback (when the Fullscreen API is unavailable or rejected):
        the <main> canvas covers the viewport and the side rails are hidden. The browser
        Fullscreen API path maximizes <main> itself, so the same panel-hiding applies via
@@ -847,25 +932,55 @@
 
     @media (max-width: 1050px) {
       .shell { grid-template-columns: 262px minmax(0,1fr); }
+      body[data-detail-open] main::after,
+      body[data-nav-open] main::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        background: var(--drawer-backdrop);
+        pointer-events: none;
+      }
       .right-rail {
         position: fixed;
         right: 0;
         top: 78px;
         bottom: 0;
-        width: 322px;
+        width: min(420px, calc(100vw - 72px));
         z-index: 5;
         box-shadow: var(--shadow);
         transform: translateX(100%);
         transition: transform .2s ease;
       }
       .right-rail.open { transform: translateX(0); }
+      .detail-drawer-head { display: flex; }
       .metrics { display: none; }
+      .detail-tool { display: grid; place-items: center; }
     }
     @media (max-width: 700px) {
       .shell { grid-template-columns: 1fr; }
       header { padding: 0 14px; }
       .brand { min-width: 0; }
       .brand small, .flow-heading { display: none; }
+      .canvas-toolbar {
+        top: 14px;
+        right: 10px;
+        gap: 4px;
+      }
+      .tool {
+        min-width: 36px;
+        height: 36px;
+        border-radius: 9px;
+      }
+      .breadcrumb {
+        top: 14px;
+        left: 10px;
+        max-width: calc(100% - 170px);
+      }
+      .crumb {
+        padding: 5px 9px;
+        font-size: 10px;
+      }
       .left-rail {
         position: fixed;
         left: 0;
@@ -877,6 +992,30 @@
         transform: translateX(-100%);
       }
       .left-rail.open { transform: translateX(0); }
+      .right-rail {
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        height: min(68vh, 640px);
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 16px 16px 0 0;
+        transform: translateY(100%);
+      }
+      .right-rail.open { transform: translateY(0); }
+      .right-rail .rail-inner { max-height: 100%; }
+      .panel-head { padding: 12px 16px 8px; }
+      .panel-body { padding: 10px 12px; }
+      .source-scroll { padding: 6px 0; }
+      .code-line {
+        grid-template-columns: 34px 1fr;
+        gap: 9px;
+        padding: 0 10px;
+      }
+      .panel-source { flex: 1 1 58%; }
+      .panel-errors { flex: 0 1 42%; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }

@@ -161,6 +161,7 @@
             "csharp",
             "php",
             "c",
+            "cpp",
             "rust",
             "ruby"
           ]
@@ -277,6 +278,7 @@
             "csharp",
             "php",
             "c",
+            "cpp",
             "rust",
             "ruby"
           ]
