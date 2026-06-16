@@ -247,6 +247,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "edge-label-bg" in html
     assert "edgePathLayer" in html
     assert "edgeLabelLayer" in html
+    assert "branch-exit-chip" in html
+    assert "horizontalLabelX" in html
     assert "FLOW_LAYER_Y" in html
     assert "FLOW_SIBLING_X" in html
     assert "node-kind-badge" in html

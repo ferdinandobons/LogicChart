@@ -383,16 +383,29 @@
       return kind === "decision" ? FLOW_DECISION_HALF_H : FLOW_RECT_HALF_H;
     }
 
-    // Single source for an edge's curved path + label anchor, reused on first render and
-    // live during a node drag so connected edges follow.
+    function horizontalLabelX(startX, endX) {
+      const dx = endX - startX;
+      if (Math.abs(dx) < 24) return startX + 7;
+      return startX + dx * 0.34;
+    }
+
+    // Single source for an edge's orthogonal path + label anchor, reused on first render
+    // and live during a node drag so connected edges follow. The path is intentionally
+    // flowchart-like: leave through a lower port, travel on a horizontal branch lane, then
+    // enter the target from above.
     function edgeGeometry(start, end, startKind, endKind) {
-      const startY = start.y + nodeHalfHeight(startKind) + EDGE_START_CLEARANCE;
-      const endY = end.y - nodeHalfHeight(endKind) - EDGE_END_CLEARANCE;
-      const middleY = (startY + endY) / 2;
+      const startPortY = start.y + nodeHalfHeight(startKind);
+      const endPortY = end.y - nodeHalfHeight(endKind);
+      const verticalRoom = endPortY - startPortY;
+      const branchY = verticalRoom > EDGE_START_CLEARANCE + EDGE_END_CLEARANCE + 20
+        ? startPortY + EDGE_START_CLEARANCE
+        : startPortY + verticalRoom / 2;
+      const labelIsExitChip = startKind === "decision";
       return {
-        d: `M ${start.x} ${startY} C ${start.x} ${middleY}, ${end.x} ${middleY}, ${end.x} ${endY}`,
-        labelX: (start.x + end.x) / 2 + 7,
-        labelY: middleY - 6,
+        d: `M ${start.x} ${startPortY} L ${start.x} ${branchY} L ${end.x} ${branchY} L ${end.x} ${endPortY}`,
+        labelX: labelIsExitChip ? horizontalLabelX(start.x, end.x) : (start.x + end.x) / 2 + 7,
+        labelY: branchY - 8,
+        exitChip: labelIsExitChip,
       };
     }
 
@@ -400,7 +413,7 @@
       const value = String(text);
       const width = Math.max(30, value.length * 7 + 18);
       const group = svgEl("g");
-      group.setAttribute("class", "edge-label-wrap");
+      group.setAttribute("class", `edge-label-wrap${geometry.exitChip ? " branch-exit-chip" : ""}`);
       group.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
       const bg = svgEl("rect");
       bg.setAttribute("class", "edge-label-bg");

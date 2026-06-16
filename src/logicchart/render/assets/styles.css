@@ -523,7 +523,15 @@
       text-transform: uppercase;
     }
     .arrow { fill: var(--edge); transition: fill .18s ease; }
-    .edge { fill: none; stroke: var(--edge); stroke-width: 2; marker-end: url(#arrow); transition: stroke .18s ease, opacity .18s ease; }
+    .edge {
+      fill: none;
+      stroke: var(--edge);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      marker-end: url(#arrow);
+      transition: stroke .18s ease, opacity .18s ease;
+    }
     .edge.incident { stroke: var(--blue); stroke-width: 2.6; }
     .edge.dimmed { opacity: .18; }
     .edge-label-wrap { transition: opacity .18s ease; pointer-events: none; }
@@ -533,6 +541,10 @@
       stroke: var(--line);
       stroke-width: 1;
       opacity: .94;
+    }
+    .branch-exit-chip .edge-label-bg {
+      fill: var(--chip);
+      stroke: var(--line-strong);
     }
     .edge-label {
       fill: var(--ink);
