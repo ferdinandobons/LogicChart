@@ -14,6 +14,8 @@ The project follows Semantic Versioning.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
 - Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
+- Added deterministic model-quality metrics, exposed through generated metadata,
+  `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
 
 ### Changed
 

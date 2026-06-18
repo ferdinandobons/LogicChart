@@ -15,6 +15,7 @@ from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
 from logicchart.install import install_all
+from logicchart.quality import render_quality
 from logicchart.query import (
     git_changed_files,
     impact_model,
@@ -108,6 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-analyze sources and fail if logic-flow.json is stale.",
     )
     validate.add_argument("--json", action="store_true", dest="json_output")
+    validate.add_argument(
+        "--quality",
+        action="store_true",
+        help="Include deterministic analysis-quality metrics in the report.",
+    )
     _add_profile_argument(validate)
 
     doctor = subparsers.add_parser("doctor", help="Check the active LogicChart installation.")
@@ -177,7 +183,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "init":
             return _init(Path(args.path))
         if args.command == "validate":
-            return _validate(Path(args.path), args.check_sync, args.json_output, args.profile)
+            return _validate(
+                Path(args.path),
+                args.check_sync,
+                args.json_output,
+                args.quality,
+                args.profile,
+            )
         if args.command == "doctor":
             return _doctor(Path(args.path), args.json_output)
         if args.command == "mcp":
@@ -337,10 +349,21 @@ def _view(
     return 0
 
 
-def _validate(root: Path, check_sync: bool, json_output: bool, profile: str | None = None) -> int:
+def _validate(
+    root: Path,
+    check_sync: bool,
+    json_output: bool,
+    include_quality: bool,
+    profile: str | None = None,
+) -> int:
     root = root.resolve()
     config = LogicChartConfig.load(root, profile=profile)
-    report = validate_logicchart(root, config=config, check_sync=check_sync)
+    report = validate_logicchart(
+        root,
+        config=config,
+        check_sync=check_sync,
+        include_quality=include_quality,
+    )
     if json_output:
         print(json.dumps(report.to_dict(), indent=2))
     else:
@@ -350,6 +373,8 @@ def _validate(root: Path, check_sync: bool, json_output: bool, profile: str | No
             print(f"warning: {warning}")
         for error in report.errors:
             print(f"error: {error}", file=sys.stderr)
+        if report.quality is not None:
+            print(render_quality(report.quality))
     return 0 if report.ok else 1
 
 

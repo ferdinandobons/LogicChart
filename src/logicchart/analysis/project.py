@@ -27,6 +27,7 @@ from logicchart.model import (
     NodeKind,
     ProjectModel,
 )
+from logicchart.quality import model_quality
 from logicchart.util import (
     compact_text,
     file_sha256,
@@ -251,6 +252,7 @@ class ProjectAnalyzer:
             },
         )
         enrich_model_diagnostics(model)
+        model.metadata["quality"] = model_quality(model)
         return model
 
     def _link_calls(self, flows: list[Flow]) -> None:

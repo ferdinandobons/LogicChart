@@ -15409,6 +15409,211 @@
           "Document the intentional divergence when the route contract differs."
         ]
       }
+    },
+    "quality": {
+      "files": {
+        "total": 17,
+        "by_language": {
+          "csharp": 1,
+          "java": 1,
+          "c": 1,
+          "php": 1,
+          "cpp": 2,
+          "ruby": 1,
+          "go": 1,
+          "rust": 1,
+          "python": 1,
+          "typescript": 6,
+          "javascript": 1
+        },
+        "empty": 3
+      },
+      "flows": {
+        "total": 62,
+        "non_test": 62,
+        "entrypoints": 37,
+        "by_language": {
+          "csharp": 4,
+          "java": 3,
+          "c": 1,
+          "php": 3,
+          "cpp": 4,
+          "ruby": 8,
+          "go": 6,
+          "rust": 3,
+          "python": 7,
+          "typescript": 21,
+          "javascript": 2
+        },
+        "by_entry_kind": {
+          "method": 29,
+          "function": 25,
+          "route": 6,
+          "component": 2
+        },
+        "per_file": {
+          "min": 1,
+          "max": 11,
+          "avg": 4.43
+        },
+        "huge": []
+      },
+      "calls": {
+        "total": 74,
+        "resolved": 45,
+        "unresolved": 27,
+        "ambiguous": 2,
+        "low_confidence": 2,
+        "resolution_rate": 0.6081
+      },
+      "findings": {
+        "total": 2,
+        "by_kind": {
+          "enum_exhaustiveness": 2
+        },
+        "by_severity": {
+          "warning": 2
+        },
+        "by_evidence": {
+          "INFERRED": 2
+        }
+      },
+      "labels": {
+        "generic_nodes": 74,
+        "generic_ratio": 0.1741,
+        "sample": [
+          {
+            "flow_id": "flow-b226bde59bf18f8f",
+            "node_id": "flow-b226bde59bf18f8f:n4",
+            "label": "Call IsPublic()",
+            "source": "backend/auth/AuthService.cs:19"
+          },
+          {
+            "flow_id": "flow-a089159bd40801b9",
+            "node_id": "flow-a089159bd40801b9:n3",
+            "label": "Call capture()",
+            "source": "backend/billing/BillingService.java:16"
+          },
+          {
+            "flow_id": "flow-b702de640dfbab12",
+            "node_id": "flow-b702de640dfbab12:n4",
+            "label": "Call restockTarget()",
+            "source": "backend/catalog/Catalog.php:13"
+          },
+          {
+            "flow_id": "flow-b702de640dfbab12",
+            "node_id": "flow-b702de640dfbab12:n6",
+            "label": "Call restockTarget()",
+            "source": "backend/catalog/Catalog.php:15"
+          },
+          {
+            "flow_id": "flow-6f7cced97788e7a5",
+            "node_id": "flow-6f7cced97788e7a5:n8",
+            "label": "Call route()",
+            "source": "backend/native/admission.cpp:24"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n3",
+            "label": "Call send_email()",
+            "source": "backend/notifications/notifier.rb:7"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n4",
+            "label": "Call send_sms()",
+            "source": "backend/notifications/notifier.rb:9"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n5",
+            "label": "Call send_push()",
+            "source": "backend/notifications/notifier.rb:11"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n6",
+            "label": "Call write_inbox()",
+            "source": "backend/notifications/notifier.rb:13"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n7",
+            "label": "Call queue_for_review()",
+            "source": "backend/notifications/notifier.rb:15"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n3",
+            "label": "Call queue_for_review()",
+            "source": "backend/notifications/notifier.rb:21"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n6",
+            "label": "Call send_email()",
+            "source": "backend/notifications/notifier.rb:25"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n7",
+            "label": "Call send_push()",
+            "source": "backend/notifications/notifier.rb:27"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n8",
+            "label": "Call queue_for_review()",
+            "source": "backend/notifications/notifier.rb:29"
+          },
+          {
+            "flow_id": "flow-132416d127f7fc0d",
+            "node_id": "flow-132416d127f7fc0d:n2",
+            "label": "Call length()",
+            "source": "backend/notifications/notifier.rb:54"
+          },
+          {
+            "flow_id": "flow-a6f2cf6897eab6f4",
+            "node_id": "flow-a6f2cf6897eab6f4:n2",
+            "label": "Call length()",
+            "source": "backend/notifications/notifier.rb:36"
+          },
+          {
+            "flow_id": "flow-a6f2cf6897eab6f4",
+            "node_id": "flow-a6f2cf6897eab6f4:n3",
+            "label": "Call length()",
+            "source": "backend/notifications/notifier.rb:38"
+          },
+          {
+            "flow_id": "flow-c093a998648019e9",
+            "node_id": "flow-c093a998648019e9:n2",
+            "label": "Call length()",
+            "source": "backend/notifications/notifier.rb:46"
+          },
+          {
+            "flow_id": "flow-15929a604b30aadf",
+            "node_id": "flow-15929a604b30aadf:n2",
+            "label": "Call length()",
+            "source": "backend/notifications/notifier.rb:42"
+          },
+          {
+            "flow_id": "flow-1aa86da72d405c4b",
+            "node_id": "flow-1aa86da72d405c4b:n2",
+            "label": "Call include?()",
+            "source": "backend/notifications/notifier.rb:58"
+          }
+        ]
+      },
+      "source_locations": {
+        "nodes_with_source": 425,
+        "coverage": 1.0
+      },
+      "graph": {
+        "nodes": 425,
+        "edges": 377,
+        "edge_to_node_ratio": 0.89,
+        "dense_graph_warning": false
+      }
     }
   }
 }

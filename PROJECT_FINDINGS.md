@@ -26,6 +26,9 @@ LogicChart is in a strong alpha state.
   diagnostic inspector.
 - Phase 2 visual-context work has started: MCP can now return deterministic SVG snapshots
   for a flow, a selected finding, or an impact set without scraping the browser.
+- Analysis-quality work has started: generated models now include deterministic quality
+  metrics, `logicchart validate --quality` can print or emit them as JSON, and MCP summary
+  and artifact validation can expose them to agents.
 
 The main gap is no longer "make the canvas usable". The remaining gap is to keep raising
 logical diagnostics and agent/MCP visual context to the same level as the viewer.
@@ -407,12 +410,28 @@ Add quality metrics:
 - source snippet coverage;
 - graph density and huge-node warnings.
 
+Current checkpoint:
+
+- Generated models include `metadata.quality`.
+- `logicchart validate --quality` prints human-readable quality metrics, and
+  `--quality --json` emits them under `quality`.
+- MCP `logicchart_summary` includes quality metrics.
+- MCP `validate_artifacts(include_quality=true)` returns the same quality payload.
+
+Still open:
+
+- Persist skipped-file reasons directly in the artifact instead of only degraded empty-file
+  counts.
+- Add a language capability matrix generated from tests.
+- Surface project quality in the viewer overview.
+- Add optional CI thresholds for selected metrics.
+
 Expose these through:
 
 - `logicchart validate --quality`;
-- MCP summary;
-- viewer project overview;
-- CI optional gate.
+- Done: MCP summary;
+- Next: viewer project overview;
+- Next: CI optional gate.
 
 ## Finding 11: Logical Error UI Should Explain, Not Just List
 
@@ -484,7 +503,8 @@ Before the next release:
 - Keep `examples/shop` as tracked golden fixture.
 - Keep `examples/demo` as public polyglot viewer fixture.
 - Use private `examples/Certifexp` as local smoke test only.
-- Add language capability and quality metrics.
+- Done: add baseline analyzer quality metrics.
+- Next: add language capability matrix and viewer quality overview.
 
 ### Phase 5: Release Consolidation
 

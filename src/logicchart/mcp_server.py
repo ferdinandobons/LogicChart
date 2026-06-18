@@ -362,12 +362,15 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         }
 
     @server.tool()
-    def validate_artifacts(check_sync: bool = False) -> dict[str, Any]:
+    def validate_artifacts(
+        check_sync: bool = False, include_quality: bool = False
+    ) -> dict[str, Any]:
         """Validate the generated model and optionally check source sync."""
         return validate_logicchart(
             project_root,
             config=active_config,
             check_sync=check_sync,
+            include_quality=include_quality,
         ).to_dict()
 
     @server.tool()

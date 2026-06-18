@@ -8,6 +8,7 @@ from typing import Any
 
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
 from logicchart.model import Finding, FindingKind, Flow, NodeKind, ProjectModel
+from logicchart.quality import model_quality
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
 # ranking model is auditable and the tests can assert exact scores.
@@ -223,6 +224,7 @@ def render_impact(result: ImpactResult) -> str:
 def model_summary(model: ProjectModel) -> dict[str, Any]:
     """An orientation snapshot: counts of flows, findings by kind/severity/evidence."""
     rules = model.metadata.get("finding_rules") or finding_rule_contracts_by_kind()
+    quality = model.metadata.get("quality") or model_quality(model)
     return {
         "flows": len(model.flows),
         "entrypoints": sum(flow.is_entrypoint for flow in model.flows),
@@ -244,6 +246,7 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
             for language, members in model.metadata.get("enums", {}).items()
         },
         "scopes": model.metadata.get("scopes", {}),
+        "quality": quality,
     }
 
 

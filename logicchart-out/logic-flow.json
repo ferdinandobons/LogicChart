@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T12:55:35.813797+00:00",
+  "generated_at": "2026-06-18T13:03:44.736052+00:00",
   "root": ".",
   "flows": [
     {
@@ -22769,6 +22769,222 @@
           "Align the outcome when consistency is required.",
           "Document the intentional divergence when the route contract differs."
         ]
+      }
+    },
+    "quality": {
+      "files": {
+        "total": 33,
+        "by_language": {
+          "csharp": 1,
+          "java": 1,
+          "c": 1,
+          "php": 1,
+          "cpp": 2,
+          "ruby": 1,
+          "go": 1,
+          "rust": 1,
+          "python": 10,
+          "typescript": 13,
+          "javascript": 1
+        },
+        "empty": 4
+      },
+      "flows": {
+        "total": 89,
+        "non_test": 88,
+        "entrypoints": 62,
+        "by_language": {
+          "csharp": 4,
+          "java": 3,
+          "c": 1,
+          "php": 3,
+          "cpp": 4,
+          "ruby": 8,
+          "go": 6,
+          "rust": 3,
+          "python": 27,
+          "typescript": 27,
+          "javascript": 2
+        },
+        "by_entry_kind": {
+          "method": 30,
+          "function": 43,
+          "route": 8,
+          "component": 4,
+          "event_handler": 1,
+          "server_action": 1,
+          "middleware": 1
+        },
+        "per_file": {
+          "min": 1,
+          "max": 11,
+          "avg": 3.07
+        },
+        "huge": []
+      },
+      "calls": {
+        "total": 100,
+        "resolved": 49,
+        "unresolved": 49,
+        "ambiguous": 2,
+        "low_confidence": 2,
+        "resolution_rate": 0.49
+      },
+      "findings": {
+        "total": 13,
+        "by_kind": {
+          "no_op_branch": 1,
+          "logging_asymmetry": 1,
+          "missing_branch": 2,
+          "enum_exhaustiveness": 5,
+          "broad_except_swallow": 2,
+          "dead_guard": 1,
+          "dead_code": 1
+        },
+        "by_severity": {
+          "info": 2,
+          "warning": 11
+        },
+        "by_evidence": {
+          "INFERRED": 11,
+          "POTENTIAL_GAP": 2
+        }
+      },
+      "labels": {
+        "generic_nodes": 101,
+        "generic_ratio": 0.1695,
+        "sample": [
+          {
+            "flow_id": "flow-b25d2a1d236f82e9",
+            "node_id": "flow-b25d2a1d236f82e9:n4",
+            "label": "Call IsPublic()",
+            "source": "examples/demo/backend/auth/AuthService.cs:19"
+          },
+          {
+            "flow_id": "flow-b93c13042e022906",
+            "node_id": "flow-b93c13042e022906:n3",
+            "label": "Call capture()",
+            "source": "examples/demo/backend/billing/BillingService.java:16"
+          },
+          {
+            "flow_id": "flow-8525290305d958ad",
+            "node_id": "flow-8525290305d958ad:n4",
+            "label": "Call restockTarget()",
+            "source": "examples/demo/backend/catalog/Catalog.php:13"
+          },
+          {
+            "flow_id": "flow-8525290305d958ad",
+            "node_id": "flow-8525290305d958ad:n6",
+            "label": "Call restockTarget()",
+            "source": "examples/demo/backend/catalog/Catalog.php:15"
+          },
+          {
+            "flow_id": "flow-76b19f502b7630fd",
+            "node_id": "flow-76b19f502b7630fd:n8",
+            "label": "Call route()",
+            "source": "examples/demo/backend/native/admission.cpp:24"
+          },
+          {
+            "flow_id": "flow-0f93659c9071bb28",
+            "node_id": "flow-0f93659c9071bb28:n3",
+            "label": "Call send_email()",
+            "source": "examples/demo/backend/notifications/notifier.rb:7"
+          },
+          {
+            "flow_id": "flow-0f93659c9071bb28",
+            "node_id": "flow-0f93659c9071bb28:n4",
+            "label": "Call send_sms()",
+            "source": "examples/demo/backend/notifications/notifier.rb:9"
+          },
+          {
+            "flow_id": "flow-0f93659c9071bb28",
+            "node_id": "flow-0f93659c9071bb28:n5",
+            "label": "Call send_push()",
+            "source": "examples/demo/backend/notifications/notifier.rb:11"
+          },
+          {
+            "flow_id": "flow-0f93659c9071bb28",
+            "node_id": "flow-0f93659c9071bb28:n6",
+            "label": "Call write_inbox()",
+            "source": "examples/demo/backend/notifications/notifier.rb:13"
+          },
+          {
+            "flow_id": "flow-0f93659c9071bb28",
+            "node_id": "flow-0f93659c9071bb28:n7",
+            "label": "Call queue_for_review()",
+            "source": "examples/demo/backend/notifications/notifier.rb:15"
+          },
+          {
+            "flow_id": "flow-5fda5bdf81c4442c",
+            "node_id": "flow-5fda5bdf81c4442c:n3",
+            "label": "Call queue_for_review()",
+            "source": "examples/demo/backend/notifications/notifier.rb:21"
+          },
+          {
+            "flow_id": "flow-5fda5bdf81c4442c",
+            "node_id": "flow-5fda5bdf81c4442c:n6",
+            "label": "Call send_email()",
+            "source": "examples/demo/backend/notifications/notifier.rb:25"
+          },
+          {
+            "flow_id": "flow-5fda5bdf81c4442c",
+            "node_id": "flow-5fda5bdf81c4442c:n7",
+            "label": "Call send_push()",
+            "source": "examples/demo/backend/notifications/notifier.rb:27"
+          },
+          {
+            "flow_id": "flow-5fda5bdf81c4442c",
+            "node_id": "flow-5fda5bdf81c4442c:n8",
+            "label": "Call queue_for_review()",
+            "source": "examples/demo/backend/notifications/notifier.rb:29"
+          },
+          {
+            "flow_id": "flow-856cb6768c88d69a",
+            "node_id": "flow-856cb6768c88d69a:n2",
+            "label": "Call length()",
+            "source": "examples/demo/backend/notifications/notifier.rb:54"
+          },
+          {
+            "flow_id": "flow-559f316eb31f2a37",
+            "node_id": "flow-559f316eb31f2a37:n2",
+            "label": "Call length()",
+            "source": "examples/demo/backend/notifications/notifier.rb:36"
+          },
+          {
+            "flow_id": "flow-559f316eb31f2a37",
+            "node_id": "flow-559f316eb31f2a37:n3",
+            "label": "Call length()",
+            "source": "examples/demo/backend/notifications/notifier.rb:38"
+          },
+          {
+            "flow_id": "flow-93f5681a653f0813",
+            "node_id": "flow-93f5681a653f0813:n2",
+            "label": "Call length()",
+            "source": "examples/demo/backend/notifications/notifier.rb:46"
+          },
+          {
+            "flow_id": "flow-78196d7b3ea7c7fc",
+            "node_id": "flow-78196d7b3ea7c7fc:n2",
+            "label": "Call length()",
+            "source": "examples/demo/backend/notifications/notifier.rb:42"
+          },
+          {
+            "flow_id": "flow-48c8d4b20e3f4457",
+            "node_id": "flow-48c8d4b20e3f4457:n2",
+            "label": "Call include?()",
+            "source": "examples/demo/backend/notifications/notifier.rb:58"
+          }
+        ]
+      },
+      "source_locations": {
+        "nodes_with_source": 596,
+        "coverage": 1.0
+      },
+      "graph": {
+        "nodes": 596,
+        "edges": 527,
+        "edge_to_node_ratio": 0.88,
+        "dense_graph_warning": false
       }
     }
   }

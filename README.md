@@ -244,9 +244,13 @@ Check the artifact contract:
 ```bash
 logicchart validate
 logicchart validate --check-sync
+logicchart validate --quality --json
 ```
 
 `--check-sync` re-analyzes sources and fails if the committed JSON model is stale.
+`--quality` includes deterministic analysis metrics such as files and flows by language,
+call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
+graph density.
 
 ### `doctor`
 

@@ -7862,6 +7862,205 @@
           "Document the intentional divergence when the route contract differs."
         ]
       }
+    },
+    "quality": {
+      "files": {
+        "total": 16,
+        "by_language": {
+          "python": 9,
+          "typescript": 7
+        },
+        "empty": 1
+      },
+      "flows": {
+        "total": 27,
+        "non_test": 26,
+        "entrypoints": 25,
+        "by_language": {
+          "python": 20,
+          "typescript": 6
+        },
+        "by_entry_kind": {
+          "function": 18,
+          "event_handler": 1,
+          "component": 2,
+          "server_action": 1,
+          "route": 2,
+          "middleware": 1,
+          "method": 1
+        },
+        "per_file": {
+          "min": 1,
+          "max": 4,
+          "avg": 1.8
+        },
+        "huge": []
+      },
+      "calls": {
+        "total": 26,
+        "resolved": 3,
+        "unresolved": 23,
+        "ambiguous": 0,
+        "low_confidence": 0,
+        "resolution_rate": 0.1154
+      },
+      "findings": {
+        "total": 13,
+        "by_kind": {
+          "no_op_branch": 1,
+          "logging_asymmetry": 1,
+          "missing_branch": 2,
+          "enum_exhaustiveness": 3,
+          "broad_except_swallow": 2,
+          "dead_guard": 1,
+          "dead_code": 1,
+          "auth_divergence": 2
+        },
+        "by_severity": {
+          "info": 2,
+          "warning": 11
+        },
+        "by_evidence": {
+          "INFERRED": 9,
+          "POTENTIAL_GAP": 4
+        }
+      },
+      "labels": {
+        "generic_nodes": 27,
+        "generic_ratio": 0.1579,
+        "sample": [
+          {
+            "flow_id": "flow-1c6b6f96cffc422d",
+            "node_id": "flow-1c6b6f96cffc422d:n3",
+            "label": "Call require_role()",
+            "source": "backend/api/admin_routes.py:9"
+          },
+          {
+            "flow_id": "flow-1c6b6f96cffc422d",
+            "node_id": "flow-1c6b6f96cffc422d:n4",
+            "label": "Call do_delete()",
+            "source": "backend/api/admin_routes.py:10"
+          },
+          {
+            "flow_id": "flow-10ef2d061b27b88c",
+            "node_id": "flow-10ef2d061b27b88c:n3",
+            "label": "Call do_purge()",
+            "source": "backend/api/admin_routes.py:15"
+          },
+          {
+            "flow_id": "flow-cd39f6aa851ac8f1",
+            "node_id": "flow-cd39f6aa851ac8f1:n5",
+            "label": "Call do_cancel()",
+            "source": "backend/api/orders_routes.py:10"
+          },
+          {
+            "flow_id": "flow-5a5d9103f9740b43",
+            "node_id": "flow-5a5d9103f9740b43:n5",
+            "label": "Call build_order()",
+            "source": "backend/api/orders_routes.py:25"
+          },
+          {
+            "flow_id": "flow-9744434307d21144",
+            "node_id": "flow-9744434307d21144:n3",
+            "label": "Call build_order()",
+            "source": "backend/api/orders_routes.py:30"
+          },
+          {
+            "flow_id": "flow-663a7ab889d99781",
+            "node_id": "flow-663a7ab889d99781:n5",
+            "label": "Call do_refund()",
+            "source": "backend/api/orders_routes.py:18"
+          },
+          {
+            "flow_id": "flow-3d1dd6694cc550e9",
+            "node_id": "flow-3d1dd6694cc550e9:n7",
+            "label": "Call update_email()",
+            "source": "backend/api/users_routes.py:19"
+          },
+          {
+            "flow_id": "flow-0c047baf201f45c7",
+            "node_id": "flow-0c047baf201f45c7:n5",
+            "label": "Call issue_reset_token()",
+            "source": "backend/api/users_routes.py:10"
+          },
+          {
+            "flow_id": "flow-68d596474ebdd0a8",
+            "node_id": "flow-68d596474ebdd0a8:n4",
+            "label": "Return",
+            "source": "backend/payments_service.py:42"
+          },
+          {
+            "flow_id": "flow-68d596474ebdd0a8",
+            "node_id": "flow-68d596474ebdd0a8:n5",
+            "label": "Call gateway_capture()",
+            "source": "backend/payments_service.py:43"
+          },
+          {
+            "flow_id": "flow-50e684eafc6a8ce3",
+            "node_id": "flow-50e684eafc6a8ce3:n6",
+            "label": "Call gateway_charge()",
+            "source": "backend/payments_service.py:24"
+          },
+          {
+            "flow_id": "flow-22b5de4d1b748736",
+            "node_id": "flow-22b5de4d1b748736:n4",
+            "label": "Call log_warning()",
+            "source": "backend/payments_service.py:33"
+          },
+          {
+            "flow_id": "flow-22b5de4d1b748736",
+            "node_id": "flow-22b5de4d1b748736:n5",
+            "label": "Call alert_ops()",
+            "source": "backend/payments_service.py:34"
+          },
+          {
+            "flow_id": "flow-22b5de4d1b748736",
+            "node_id": "flow-22b5de4d1b748736:n7",
+            "label": "Call gateway_refund()",
+            "source": "backend/payments_service.py:36"
+          },
+          {
+            "flow_id": "flow-1f9ab406cb373b90",
+            "node_id": "flow-1f9ab406cb373b90:n3",
+            "label": "Call ensure_authenticated()",
+            "source": "backend/users_service.py:13"
+          },
+          {
+            "flow_id": "flow-77b21193aa0c1d4d",
+            "node_id": "flow-77b21193aa0c1d4d:n3",
+            "label": "Call charge()",
+            "source": "frontend/app/api/checkout/route.ts:6"
+          },
+          {
+            "flow_id": "flow-adbd361ae9be144a",
+            "node_id": "flow-adbd361ae9be144a:n2",
+            "label": "Call loadOrder()",
+            "source": "frontend/app/api/orders/route.ts:5"
+          },
+          {
+            "flow_id": "flow-adbd361ae9be144a",
+            "node_id": "flow-adbd361ae9be144a:n4",
+            "label": "Call Response.json()",
+            "source": "frontend/app/api/orders/route.ts:8"
+          },
+          {
+            "flow_id": "flow-adbd361ae9be144a",
+            "node_id": "flow-adbd361ae9be144a:n6",
+            "label": "Call Response.json()",
+            "source": "frontend/app/api/orders/route.ts:10"
+          }
+        ]
+      },
+      "source_locations": {
+        "nodes_with_source": 171,
+        "coverage": 1.0
+      },
+      "graph": {
+        "nodes": 171,
+        "edges": 150,
+        "edge_to_node_ratio": 0.88,
+        "dense_graph_warning": false
+      }
     }
   }
 }

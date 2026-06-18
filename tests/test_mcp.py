@@ -79,6 +79,7 @@ def authorize(user):
                 assert not summary.isError
                 assert "flows" in str(summary.content)
                 assert "finding_rules" in str(summary.content)
+                assert "quality" in str(summary.content)
 
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
@@ -108,6 +109,12 @@ def authorize(user):
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError
                 assert "ok" in str(validation.content)
+                validation_quality = await session.call_tool(
+                    "validate_artifacts",
+                    {"include_quality": True},
+                )
+                assert not validation_quality.isError
+                assert "quality" in str(validation_quality.content)
 
                 state = await session.call_tool("where_state_handled", {"domain": "role"})
                 assert not state.isError

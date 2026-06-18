@@ -11,6 +11,7 @@ from logicchart.analysis.registry import supported_language_ids
 from logicchart.artifacts import output_paths
 from logicchart.config import LogicChartConfig
 from logicchart.model import ProjectModel
+from logicchart.quality import model_quality
 from logicchart.util import read_json
 
 
@@ -20,18 +21,22 @@ class ValidationReport:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     artifact: str = ""
+    quality: dict[str, Any] | None = None
 
     def add_error(self, message: str) -> None:
         self.ok = False
         self.errors.append(message)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "ok": self.ok,
             "artifact": self.artifact,
             "errors": self.errors,
             "warnings": self.warnings,
         }
+        if self.quality is not None:
+            payload["quality"] = self.quality
+        return payload
 
 
 def validate_logicchart(
@@ -39,6 +44,7 @@ def validate_logicchart(
     *,
     config: LogicChartConfig | None = None,
     check_sync: bool = False,
+    include_quality: bool = False,
 ) -> ValidationReport:
     """Validate the persisted LogicChart artifact and optional source sync.
 
@@ -68,6 +74,8 @@ def validate_logicchart(
 
     _validate_languages(model, report)
     _validate_json_schema(artifact, report)
+    if include_quality:
+        report.quality = model.metadata.get("quality") or model_quality(model)
 
     if check_sync:
         try:
