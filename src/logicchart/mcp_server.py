@@ -184,6 +184,10 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         scope: str | None = None,
         language: str | None = None,
         finding_kind: str | None = None,
+        source_path: str | None = None,
+        symbol: str | None = None,
+        domain: str | None = None,
+        value: str | None = None,
         token_budget: int = 0,
     ) -> list[dict[str, Any]]:
         """Find flows relevant to a behavior, decision, state, or codebase question.
@@ -203,6 +207,10 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             scope,
             language=language,
             finding_kind=finding_kind,
+            source_path=source_path,
+            symbol=symbol,
+            domain=domain,
+            value=value,
         )
         return _cap([match.to_dict() for match in matches], token_budget)
 

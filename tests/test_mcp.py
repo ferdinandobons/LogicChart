@@ -92,6 +92,13 @@ def authorize(user):
                 )
                 assert not response.isError
                 assert "authorize" in str(response.content)
+                filtered_response = await session.call_tool(
+                    "query_logic",
+                    {"question": "", "symbol": flow.symbol, "source_path": "app.py"},
+                )
+                assert not filtered_response.isError
+                filtered_rows = filtered_response.structuredContent["result"]  # type: ignore[index]
+                assert [row["flow_id"] for row in filtered_rows] == [flow.id]
 
                 summary = await session.call_tool("logicchart_summary", {})
                 assert not summary.isError

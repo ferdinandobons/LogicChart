@@ -393,6 +393,8 @@ Add richer query and impact modes while preserving deterministic behavior:
 
 Current checkpoint:
 
+- `logicchart query` and MCP `query_logic` accept deterministic `source_path`, `symbol`,
+  `domain`, and `value` filters that can work without lexical query terms.
 - `logicchart impact` accepts `--flow`, `--symbol`, and `--finding` in addition to changed
   file paths, while preserving Git-diff defaults when no target is provided.
 - MCP `analyze_impact` and `get_impact_snapshot` accept the same target types.
@@ -401,7 +403,6 @@ Current checkpoint:
 
 Still open:
 
-- Add explicit source-path and state-domain query filters.
 - Add dependency-path impact once call/dependency edges carry enough precision.
 
 Optional LLM query reformulation could help map natural language to deterministic query

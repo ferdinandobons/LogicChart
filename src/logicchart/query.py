@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
-from logicchart.model import Finding, FindingKind, Flow, NodeKind, ProjectModel
+from logicchart.model import Finding, FindingKind, Flow, FlowNode, NodeKind, ProjectModel
 from logicchart.quality import model_quality
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
@@ -81,9 +81,17 @@ def query_model(
     scope: str | None = None,
     language: str | None = None,
     finding_kind: str | None = None,
+    source_path: str | None = None,
+    symbol: str | None = None,
+    domain: str | None = None,
+    value: str | None = None,
 ) -> list[QueryMatch]:
     terms = _terms(question)
-    if not terms:
+    has_structured_filter = any(
+        item is not None
+        for item in (scope, language, finding_kind, source_path, symbol, domain, value)
+    )
+    if not terms and not has_structured_filter:
         # A blank or punctuation-only question has nothing to rank against. Returning []
         # (rather than every entrypoint) makes the CLI print "No matching logic flows
         # found." instead of garbage filler.
@@ -101,6 +109,15 @@ def query_model(
         if not flow_in_scope(flow, scope):
             continue
         if language is not None and flow.language != language:
+            continue
+        filter_reasons = _structured_query_filter_reasons(
+            flow,
+            source_path=source_path,
+            symbol=symbol,
+            domain=domain,
+            value=value,
+        )
+        if filter_reasons is None:
             continue
         # Match on tokens, not substrings: "order" must not match inside "reordering".
         name_tokens = _tokenize(f"{flow.name} {flow.symbol}")
@@ -122,6 +139,8 @@ def query_model(
         ]
         if finding_kind is not None and not flow_findings:
             continue
+        if finding_kind is not None and flow_findings:
+            filter_reasons.append(f"flow has `{finding_kind}` findings")
         finding_tokens = _tokenize(
             " ".join(
                 f"{finding.kind} {finding.evidence.value} {finding.severity.value} "
@@ -147,6 +166,9 @@ def query_model(
             if term in finding_tokens:
                 score += FINDING_WEIGHT
                 reasons.append(f"`{term}` appears in a review finding")
+        if filter_reasons:
+            score += STRUCTURE_WEIGHT * len(filter_reasons)
+            reasons.extend(filter_reasons)
         # The entrypoint bonus is a tie-breaker among real matches, never a match on its
         # own: only add it once the term-overlap score is already positive.
         if score:
@@ -342,6 +364,62 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
 def flow_in_scope(flow: Flow, scope: str | None) -> bool:
     """Whether a flow belongs to the requested macro-part (None = no filter)."""
     return scope is None or scope in flow.metadata.get("scope", [])
+
+
+def _structured_query_filter_reasons(
+    flow: Flow,
+    *,
+    source_path: str | None,
+    symbol: str | None,
+    domain: str | None,
+    value: str | None,
+) -> list[str] | None:
+    reasons: list[str] = []
+    if source_path is not None:
+        needle = _normalize_path(source_path)
+        haystack = _normalize_path(flow.location.path)
+        if needle not in haystack:
+            return None
+        reasons.append(f"source path matches `{needle}`")
+    if symbol is not None:
+        if symbol not in {flow.symbol, flow.name, flow.id}:
+            return None
+        reasons.append(f"symbol/name matches `{symbol}`")
+    if domain is not None or value is not None:
+        decision = _flow_has_decision_filter(flow, domain=domain, value=value)
+        if decision is None:
+            return None
+        if domain is not None:
+            reasons.append(f"decision domain matches `{domain}`")
+        if value is not None:
+            reasons.append(f"decision value matches `{value}`")
+    return reasons
+
+
+def _flow_has_decision_filter(
+    flow: Flow, *, domain: str | None, value: str | None
+) -> FlowNode | None:
+    for node in flow.nodes:
+        if node.kind is not NodeKind.DECISION:
+            continue
+        domains = {
+            str(node.metadata.get("domain", "")),
+            str(node.metadata.get("value_namespace", "")),
+        }
+        if domain is not None and domain not in domains:
+            continue
+        if value is not None and value not in _decision_values(node):
+            continue
+        return node
+    return None
+
+
+def _decision_values(node: FlowNode) -> set[str]:
+    values = {str(item) for item in node.metadata.get("values", [])}
+    for branch in node.metadata.get("branches", []):
+        if isinstance(branch, dict):
+            values.add(str(branch.get("label", "")))
+    return values
 
 
 def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | None:

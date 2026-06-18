@@ -78,6 +78,14 @@ def build_parser() -> argparse.ArgumentParser:
     query.add_argument("--limit", type=int, default=10)
     query.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
     query.add_argument("--language", default=None, help="Restrict to one language id.")
+    query.add_argument("--source-path", default=None, help="Restrict to matching source path.")
+    query.add_argument(
+        "--symbol",
+        default=None,
+        help="Restrict to an exact flow symbol, flow name, or flow id.",
+    )
+    query.add_argument("--domain", default=None, help="Restrict to a decision domain.")
+    query.add_argument("--value", default=None, help="Restrict to a handled decision value.")
     query.add_argument(
         "--finding-kind",
         default=None,
@@ -210,6 +218,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.scope,
                 args.language,
                 args.finding_kind,
+                args.source_path,
+                args.symbol,
+                args.domain,
+                args.value,
                 args.profile,
             )
         if args.command == "view":
@@ -343,6 +355,10 @@ def _query(
     scope: str | None = None,
     language: str | None = None,
     finding_kind: str | None = None,
+    source_path: str | None = None,
+    symbol: str | None = None,
+    domain: str | None = None,
+    value: str | None = None,
     profile: str | None = None,
 ) -> int:
     root = root.resolve()
@@ -370,6 +386,10 @@ def _query(
         scope,
         language=language,
         finding_kind=finding_kind,
+        source_path=source_path,
+        symbol=symbol,
+        domain=domain,
+        value=value,
     )
     if json_output:
         print(json.dumps([item.to_dict() for item in matches], indent=2))

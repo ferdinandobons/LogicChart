@@ -174,6 +174,51 @@ def test_empty_and_punctuation_only_query_returns_empty() -> None:
     assert query_model(model, "what is the") == []
 
 
+def test_structured_query_filters_can_match_without_terms() -> None:
+    decision = FlowNode(
+        id="orders:n1",
+        kind=NodeKind.DECISION,
+        label="if order.status == OPEN",
+        location=_loc("src/orders.py", 4),
+        metadata={
+            "domain": "status",
+            "value_namespace": "OrderStatus",
+            "values": ["OPEN"],
+            "branches": [{"label": "OPEN", "outcome": "return open"}],
+        },
+    )
+    flow = Flow(
+        id="orders-flow",
+        name="handle_order",
+        symbol="api.orders:handle_order",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=_loc("src/orders.py", 1),
+        nodes=[decision],
+    )
+    model = _model([flow, _flow("other", "other", symbol="api.other:handle")])
+
+    matches = query_model(
+        model,
+        "",
+        source_path="orders.py",
+        symbol="api.orders:handle_order",
+        domain="status",
+        value="OPEN",
+    )
+
+    assert [match.flow.id for match in matches] == ["orders-flow"]
+    assert matches[0].score == 4 * 5 + ENTRYPOINT_BONUS
+    assert matches[0].reasons == [
+        "source path matches `orders.py`",
+        "symbol/name matches `api.orders:handle_order`",
+        "decision domain matches `status`",
+        "decision value matches `OPEN`",
+    ]
+
+
 def test_substring_no_longer_matches() -> None:
     """'order' must NOT match inside 'reordering_queue' (token, not substring); it must
     still match a flow whose identity contains 'order' as a whole token."""
@@ -485,3 +530,32 @@ def test_cli_impact_json_accepts_flow_target_without_changed_files(
     assert payload["target_flow_ids"] == [flow.id]
     assert payload["directly_impacted"] == [flow.id]
     assert payload["subgraph_flow_ids"] == [flow.id]
+
+
+def test_cli_query_json_accepts_structured_filters(tmp_path: Path, capsys: object) -> None:
+    root = _demo_source(tmp_path)
+    assert main(["analyze", str(root), "--full"]) == 0
+    capsys.readouterr()  # type: ignore[attr-defined]
+    flow = load_model(root).flows[0]
+
+    assert (
+        main(
+            [
+                "query",
+                "",
+                "--path",
+                str(root),
+                "--symbol",
+                flow.symbol,
+                "--source-path",
+                "app.py",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr()  # type: ignore[attr-defined]
+    payload = json.loads(out.out)
+
+    assert [row["flow_id"] for row in payload] == [flow.id]
+    assert "symbol/name matches" in payload[0]["reasons"][1]

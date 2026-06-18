@@ -225,9 +225,13 @@ logicchart query "where is suspended user status handled?"
 logicchart query "order status" --scope backend
 logicchart query "enum exhaustiveness" --finding-kind enum_exhaustiveness
 logicchart query "routes" --language typescript
+logicchart query "" --source-path app/api/orders --symbol api.orders:handle_order
+logicchart query "" --domain status --value OPEN
 ```
 
-Use `--json` for machine-readable output.
+Use `--json` for machine-readable output. Structured filters are deterministic and can
+stand on their own with an empty question: `--source-path`, `--symbol`, `--domain`, and
+`--value` narrow the model before ranking.
 
 ### `impact`
 

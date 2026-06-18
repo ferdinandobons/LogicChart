@@ -30,6 +30,8 @@ The project follows Semantic Versioning.
   evidence guardrails, and next-tool hints for logical-error review.
 - Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and
   MCP, with subgraph ids and unresolved-target reporting.
+- Added deterministic query filters for source paths, symbols/names, decision domains, and
+  handled values across CLI and MCP.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
