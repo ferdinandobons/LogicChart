@@ -372,7 +372,8 @@ Every finding also carries normalized diagnostic metadata:
 - source scope linking the finding to its flow, node, related decision nodes, file, and
   line ranges;
 - detector inputs, expected/actual state, missing values when applicable, and an evidence
-  chain with bounded related-decision evidence for cross-flow findings;
+  chain with detector-specific proof points such as implicit fallbacks, constant guards,
+  branch outcomes, and bounded related-decision evidence for cross-flow findings;
 - a review prompt and suggested next actions for humans and agents.
 
 The shared rule registry is emitted under `metadata.finding_rules`, so CLI artifacts, the

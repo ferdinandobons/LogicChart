@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any
 
+from logicchart.analysis.common import EMPTY, FALLS_THROUGH, NO, RAISES, RETURNS, SUCCESS
 from logicchart.model import Evidence, Finding, FindingKind, Flow, FlowNode, NodeKind
 
 DIAGNOSTIC_RELATED_LIMIT = 12
@@ -463,6 +464,7 @@ def _evidence_chain(
                 "location": _location_dict(node.location),
             }
         )
+        chain.extend(_detector_evidence(finding, flow, node, metadata))
     if metadata.get("declared"):
         chain.append(
             {
@@ -477,6 +479,152 @@ def _evidence_chain(
         chain.append({"type": "missing_values", "values": _as_list(metadata.get("missing"))})
     if related_decisions:
         chain.append({"type": "related_decisions", "nodes": related_decisions})
+    return chain
+
+
+def _detector_evidence(
+    finding: Finding,
+    flow: Flow | None,
+    node: FlowNode,
+    metadata: dict[str, Any],
+) -> list[dict[str, Any]]:
+    kind = _kind_value(finding.kind)
+    if kind == FindingKind.MISSING_BRANCH.value:
+        return [_implicit_fallback_evidence(flow, node)]
+    if kind == FindingKind.DEAD_GUARD.value:
+        return [_constant_guard_evidence(node, metadata)]
+    if kind == FindingKind.BROAD_EXCEPT_SWALLOW.value:
+        return [_handler_outcome_evidence(node)]
+    if kind == FindingKind.NO_OP_BRANCH.value:
+        return [_empty_branch_evidence(node)]
+    if kind == FindingKind.ASYMMETRIC_RETURN.value:
+        return [_dispatch_outcome_evidence(node)]
+    return []
+
+
+def _implicit_fallback_evidence(flow: Flow | None, node: FlowNode) -> dict[str, Any]:
+    decisions = _same_subject_decision_chain(flow, node)
+    branches = [
+        {**branch, "decision_node_id": decision.id}
+        for decision in decisions
+        for branch in _branch_summaries(decision)
+    ]
+    implicit = [branch for branch in branches if branch["implicit"]]
+    explicit = [branch for branch in branches if not branch["implicit"]]
+    handled_values = _unique(
+        [
+            str(value)
+            for decision in decisions
+            for value in _as_list(decision.metadata.get("values")) or []
+        ]
+    )
+    return {
+        "type": "implicit_fallback",
+        "condition": node.metadata.get("condition"),
+        "subject": node.metadata.get("subject"),
+        "domain": node.metadata.get("domain"),
+        "value_namespace": node.metadata.get("value_namespace"),
+        "operator": node.metadata.get("operator"),
+        "handled_values": handled_values,
+        "decision_node_ids": [decision.id for decision in decisions],
+        "explicit_branches": explicit,
+        "implicit_branches": implicit,
+        "fallback_present": False,
+    }
+
+
+def _constant_guard_evidence(node: FlowNode, metadata: dict[str, Any]) -> dict[str, Any]:
+    always = metadata.get("always")
+    return {
+        "type": "constant_guard",
+        "constant": metadata.get("constant"),
+        "condition": node.metadata.get("condition"),
+        "guard_always": always,
+        "unreachable_branch_label": "No" if always is True else "Yes" if always is False else None,
+        "branches": _branch_summaries(node),
+    }
+
+
+def _handler_outcome_evidence(node: FlowNode) -> dict[str, Any]:
+    handlers = [
+        branch
+        for branch in _branch_summaries(node)
+        if not branch["implicit"] and branch["label"] != SUCCESS
+    ]
+    return {
+        "type": "handler_outcomes",
+        "condition": node.metadata.get("condition"),
+        "handlers": handlers,
+        "swallowing_outcomes": [EMPTY, FALLS_THROUGH],
+    }
+
+
+def _empty_branch_evidence(node: FlowNode) -> dict[str, Any]:
+    empty = [branch for branch in _branch_summaries(node) if branch["outcome"] == EMPTY]
+    return {
+        "type": "empty_branches",
+        "condition": node.metadata.get("condition"),
+        "branches": empty,
+    }
+
+
+def _dispatch_outcome_evidence(node: FlowNode) -> dict[str, Any]:
+    branches = _branch_summaries(node)
+    exiting = [branch for branch in branches if branch["outcome"] in {RETURNS, RAISES}]
+    fallthrough = [branch for branch in branches if branch["outcome"] == FALLS_THROUGH]
+    return {
+        "type": "dispatch_outcomes",
+        "operator": node.metadata.get("operator"),
+        "subject": node.metadata.get("subject"),
+        "exiting_branches": exiting,
+        "fallthrough_branches": fallthrough,
+        "exit_majority": len(exiting) > len(fallthrough),
+    }
+
+
+def _branch_summaries(node: FlowNode) -> list[dict[str, Any]]:
+    branches = node.metadata.get("branches", [])
+    if not isinstance(branches, list):
+        return []
+    result = []
+    for branch in branches:
+        if not isinstance(branch, dict):
+            continue
+        result.append(
+            {
+                "label": branch.get("label"),
+                "outcome": branch.get("outcome"),
+                "implicit": bool(branch.get("implicit")),
+            }
+        )
+    return result
+
+
+def _same_subject_decision_chain(flow: Flow | None, node: FlowNode) -> list[FlowNode]:
+    if flow is None:
+        return [node]
+    decisions = {
+        candidate.id: candidate
+        for candidate in flow.nodes
+        if candidate.kind is NodeKind.DECISION
+        and candidate.metadata.get("subject") == node.metadata.get("subject")
+    }
+    if node.id not in decisions:
+        return [node]
+    no_edges = {
+        edge.source: edge.target
+        for edge in flow.edges
+        if edge.label == NO and edge.source in decisions and edge.target in decisions
+    }
+    chain = [node]
+    seen = {node.id}
+    cursor = node.id
+    while cursor in no_edges:
+        cursor = no_edges[cursor]
+        if cursor in seen:
+            break
+        seen.add(cursor)
+        chain.append(decisions[cursor])
     return chain
 
 

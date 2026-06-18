@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T15:10:51.412666+00:00",
+  "generated_at": "2026-06-18T15:18:48.307854+00:00",
   "root": ".",
   "flows": [
     {
@@ -19982,6 +19982,17 @@
                 "start_line": 22,
                 "end_line": 22
               }
+            },
+            {
+              "type": "empty_branches",
+              "condition": "order.status == OrderStatus.REFUNDED",
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ]
             }
           ],
           "expected": {
@@ -20309,6 +20320,51 @@
                 "start_line": 3,
                 "end_line": 3
               }
+            },
+            {
+              "type": "implicit_fallback",
+              "condition": "order.status === \"cart\"",
+              "subject": "order.status",
+              "domain": "status",
+              "value_namespace": "",
+              "operator": "==",
+              "handled_values": [
+                "cart",
+                "paid"
+              ],
+              "decision_node_ids": [
+                "flow-a14422f6dd2875d3:n2",
+                "flow-a14422f6dd2875d3:n4"
+              ],
+              "explicit_branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-a14422f6dd2875d3:n2"
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false,
+                  "decision_node_id": "flow-a14422f6dd2875d3:n2"
+                },
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-a14422f6dd2875d3:n4"
+                }
+              ],
+              "implicit_branches": [
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true,
+                  "decision_node_id": "flow-a14422f6dd2875d3:n4"
+                }
+              ],
+              "fallback_present": false
             }
           ],
           "expected": {
@@ -20487,6 +20543,51 @@
                 "start_line": 6,
                 "end_line": 13
               }
+            },
+            {
+              "type": "implicit_fallback",
+              "condition": "order.status",
+              "subject": "order.status",
+              "domain": "status",
+              "value_namespace": "",
+              "operator": "switch",
+              "handled_values": [
+                "\"cart\"",
+                "\"paid\"",
+                "\"shipped\""
+              ],
+              "decision_node_ids": [
+                "flow-484f0b6804aa2ba6:n3"
+              ],
+              "explicit_branches": [
+                {
+                  "label": "\"cart\"",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-484f0b6804aa2ba6:n3"
+                },
+                {
+                  "label": "\"paid\"",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-484f0b6804aa2ba6:n3"
+                },
+                {
+                  "label": "\"shipped\"",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-484f0b6804aa2ba6:n3"
+                }
+              ],
+              "implicit_branches": [
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true,
+                  "decision_node_id": "flow-484f0b6804aa2ba6:n3"
+                }
+              ],
+              "fallback_present": false
             }
           ],
           "expected": {
@@ -22256,6 +22357,21 @@
                 "start_line": 5,
                 "end_line": 9
               }
+            },
+            {
+              "type": "handler_outcomes",
+              "condition": "exception boundary",
+              "handlers": [
+                {
+                  "label": "Error",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ],
+              "swallowing_outcomes": [
+                "empty",
+                "falls_through"
+              ]
             }
           ],
           "expected": {
@@ -22404,6 +22520,21 @@
                 "start_line": 23,
                 "end_line": 26
               }
+            },
+            {
+              "type": "handler_outcomes",
+              "condition": "exception boundary",
+              "handlers": [
+                {
+                  "label": "Exception",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ],
+              "swallowing_outcomes": [
+                "empty",
+                "falls_through"
+              ]
             }
           ],
           "expected": {
@@ -22556,6 +22687,25 @@
                 "start_line": 21,
                 "end_line": 21
               }
+            },
+            {
+              "type": "constant_guard",
+              "constant": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "condition": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "guard_always": false,
+              "unreachable_branch_label": "Yes",
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "raises",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
             }
           ],
           "expected": {

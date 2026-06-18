@@ -11,6 +11,8 @@ The project follows Semantic Versioning.
 - Added structured diagnostic metadata for every finding, including stable detector rule
   ids, confidence basis, expected/actual/missing state, evidence chains, review prompts,
   and suggested next actions.
+- Added detector-specific single-flow diagnostic evidence for implicit fallbacks, constant
+  guards, swallowed handlers, no-op branches, and asymmetric dispatch returns.
 - Added bounded related-decision scope to cross-flow diagnostics, including related flow
   and node ids plus source ranges for evidence-chain entries.
 - Added a shared finding-rule registry to generated model metadata and exposed it through

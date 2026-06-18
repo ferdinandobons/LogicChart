@@ -65,6 +65,8 @@ expands the row with the normalized diagnostic metadata from the model:
 - missing values, expected state, and actual handled values when the detector provides
   them;
 - the detector purpose, review prompt, and suggested next actions;
+- detector-specific evidence such as implicit fallbacks, constant guards, branch outcomes,
+  and handler outcomes;
 - related flows and evidence nodes derived from diagnostic scope, caller/callee context,
   and shared decision metadata, each linked back into the progressive flowchart.
 

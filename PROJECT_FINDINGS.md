@@ -113,6 +113,9 @@ Current checkpoint:
   evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
 - Cross-flow diagnostics include bounded related-decision scope with related flow/node ids
   and structured source ranges in the evidence chain.
+- Single-flow diagnostics include detector-specific evidence-chain entries for implicit
+  fallbacks, constant guards, handler outcomes, empty branches, and asymmetric dispatch
+  returns.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
   state, rule purpose, review prompt, next actions, related flows, and evidence nodes.
 
@@ -122,8 +125,8 @@ Still open:
   and consumer story are ready.
 - Consider a small focused chart for the diagnostic subgraph if related-flow links are not
   enough for large findings.
-- Add richer detector-specific evidence chains where non-cross-flow metadata is still
-  shallow.
+- Keep expanding detector-specific evidence only where it adds review value without
+  implying heuristic findings are confirmed bugs.
 
 ### Resulting UX
 
@@ -534,10 +537,12 @@ Before the next release:
 - Done: normalize finding metadata under a compatibility-preserving diagnostic object.
 - Done: add baseline diagnostic evidence chains and bounded related-decision scope for
   cross-flow findings.
+- Done: add detector-specific single-flow evidence-chain entries for flagship logical
+  findings.
 - Done: add tests for each detector's structured output.
 - Done: update viewer Logical Errors panel to show diagnostic details and related
   flow/evidence-node links.
-- Next: deepen detector-specific evidence chains and consider a compatible schema 1.2.
+- Next: consider a compatible schema 1.2 only when the consumer migration story is ready.
 
 ### Phase 2: MCP Visual Context
 

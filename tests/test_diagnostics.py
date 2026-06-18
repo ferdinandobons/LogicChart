@@ -114,6 +114,45 @@ def handle_partial(account):
     assert all("location" in node for node in related["nodes"])
 
 
+def test_single_flow_diagnostics_include_detector_specific_evidence(tmp_path: Path) -> None:
+    (tmp_path / "service.py").write_text(
+        """
+FEATURE_ENABLED = False
+
+
+def route(user):
+    if user.role == "admin":
+        return admin()
+    elif user.role == "staff":
+        return staff()
+
+
+def feature():
+    if FEATURE_ENABLED:
+        return enabled()
+    return disabled()
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+
+    missing = next(item for item in model.findings if item.kind == FindingKind.MISSING_BRANCH)
+    missing_chain = missing.metadata["diagnostic"]["evidence_chain"]
+    fallback = next(item for item in missing_chain if item["type"] == "implicit_fallback")
+    assert fallback["subject"] == "user.role"
+    assert fallback["handled_values"] == ["admin", "staff"]
+    assert fallback["fallback_present"] is False
+    assert fallback["implicit_branches"]
+
+    dead_guard = next(item for item in model.findings if item.kind == FindingKind.DEAD_GUARD)
+    guard_chain = dead_guard.metadata["diagnostic"]["evidence_chain"]
+    constant_guard = next(item for item in guard_chain if item["type"] == "constant_guard")
+    assert constant_guard["constant"] == "FEATURE_ENABLED"
+    assert constant_guard["guard_always"] is False
+    assert constant_guard["unreachable_branch_label"] == "Yes"
+    assert constant_guard["branches"]
+
+
 def test_every_finding_kind_has_a_rule_contract() -> None:
     rules = finding_rule_contracts_by_kind()
     assert set(rules) == {kind.value for kind in FindingKind}
