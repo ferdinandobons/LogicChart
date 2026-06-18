@@ -129,7 +129,8 @@ large-codebase study, not just one isolated function. It shows:
   while dimming unrelated blocks.
 - A synchronized source panel and logical-errors panel with selected-finding diagnostics,
   bounded related-flow/evidence-node links, a compact focused diagnostic subgraph, and
-  header-clickable collapsible Details sections for project quality, source, and findings.
+  keyboard-accessible collapsible Details sections for project quality, source, and
+  findings.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
 - Light/dark theme, pan/zoom, an aggregate draggable/scrollable minimap, fit-to-content,
   drag-to-arrange blocks, collapse-all reset, expand-all, full-screen canvas,

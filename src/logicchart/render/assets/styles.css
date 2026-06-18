@@ -1287,11 +1287,21 @@
       flex: none;
       transition: background .14s ease;
     }
-    .panel-head[data-panel-heading] { cursor: pointer; }
+    .panel-head[data-panel-heading] {
+      cursor: pointer;
+      user-select: none;
+    }
     .panel-head[data-panel-heading]:hover {
       background: color-mix(in srgb, var(--chip) 36%, transparent);
     }
+    .panel-head[data-panel-heading]:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: -2px;
+    }
     .panel[data-collapsed] .panel-head { border-bottom: 0; }
+    .panel[data-collapsed] .panel-head[data-panel-heading] {
+      background: color-mix(in srgb, var(--chip) 22%, transparent);
+    }
     .panel-head .rail-title { margin: 0; }
     .panel-collapse-toggle {
       flex: none;
@@ -1299,11 +1309,12 @@
       place-items: center;
       width: 24px;
       height: 24px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-strong);
       border-radius: 7px;
-      background: var(--panel);
+      background: var(--chip);
       color: var(--ink);
       cursor: pointer;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--panel) 70%, transparent) inset;
     }
     .panel-head[data-panel-heading]:hover .panel-collapse-toggle {
       border-color: var(--blue);

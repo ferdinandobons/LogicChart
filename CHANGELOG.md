@@ -102,6 +102,8 @@ The project follows Semantic Versioning.
   include normalized diagnostic details.
 - Updated generated agent instructions to recommend `logicchart explain <finding-id>`
   before treating logical findings as actionable.
+- Updated Details rail section headers so Project Quality, Source, and Logical Errors can
+  be collapsed by click or keyboard with synchronized expanded state.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic
   inspector with a focused diagnostic subgraph, related-flow and evidence-node links,
   while keeping broad finding lists bounded.

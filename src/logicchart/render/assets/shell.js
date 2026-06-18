@@ -304,10 +304,15 @@
 
     function setPanelCollapsed(panel, button, body, collapsed, persist) {
       const title = panelTitle(panel);
+      const heading = panel.querySelector("[data-panel-heading]");
       panel.toggleAttribute("data-collapsed", collapsed);
       button.setAttribute("aria-expanded", collapsed ? "false" : "true");
       button.title = (collapsed ? "Expand " : "Collapse ") + title;
       button.setAttribute("aria-label", (collapsed ? "Expand " : "Collapse ") + title);
+      if (heading) {
+        heading.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        heading.title = (collapsed ? "Expand " : "Collapse ") + title;
+      }
       if (body) body.hidden = collapsed;
       if (persist) {
         const key = panel.getAttribute("data-panel-state") || panel.id || body && body.id;
@@ -327,6 +332,11 @@
         const body = bodyId ? document.getElementById(bodyId) : null;
         const key = panel.getAttribute("data-panel-state") || panel.id || bodyId;
         let stored = null;
+        if (heading) {
+          heading.setAttribute("tabindex", "0");
+          if (bodyId) heading.setAttribute("aria-controls", bodyId);
+          heading.setAttribute("aria-label", "Toggle " + panelTitle(panel));
+        }
         if (key) {
           try { stored = localStorage.getItem("logicchart-panel-collapsed-" + key); } catch (_) {}
         }
@@ -339,6 +349,13 @@
           heading.addEventListener("click", event => {
             const target = event.target;
             if (target && target.closest && target.closest("button, a, input, select, textarea")) return;
+            setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
+          });
+          heading.addEventListener("keydown", event => {
+            const target = event.target;
+            if (target && target.closest && target.closest("button, a, input, select, textarea")) return;
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
             setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
           });
         }

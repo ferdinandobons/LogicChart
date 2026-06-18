@@ -392,8 +392,13 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "logicchart-panel-collapsed-" in html
     assert "data-panel-heading" in html
     assert 'target.closest("button, a, input, select, textarea")' in html
+    assert 'heading.setAttribute("tabindex", "0")' in html
+    assert 'heading.setAttribute("aria-expanded"' in html
+    assert 'heading.addEventListener("keydown"' in html
+    assert 'event.key !== "Enter" && event.key !== " "' in html
     assert ".panel-collapse-toggle" in html
     assert ".panel[data-collapsed]" in html
+    assert ".panel-head[data-panel-heading]:focus-visible" in html
     assert "resizeRailFromKeyboard" in html
     assert "scheduleCanvasLayoutRefresh" in html
     assert "data-nav-closed" in html
