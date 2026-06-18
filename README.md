@@ -64,25 +64,25 @@ uv run logicchart --help
 
 ## The 30-Second Example
 
-This Next.js route switches on `user.status` but forgets a declared enum member:
+This Next.js route switches on `user.status` but forgets declared enum members:
 
 ```ts
 switch (user.status) {
   case UserStatus.ACTIVE: return Response.json(user);
   case UserStatus.SUSPENDED: return new Response("Blocked", { status: 403 });
-  // UserStatus.DELETED is declared but never handled
+  // UserStatus.DELETED, ARCHIVED, and LOCKED are declared but never handled
 }
 ```
 
 `logicchart analyze` reports:
 
 ```text
-- WARNING · INFERRED · enum_exhaustiveness Declared UserStatus members not handled for user.status: UserStatus.DELETED
+- WARNING · INFERRED · enum_exhaustiveness Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED
 ```
 
 `INFERRED` means a deterministic heuristic over a declared closed set, not a guess. Run the
-bundled [`examples/demo`](examples/demo) project to see the same finding in an 11-language,
-3-scope codebase.
+bundled [`examples/demo`](examples/demo) project to see this user-state finding plus an
+order-state finding in an 11-language, 2-scope frontend/backend codebase.
 
 ## Large Codebases
 
@@ -117,34 +117,37 @@ large-codebase study, not just one isolated function. It shows:
 - A left codebase tree with flow search and language filtering.
 - A central canvas that starts from top-level scopes such as `backend`, `frontend`, and
   `edge`; each scope connects directly to every visible entrypoint underneath it.
-- Progressive entrypoint/call expansion: select a scope, then an entrypoint, then follow
-  unlocked calls without leaving the same flowchart.
+- Progressive scope/entrypoint/call expansion: open one or more scopes, then an entrypoint,
+  then follow unlocked calls without leaving the same flowchart.
+- Direct internal-flow opening that rebuilds the visible caller chain, so selected helpers
+  remain connected to their scope entrypoint instead of becoming detached islands.
 - Expand-in-place decision charts, so a selected flow can be studied without losing its
   surrounding codebase context.
 - Link selection that highlights the source node, target node, and selected connection
   while dimming unrelated blocks.
 - A synchronized source panel and logical-errors panel.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
-- Light/dark theme, pan/zoom, drag-to-arrange blocks, reset, full-screen canvas, PNG/JPG
+- Light/dark theme, pan/zoom, fit-to-content, drag-to-arrange blocks, reset, full-screen canvas, PNG/JPG
   export, and responsive side panels.
 
 Use `--render-only` to write `logic-flow.html` without serving it.
 
-The shipped viewer remains a static artifact, and it now embeds an optional typed frontend
-runtime built from `frontend/` with Vite, React, Zustand, Vitest, and an XYFlow adapter.
-Open a generated viewer with `?runtime=react` to exercise the framework-backed canvas
-without changing the default static runtime:
+The shipped viewer is still a single local HTML artifact, but its primary canvas is the
+typed frontend runtime built from `frontend/` with Vite, React, Zustand, Vitest, and an
+XYFlow adapter. Generated viewers open on the progressive React canvas by default:
 
 ```text
-logic-flow.html?runtime=react#scope=frontend
-logic-flow.html?runtime=react#flow=<flow-id>
+logic-flow.html#scope=frontend
+logic-flow.html#flow=<flow-id>
+logic-flow.html#root
+logic-flow.html#node=codebase
 ```
 
-The React runtime owns the progressive scope-to-entrypoint canvas, edge selection,
-flow-detail expansion, viewport zoom/pan/reset, and PNG/JPG export path. The surrounding
-HTML shell still owns the tree, source, findings, theme, fullscreen, and side rails while
-the migration continues. See [docs/viewer.md](docs/viewer.md) for the UI architecture and
-verification loop.
+The React runtime owns the progressive multi-scope canvas, edge selection, flow-detail
+expansion, viewport zoom/pan, root-collapsing reset, and PNG/JPG export path. The
+surrounding HTML shell owns the tree, source, findings, theme, fullscreen, side rails,
+and the explicit `?runtime=static` fallback. See [docs/viewer.md](docs/viewer.md) for the
+UI architecture and verification loop.
 
 ## Supported Code
 

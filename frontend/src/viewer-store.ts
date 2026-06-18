@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type SelectedConnection =
+  | { kind: "root-scope"; scope: string }
   | { kind: "scope-entry"; scope: string; target: string }
   | { kind: "flow-call"; source: string; target: string }
   | null;

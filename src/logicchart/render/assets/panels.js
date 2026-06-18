@@ -217,6 +217,9 @@
             nodeId: finding.node_id || null,
             path: (finding.location && finding.location.path) || null,
             findingId: finding.id,
+            line: (finding.location && finding.location.start_line) || null,
+            endLine:
+              (finding.location && (finding.location.end_line || finding.location.start_line)) || null,
           });
         }
         row.addEventListener("click", activate);
@@ -389,8 +392,42 @@
         return lineToNode;
       }
 
-      // Render the flow's snippet with gutter line numbers. When a node is selected, the
-      // lines covered by its location are marked + scrolled into view. The snippet spans
+      // Resolve the source range that should read as selected. A node selection wins and
+      // marks the exact logic block. A plain flow selection still marks the flow span, so
+      // clicking a top-level block or an edge target visibly lands on a concrete piece of
+      // code rather than merely opening the surrounding file.
+      function selectedSourceRange(flow, sel) {
+        if (sel.nodeId) {
+          const node = LC.nodeById ? LC.nodeById(flow.id, sel.nodeId) : null;
+          if (node && node.location) {
+            const from = node.location.start_line;
+            return {
+              from: from,
+              to: node.location.end_line != null ? node.location.end_line : from,
+            };
+          }
+        }
+        if (
+          sel.line != null &&
+          (!sel.path || !flow.location || !flow.location.path || sel.path === flow.location.path)
+        ) {
+          return {
+            from: sel.line,
+            to: sel.endLine != null ? sel.endLine : sel.line,
+          };
+        }
+        if (sel.flowId === flow.id && flow.location && flow.location.start_line != null) {
+          const from = flow.location.start_line;
+          return {
+            from: from,
+            to: flow.location.end_line != null ? flow.location.end_line : from,
+          };
+        }
+        return null;
+      }
+
+      // Render the flow's snippet with gutter line numbers. When a flow or node is
+      // selected, the covered line range is marked + scrolled into view. The snippet spans
       // exactly the flow's own range, so node lines fall inside it.
       function renderSource(sel) {
         if (!sourceBody) return;
@@ -424,16 +461,9 @@
 
         const lineToNode = buildLineToNode(flow);
 
-        // The selected node's covered line range, for the highlight band.
-        let hiFrom = null;
-        let hiTo = null;
-        if (sel.nodeId) {
-          const node = LC.nodeById ? LC.nodeById(flow.id, sel.nodeId) : null;
-          if (node && node.location) {
-            hiFrom = node.location.start_line;
-            hiTo = node.location.end_line != null ? node.location.end_line : hiFrom;
-          }
-        }
+        const selectedRange = selectedSourceRange(flow, sel);
+        const hiFrom = selectedRange ? selectedRange.from : null;
+        const hiTo = selectedRange ? selectedRange.to : null;
 
         const pre = el("div", "code-block");
         pre.setAttribute("role", "presentation");
@@ -475,7 +505,14 @@
               // equivalent line after the re-render this triggers (else it drops to <body>).
               pendingFocus = { panel: "source", id: lineNo };
               if (LC.selectFlow) LC.selectFlow(flow.id);
-              LC.select({ flowId: flow.id, nodeId: nodeId, path: flow.location.path, findingId: null });
+              LC.select({
+                flowId: flow.id,
+                nodeId: nodeId,
+                path: flow.location.path,
+                findingId: null,
+                line: lineNo,
+                endLine: lineNo,
+              });
             };
             lineEl.addEventListener("click", activateLine);
             lineEl.addEventListener("keydown", event => {

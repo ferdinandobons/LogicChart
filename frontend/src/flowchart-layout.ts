@@ -53,6 +53,7 @@ export interface ProgressiveLayoutOptions {
   layerGap: number;
   chipY: number;
   decisionPad: number;
+  detailTopPad?: number;
   maxNodesPerRow?: number;
   rowLabel?: (index: number) => string;
   expandedMeasures?: ReadonlyMap<FlowId, ExpandedFlowMeasure>;
@@ -180,16 +181,12 @@ export function layoutProgressiveRows(
 
     const expandedInRow = row.filter(flow => options.expandedMeasures?.has(flow.id));
     if (expandedInRow.length) {
-      let rowExtra = 0;
-      let bandTop = y + options.flowHeight / 2 + options.chipY;
-      expandedInRow.forEach((flow, index) => {
+      const bandTop = y + options.flowHeight / 2 + options.chipY;
+      let maxReservedHeight = 0;
+      expandedInRow.forEach(flow => {
         const measure = options.expandedMeasures?.get(flow.id);
         const host = positions.get(flow.id);
         if (!measure || !host) return;
-        if (index > 0) {
-          bandTop += options.rowGap;
-          rowExtra += options.rowGap;
-        }
         const reservedWidth = measure.width + options.decisionPad * 2;
         const reservedHeight = measure.height + options.decisionPad * 2;
         const bounds = {
@@ -201,14 +198,13 @@ export function layoutProgressiveRows(
         inlineAnchors.push({
           flowId: flow.id,
           x: host.x - (measure.minX + measure.maxX) / 2,
-          y: bandTop + options.decisionPad - measure.minY,
+          y: bandTop + (options.detailTopPad ?? Math.min(36, options.decisionPad)) - measure.minY,
           bounds,
         });
         boundsItems.push(bounds);
-        bandTop += reservedHeight;
-        rowExtra += reservedHeight;
+        maxReservedHeight = Math.max(maxReservedHeight, reservedHeight);
       });
-      y += options.flowHeight + options.rowGap + rowExtra;
+      y += options.flowHeight + options.rowGap + maxReservedHeight;
     } else {
       y += options.flowHeight + options.layerGap;
     }

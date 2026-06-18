@@ -1,76 +1,72 @@
 
     :root {
-      --paper: #eef2fa;
-      --grid: rgba(40, 86, 180, 0.05);
-      --panel: #ffffff;
-      --panel-2: #f7f9fe;
-      --header: rgba(255, 255, 255, 0.82);
-      --ink: #16233a;
-      --muted: #67768f;
-      --line: #d6deec;
-      --line-strong: #c2cdde;
-      --blue: #2f63ef;
-      --cyan: #07a8c4;
-      --amber: #df9a12;
-      --coral: #e0524f;
-      --violet: #7458dc;
-      --hover: #e9eefb;
-      --active: #dfe8fb;
-      --chip: #e9effe;
-      --tool: rgba(255, 255, 255, 0.92);
-      --finding-bg: #fff7e6;
-      --finding-error-bg: #ffefef;
-      --drawer-backdrop: rgba(12, 19, 32, .22);
-      /* Text on a saturated accent fill (tier badges). White reads on the deep light-theme
-         accents; dark mode overrides it because its accents are lighter. */
-      --on-accent: #ffffff;
-      --node-fill: #ffffff;
-      --fill-entry: #e7eeff;
-      --fill-decision: #fdf2d6;
-      --fill-call: #efe9ff;
-      --fill-terminal: #e0f6f1;
-      --fill-error: #ffe9e9;
-      --edge: #9aa7be;
-      --radius: 12px;
-      --radius-sm: 9px;
-      --shadow: 0 20px 55px rgba(24, 40, 76, 0.16);
+      --paper: #080a0f;
+      --grid: rgba(174, 187, 212, 0.035);
+      --panel: #11141b;
+      --panel-2: #0d1016;
+      --header: rgba(9, 11, 16, 0.9);
+      --ink: #edf2fb;
+      --muted: #8b94a6;
+      --line: #222834;
+      --line-strong: #333b4b;
+      --blue: #6f93ff;
+      --cyan: #29d1e7;
+      --amber: #f0b33f;
+      --coral: #ff6b6b;
+      --violet: #a78bfa;
+      --hover: #171b24;
+      --active: #202637;
+      --chip: #1a2130;
+      --tool: rgba(17, 20, 27, 0.92);
+      --finding-bg: #28220f;
+      --finding-error-bg: #2b1518;
+      --drawer-backdrop: rgba(0, 0, 0, .55);
+      --on-accent: #090b10;
+      --node-fill: #151a24;
+      --fill-entry: #17213b;
+      --fill-decision: #2a220f;
+      --fill-call: #211935;
+      --fill-terminal: #102b29;
+      --fill-error: #2d171b;
+      --edge: #566174;
+      --radius: 10px;
+      --radius-sm: 8px;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.58);
       --left-rail-width: 312px;
       --right-rail-width: 336px;
-      color-scheme: light;
+      color-scheme: dark;
     }
     [data-theme="dark"] {
-      --paper: #0c1320;
-      --grid: rgba(120, 160, 255, 0.05);
-      --panel: #141d30;
-      --panel-2: #111a2b;
-      --header: rgba(17, 26, 43, 0.82);
-      --ink: #e7eefb;
-      --muted: #8a9aba;
-      --line: #263347;
-      --line-strong: #34435c;
-      --blue: #5e8cff;
-      --cyan: #2bd3ee;
-      --amber: #f3b63f;
+      --paper: #080a0f;
+      --grid: rgba(174, 187, 212, 0.035);
+      --panel: #11141b;
+      --panel-2: #0d1016;
+      --header: rgba(9, 11, 16, 0.9);
+      --ink: #edf2fb;
+      --muted: #8b94a6;
+      --line: #222834;
+      --line-strong: #333b4b;
+      --blue: #6f93ff;
+      --cyan: #29d1e7;
+      --amber: #f0b33f;
       --coral: #ff6b6b;
-      --violet: #a98bf6;
-      --hover: #1b2740;
-      --active: #21305a;
-      --chip: #1d2b4d;
-      --tool: rgba(20, 29, 48, 0.92);
-      --finding-bg: #2a2412;
-      --finding-error-bg: #2e1a1d;
-      --drawer-backdrop: rgba(0, 0, 0, .44);
-      /* Dark theme accents are lighter (cyan/blue/coral above), so dark text on a badge
-         reads better than white -- keep the badge label legible in both themes. */
-      --on-accent: #0c1320;
-      --node-fill: #18223a;
-      --fill-entry: #1a2748;
-      --fill-decision: #2c2614;
-      --fill-call: #221b3e;
-      --fill-terminal: #12302d;
-      --fill-error: #311a1e;
-      --edge: #58688a;
-      --shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+      --violet: #a78bfa;
+      --hover: #171b24;
+      --active: #202637;
+      --chip: #1a2130;
+      --tool: rgba(17, 20, 27, 0.92);
+      --finding-bg: #28220f;
+      --finding-error-bg: #2b1518;
+      --drawer-backdrop: rgba(0, 0, 0, .55);
+      --on-accent: #090b10;
+      --node-fill: #151a24;
+      --fill-entry: #17213b;
+      --fill-decision: #2a220f;
+      --fill-call: #211935;
+      --fill-terminal: #102b29;
+      --fill-error: #2d171b;
+      --edge: #566174;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.58);
       color-scheme: dark;
     }
     * { box-sizing: border-box; }
@@ -97,15 +93,15 @@
     .shell {
       display: grid;
       grid-template-columns: var(--left-rail-width) minmax(0, 1fr) var(--right-rail-width);
-      grid-template-rows: 78px minmax(0, 1fr);
+      grid-template-rows: 66px minmax(0, 1fr);
       height: 100%;
     }
     header {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
-      gap: 24px;
-      padding: 0 22px;
+      gap: 18px;
+      padding: 0 18px;
       background: var(--header);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(16px);
@@ -114,8 +110,8 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 13px;
-      min-width: 270px;
+      gap: 11px;
+      min-width: 220px;
     }
     .brand-mark {
       flex: none;
@@ -124,21 +120,21 @@
     }
     /* Mini decision flow: entry node (circle) linked to a decision (diamond), in the
        same blue/amber the chart uses for those node kinds. */
-    .brand-mark svg { height: 34px; width: auto; display: block; overflow: visible; }
+    .brand-mark svg { height: 30px; width: auto; display: block; overflow: visible; }
     .logo-node { fill: var(--blue); }
     .logo-link { stroke: var(--violet); stroke-width: 3; stroke-linecap: round; }
     .logo-decision { fill: var(--amber); }
     .brand h1 {
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 23px;
-      letter-spacing: -0.4px;
+      font-size: 20px;
+      letter-spacing: 0;
       margin: 0;
     }
     .brand small {
       display: block;
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
     }
@@ -146,7 +142,7 @@
     .flow-heading .eyebrow {
       color: var(--blue);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -156,39 +152,24 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 20px;
+      font-size: 18px;
     }
     .metrics { display: flex; gap: 8px; }
     .metric {
-      padding: 9px 13px;
+      padding: 7px 10px;
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
       background: var(--panel);
-      min-width: 74px;
-      box-shadow: 0 1px 2px rgba(24, 40, 76, 0.05);
+      min-width: 66px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
     }
-    .metric strong { display: block; font-size: 17px; }
+    .metric strong { display: block; font-size: 15px; }
     .metric span {
       color: var(--muted);
       font-size: 10px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    .theme-toggle {
-      margin-left: auto;
-      width: 40px;
-      height: 40px;
-      border: 1px solid var(--line);
-      border-radius: 50%;
-      background: var(--panel);
-      cursor: pointer;
-      font-size: 17px;
-      line-height: 1;
-      display: grid;
-      place-items: center;
-      transition: border-color .15s ease, transform .15s ease;
-    }
-    .theme-toggle:hover { border-color: var(--blue); transform: translateY(-1px); }
     aside {
       min-height: 0;
       background: var(--panel-2);
@@ -415,30 +396,54 @@
     main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
     .canvas-toolbar {
       position: absolute;
-      top: 16px;
-      right: 16px;
+      top: 14px;
+      right: 14px;
       z-index: 2;
       display: flex;
-      gap: 6px;
+      align-items: center;
+      gap: 8px;
+    }
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, .26);
+      backdrop-filter: blur(10px);
     }
     .tool {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--tool);
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: transparent;
       color: var(--ink);
-      min-width: 40px;
-      height: 40px;
+      min-width: 36px;
+      height: 36px;
       cursor: pointer;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 8px 18px rgba(24, 40, 76, .12);
-      transition: border-color .15s ease, transform .15s ease;
+      box-shadow: none;
+      transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
     }
-    .tool:hover, .tool:focus-visible { border-color: var(--blue); outline: none; transform: translateY(-1px); }
+    .tool:hover, .tool:focus-visible {
+      background: var(--hover);
+      border-color: var(--line-strong);
+      outline: none;
+      transform: translateY(-1px);
+    }
     .tool[aria-pressed="true"],
     body[data-detail-open] .detail-tool {
       border-color: var(--blue);
       color: var(--blue);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue), transparent 82%);
+      background: color-mix(in srgb, var(--blue) 13%, transparent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue), transparent 84%);
+    }
+    .reset-tool {
+      padding: 0 12px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
     }
     .detail-tool { display: grid; place-items: center; font-weight: 800; font-family: ui-serif, Georgia, serif; }
     #canvas { width: 100%; height: 100%; cursor: grab; user-select: none; -webkit-user-select: none; }
@@ -454,11 +459,61 @@
       overflow: hidden;
     }
     .typed-viewer-host[hidden] { display: none; }
+    .typed-viewer-host .logicchart-viewer-frame {
+      position: absolute;
+      inset: 0;
+    }
     .typed-viewer-host .logicchart-viewer {
       width: 100%;
       height: 100%;
       display: block;
       cursor: grab;
+    }
+    .typed-viewer-host .logicchart-overview {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      z-index: 6;
+      width: 150px;
+      height: 96px;
+      padding: 0;
+      border: 1px solid color-mix(in srgb, var(--line-strong) 54%, transparent);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(17, 20, 28, .82), rgba(8, 10, 15, .78)),
+        var(--panel);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
+      cursor: pointer;
+      opacity: .74;
+      overflow: hidden;
+    }
+    .typed-viewer-host .logicchart-overview:hover,
+    .typed-viewer-host .logicchart-overview:focus-visible {
+      border-color: color-mix(in srgb, var(--blue) 72%, var(--line-strong));
+      outline: none;
+      opacity: 1;
+    }
+    .typed-viewer-host .logicchart-overview-map {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .typed-viewer-host .logicchart-overview-content {
+      fill: transparent;
+      stroke: color-mix(in srgb, var(--line) 58%, transparent);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    .typed-viewer-host .logicchart-overview-node {
+      fill: color-mix(in srgb, var(--ink-muted) 68%, var(--blue));
+      opacity: .42;
+    }
+    .typed-viewer-host .logicchart-overview-viewport {
+      fill: transparent;
+      stroke: color-mix(in srgb, var(--blue) 68%, var(--cyan));
+      stroke-width: 1.4;
+      opacity: .72;
+      vector-effect: non-scaling-stroke;
     }
     .typed-viewer-host .logicchart-viewer.dragging {
       cursor: grabbing;
@@ -471,6 +526,7 @@
       cursor: pointer;
       outline: none;
     }
+    .typed-viewer-host .root-scope-hit,
     .typed-viewer-host .edge-hit-path {
       fill: none;
       stroke: var(--paper);
@@ -484,6 +540,12 @@
     .typed-viewer-host .node {
       cursor: pointer;
     }
+    .typed-viewer-host .node.movable {
+      cursor: grab;
+    }
+    .typed-viewer-host .node.movable.dragging {
+      cursor: grabbing;
+    }
     .typed-viewer-host .node .shape {
       fill: color-mix(in srgb, var(--node-fill) 88%, var(--blue));
       stroke: color-mix(in srgb, var(--blue) 88%, var(--ink));
@@ -496,9 +558,48 @@
       fill: var(--node-fill);
       stroke: var(--blue);
     }
+    .typed-viewer-host .scope-node .shape {
+      fill: hsl(var(--scope-hue, 222) 70% 94%);
+      stroke: hsl(var(--scope-hue, 222) 72% 48%);
+    }
+    [data-theme="dark"] .typed-viewer-host .scope-node .shape {
+      fill: hsl(var(--scope-hue, 222) 44% 17%);
+      stroke: hsl(var(--scope-hue, 222) 88% 64%);
+    }
     .typed-viewer-host .flow-node .shape {
       fill: var(--node-fill);
       stroke: var(--blue);
+    }
+    .typed-viewer-host .flow-node.flow-kind-route .shape {
+      fill: color-mix(in srgb, var(--fill-entry) 80%, var(--panel));
+      stroke: var(--blue);
+    }
+    .typed-viewer-host .flow-node.flow-kind-function .shape {
+      fill: color-mix(in srgb, var(--fill-call) 78%, var(--panel));
+      stroke: var(--violet);
+    }
+    .typed-viewer-host .flow-node.flow-kind-method .shape,
+    .typed-viewer-host .flow-node.flow-kind-service .shape {
+      fill: color-mix(in srgb, var(--fill-decision) 72%, var(--panel));
+      stroke: var(--amber);
+    }
+    .typed-viewer-host .flow-node.flow-kind-component .shape {
+      fill: color-mix(in srgb, var(--fill-terminal) 78%, var(--panel));
+      stroke: var(--cyan);
+    }
+    .typed-viewer-host .flow-node.flow-kind-data .shape {
+      fill: color-mix(in srgb, #12372f 78%, var(--panel));
+      stroke: #34d399;
+    }
+    .typed-viewer-host .flow-node.flow-kind-worker .shape,
+    .typed-viewer-host .flow-node.flow-kind-test .shape {
+      fill: color-mix(in srgb, var(--fill-error) 55%, var(--panel));
+      stroke: var(--coral);
+    }
+    .typed-viewer-host .flow-node.flow-kind-type .shape,
+    .typed-viewer-host .flow-node.flow-kind-other .shape {
+      fill: color-mix(in srgb, var(--node-fill) 88%, var(--panel));
+      stroke: color-mix(in srgb, var(--edge) 76%, var(--blue));
     }
     .typed-viewer-host .node:hover .shape,
     .typed-viewer-host .node:focus-visible .shape {
@@ -532,15 +633,67 @@
       letter-spacing: .05em;
       text-transform: uppercase;
     }
+    .typed-viewer-host .root-scope-edge-group,
+    .typed-viewer-host .scope-entry-edge-group {
+      cursor: pointer;
+      outline: none;
+    }
+    .typed-viewer-host .root-scope-link,
     .typed-viewer-host .scope-entry-link {
       marker-end: url(#typedArrow);
       vector-effect: non-scaling-stroke;
     }
+    .typed-viewer-host .root-scope-link.selected-link,
     .typed-viewer-host .scope-entry-link.selected-link {
       marker-end: url(#typedArrowFocus);
     }
+    .typed-viewer-host .root-scope-link.incident,
+    .typed-viewer-host .scope-entry-link.incident {
+      stroke: var(--cyan);
+      stroke-width: 2.7;
+      marker-end: url(#typedArrowFocus);
+      opacity: .95;
+    }
+    .typed-viewer-host .root-scope-link.dimmed,
     .typed-viewer-host .scope-entry-link.dimmed {
       opacity: .18;
+    }
+    .typed-viewer-host .flow-call-edge-group {
+      cursor: pointer;
+      outline: none;
+    }
+    .typed-viewer-host .flow-call-link {
+      fill: none;
+      stroke: color-mix(in srgb, var(--edge) 82%, var(--blue));
+      stroke-width: 2;
+      marker-end: url(#typedArrow);
+      opacity: .78;
+      vector-effect: non-scaling-stroke;
+    }
+    .typed-viewer-host .flow-call-hit {
+      fill: none;
+      stroke: var(--paper);
+      stroke-width: 20;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .01;
+      pointer-events: stroke;
+      vector-effect: non-scaling-stroke;
+    }
+    .typed-viewer-host .flow-call-link.selected-link {
+      stroke: var(--violet);
+      stroke-width: 3.2;
+      marker-end: url(#typedArrowFocus);
+      opacity: 1;
+    }
+    .typed-viewer-host .flow-call-link.incident {
+      stroke: var(--cyan);
+      stroke-width: 2.7;
+      marker-end: url(#typedArrowFocus);
+      opacity: .95;
+    }
+    .typed-viewer-host .flow-call-link.dimmed {
+      opacity: .16;
     }
     .typed-viewer-host .typed-arrow {
       fill: color-mix(in srgb, var(--edge) 74%, var(--blue));
@@ -554,6 +707,40 @@
       stroke-width: 1.8;
       marker-end: url(#typedArrow);
       opacity: .86;
+    }
+    .typed-viewer-host .flow-detail-edge-hit {
+      fill: none;
+      stroke: var(--paper);
+      stroke-width: 18;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .01;
+      pointer-events: stroke;
+      vector-effect: non-scaling-stroke;
+    }
+    .typed-viewer-host .flow-detail-edge-group {
+      cursor: pointer;
+      outline: none;
+    }
+    .typed-viewer-host .flow-detail-edge.selected-link {
+      stroke: var(--violet);
+      stroke-width: 3;
+      marker-end: url(#typedArrowFocus);
+      opacity: 1;
+    }
+    .typed-viewer-host .flow-detail-edge.incident {
+      stroke: var(--cyan);
+      stroke-width: 2.6;
+      marker-end: url(#typedArrowFocus);
+      opacity: .98;
+    }
+    .typed-viewer-host .flow-detail-edge.dimmed,
+    .typed-viewer-host .flow-detail-label.dimmed {
+      opacity: .18;
+    }
+    .typed-viewer-host .flow-detail-label {
+      cursor: pointer;
+      outline: none;
     }
     .typed-viewer-host .flow-detail-label rect {
       fill: var(--chip);
@@ -575,6 +762,23 @@
       stroke-width: 2.2;
       filter: url(#typedNodeShadow);
       vector-effect: non-scaling-stroke;
+    }
+    .typed-viewer-host .detail-node {
+      cursor: pointer;
+    }
+    .typed-viewer-host .detail-node.movable {
+      cursor: grab;
+    }
+    .typed-viewer-host .detail-node.movable.dragging {
+      cursor: grabbing;
+    }
+    .typed-viewer-host .detail-node.selected .detail-shape {
+      stroke: var(--cyan);
+      stroke-width: 3.4;
+      filter: url(#typedNodeLift);
+    }
+    .typed-viewer-host .detail-node.dimmed {
+      opacity: .28;
     }
     .typed-viewer-host .detail-node.decision .detail-shape {
       fill: var(--fill-decision);
@@ -748,6 +952,7 @@
       pointer-events: all;
     }
     .edge.incident { stroke: var(--blue); stroke-width: 2.6; }
+    .root-scope-link,
     .scope-entry-link {
       stroke: color-mix(in srgb, var(--edge) 74%, var(--blue));
       stroke-width: 1.8;
@@ -933,7 +1138,7 @@
        the other off-screen. */
     .right-rail .rail-inner { display: flex; flex-direction: column; min-height: 0; }
     .detail-drawer-head {
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
@@ -1246,7 +1451,7 @@
       .right-rail {
         position: fixed;
         right: 0;
-        top: 78px;
+        top: 66px;
         bottom: 0;
         width: min(var(--right-rail-width), calc(100vw - 72px));
         z-index: 5;
@@ -1267,8 +1472,12 @@
       .canvas-toolbar {
         top: 14px;
         right: 10px;
-        gap: 4px;
+        gap: 5px;
       }
+      .typed-viewer-host .logicchart-overview {
+        display: none;
+      }
+      .tool-group { gap: 1px; padding: 2px; }
       .tool {
         min-width: 36px;
         height: 36px;

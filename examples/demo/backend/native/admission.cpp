@@ -1,11 +1,12 @@
 #include <string>
 
-namespace edge {
+namespace backend {
 
 struct Request {
   int shard;
   bool authenticated;
   bool warm_cache;
+  bool write_operation;
 };
 
 class AdmissionControl {
@@ -17,15 +18,20 @@ public:
     if (request.shard < 0) {
       return false;
     }
+    if (request.write_operation && retry_budget(request, 0) == 0) {
+      return false;
+    }
     return route(request.shard) != "reject";
   }
 
   std::string route(int shard) {
-    switch (shard % 3) {
+    switch (shard % 4) {
       case 0:
         return "primary";
       case 1:
         return "secondary";
+      case 2:
+        return "analytics";
       default:
         return "overflow";
     }
@@ -38,8 +44,11 @@ public:
     if (!request.warm_cache && attempts == 0) {
       return 1;
     }
+    if (request.write_operation && attempts < 1) {
+      return 1;
+    }
     return 0;
   }
 };
 
-}  // namespace edge
+}  // namespace backend

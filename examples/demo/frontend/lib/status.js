@@ -8,7 +8,28 @@ export function statusLabel(status) {
       return "Suspended";
     case "deleted":
       return "Deleted";
+    case "archived":
+      return "Archived";
+    case "locked":
+      return "Locked";
     default:
       return "Unknown";
+  }
+}
+
+export function statusTone(status) {
+  switch (status) {
+    case "active":
+      return "success";
+    case "suspended":
+      return "warning";
+    case "deleted":
+      return "danger";
+    case "archived":
+      return "neutral";
+    case "locked":
+      return "danger";
+    default:
+      return "neutral";
   }
 }

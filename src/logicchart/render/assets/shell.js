@@ -36,6 +36,8 @@
       findingId: null,
       scope: null,
       edgeId: null,
+      line: null,
+      endLine: null,
     };
     const selectionSubscribers = [];
     // Re-entrancy guard: a subscriber that calls back into select() (e.g. a finding row
@@ -50,7 +52,7 @@
     // resolved selection object to subscribers.
     LC.select = function (partial) {
       partial = partial || {};
-      const keys = ["path", "flowId", "nodeId", "findingId", "scope", "edgeId"];
+      const keys = ["path", "flowId", "nodeId", "findingId", "scope", "edgeId", "line", "endLine"];
       const explicitEdge = Object.prototype.hasOwnProperty.call(partial, "edgeId");
       const clearsEdge = !explicitEdge && keys.some(key =>
         key !== "edgeId" && Object.prototype.hasOwnProperty.call(partial, key)
@@ -79,7 +81,6 @@
     const detailsClose = document.getElementById("detailsClose");
     const menuButton = document.getElementById("menuButton");
     const typedViewerHost = document.getElementById("typedViewerHost");
-    const themeToggleBtn = document.getElementById("themeToggle");
     const exportPngButton = document.getElementById("exportPng");
     const exportJpgButton = document.getElementById("exportJpg");
     const railWidths = { left: 312, right: 336 };
@@ -296,6 +297,7 @@
 
     loadStoredRailWidths();
     initRailResizers();
+    setRightRailOpen(false);
     syncRailControls();
 
     document.getElementById("flowCount").textContent = flows.length;
@@ -582,11 +584,11 @@
         <filter id="nodeLift" x="-45%" y="-45%" width="190%" height="210%">
           <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".22"/>
         </filter>
-        <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
+        <marker id="arrow" markerWidth="6.5" markerHeight="6.5" refX="5.7" refY="3.25" viewBox="0 0 6.5 6.5" orient="auto">
+          <path class="arrow" d="M0,0 L6.5,3.25 L0,6.5 z"></path>
         </marker>
-        <marker id="arrowFocus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path class="arrow-focus" d="M0,0 L8,4 L0,8 z"></path>
+        <marker id="arrowFocus" markerWidth="6.5" markerHeight="6.5" refX="5.7" refY="3.25" viewBox="0 0 6.5 6.5" orient="auto">
+          <path class="arrow-focus" d="M0,0 L6.5,3.25 L0,6.5 z"></path>
         </marker>`;
       return defs;
     }
@@ -652,6 +654,8 @@
             nodeId: null,
             findingId: null,
             edgeId: edgeRecordId(edge),
+            line: flow.location.start_line || null,
+            endLine: flow.location.end_line || flow.location.start_line || null,
           });
         };
         hit.setAttribute("class", "edge-hit");
@@ -983,6 +987,8 @@
         nodeId: null,
         findingId: null,
         edgeId: record.edge.id || `${record.edge.source}->${record.edge.target}`,
+        line: record.flow.location.start_line || null,
+        endLine: record.flow.location.end_line || record.flow.location.start_line || null,
       });
     }
 
@@ -1010,7 +1016,14 @@
       if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
       clearHighlight();
       setRightRailOpen(true);
-      LC.select({ flowId: flow.id, path: flow.location.path, nodeId: null, findingId: null });
+      LC.select({
+        flowId: flow.id,
+        path: flow.location.path,
+        nodeId: null,
+        findingId: null,
+        line: flow.location.start_line || null,
+        endLine: flow.location.end_line || flow.location.start_line || null,
+      });
     }
 
     // Inspecting a decision/call node: publish the node selection. The block highlight is
@@ -1020,7 +1033,14 @@
     function inspectNode(flow, node) {
       if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
       setRightRailOpen(true);
-      LC.select({ flowId: flow.id, nodeId: node.id, path: node.location.path, findingId: null });
+      LC.select({
+        flowId: flow.id,
+        nodeId: node.id,
+        path: node.location.path,
+        findingId: null,
+        line: node.location.start_line || null,
+        endLine: node.location.end_line || node.location.start_line || null,
+      });
     }
 
     function element(tag, className, text) {
@@ -1131,7 +1151,7 @@
       clone.setAttribute("width", String(width));
       clone.setAttribute("height", String(height));
       clone.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
-      clone.setAttribute("data-theme", document.documentElement.dataset.theme || "light");
+      clone.setAttribute("data-theme", document.documentElement.dataset.theme || "dark");
       clone.querySelectorAll(".edge-hit").forEach(node => node.remove());
 
       const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
@@ -1194,8 +1214,19 @@
       updateViewBox();
     }
 
+    function fitView() {
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.fitView === "function") {
+        typed.fitView();
+        return;
+      }
+      view = canvasContentBounds();
+      updateViewBox();
+    }
+
     document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
     document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
+    document.getElementById("fitView").addEventListener("click", fitView);
     if (exportPngButton) {
       exportPngButton.addEventListener("click", () => exportCurrentCanvas("png"));
     }
@@ -1306,20 +1337,7 @@
       svg.classList.remove("dragging");
     });
 
-    const THEME_KEY = "logicchart-theme";
-    function applyTheme(theme) {
-      document.documentElement.dataset.theme = theme;
-      themeToggleBtn.textContent = theme === "dark" ? "☀" : "☾";  // sun / moon
-      themeToggleBtn.title = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
-      try { localStorage.setItem(THEME_KEY, theme); } catch (_) {}
-    }
-    let storedTheme = null;
-    try { storedTheme = localStorage.getItem(THEME_KEY); } catch (_) {}
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
-    themeToggleBtn.addEventListener("click", () =>
-      applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")
-    );
+    document.documentElement.dataset.theme = "dark";
 
     // Expose flow selection so the directory tree (tree.js, a later <script>) can
     // drive the canvas. tree.js renders the left rail and reads LC.activeFlowId() to

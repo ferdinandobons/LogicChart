@@ -35,8 +35,8 @@ For viewer/UI changes:
 1. Run `npm run viewer:typecheck`, `npm run viewer:test`, and `npm run viewer:build`.
 2. Regenerate HTML artifacts with `logicchart update` and
    `logicchart view examples/demo --render-only --no-open`.
-3. Check the generated demo viewer with a cache-buster URL; use `?runtime=react` for the
-   framework-backed canvas path.
+3. Check the generated demo viewer with a cache-buster URL. Use `?runtime=static` only
+   when explicitly testing the legacy fallback.
 
 Do not present inferred findings as confirmed bugs. LogicChart marks syntax-backed facts as
 `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as `POTENTIAL_GAP`.

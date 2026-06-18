@@ -365,11 +365,11 @@
           <filter id="nodeLift" x="-45%" y="-45%" width="190%" height="210%">
             <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".22"/>
           </filter>
-          <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
+          <marker id="arrow" markerWidth="6.5" markerHeight="6.5" refX="5.7" refY="3.25" viewBox="0 0 6.5 6.5" orient="auto">
+            <path class="arrow" d="M0,0 L6.5,3.25 L0,6.5 z"></path>
           </marker>
-          <marker id="arrowFocus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path class="arrow-focus" d="M0,0 L8,4 L0,8 z"></path>
+          <marker id="arrowFocus" markerWidth="6.5" markerHeight="6.5" refX="5.7" refY="3.25" viewBox="0 0 6.5 6.5" orient="auto">
+            <path class="arrow-focus" d="M0,0 L6.5,3.25 L0,6.5 z"></path>
           </marker>`;
         return defs;
       }

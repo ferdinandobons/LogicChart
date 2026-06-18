@@ -118,6 +118,17 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     # entrypoint/call graph, not file boxes tuned to a particular repository shape.
     assert "buildProgressiveLayers" in html
     assert "routeFlowIds" in html
+
+
+def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
+    html = render_html(_model(tmp_path), tmp_path)
+    assert ".flow-node.flow-kind-route" in html
+    assert ".flow-node.flow-kind-function" in html
+    assert ".flow-node.flow-kind-component" in html
+    assert ".flow-node.flow-kind-service" in html
+    assert ".scope-node .shape" in html
+    assert "--scope-hue" in html
+    assert '[data-theme="dark"] .typed-viewer-host .scope-node .shape' in html
     assert "expandedFlowIds" in html
     assert "progressive-row-label" in html
     assert "unlocked calls" in html
@@ -149,13 +160,20 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert "cssEscape(" in html
     assert 'typeof window.CSS.escape === "function"' in html
     assert '"node entry scope-node movable"' in html
-    assert ".scope-node .shape" not in html
+    assert "hsl(var(--scope-hue" in html
     assert ".scope-node .scope-name" not in html
     assert "active-parent" in html
     assert "exportCurrentCanvas" in html
     assert "logicchart-flowchart" in html
+    assert 'id="fitView"' in html
+    assert "Fit current flowchart" in html
+    assert "typed.fitView" in html
+    assert 'class="tool-group"' in html
+    assert 'class="tool reset-tool"' in html
+    assert ">Reset</button>" in html
     assert "Export current flowchart as PNG" in html
     assert "Export current flowchart as JPG" in html
+    assert "themeToggle" not in html
     assert "inline-flow-panel" not in html
     assert "makeFileBox" not in html
     assert "expandedFiles" not in html
@@ -192,6 +210,7 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert 'id="detailButton"' in html
     assert 'id="detailsClose"' in html
     assert "aria-pressed" in html
+    assert "setRightRailOpen(false);" in html
     # The shared selection store the four surfaces publish/subscribe through.
     assert "LC.select" in html
 
@@ -292,6 +311,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "Reset expanded sections and fit current scope" in html
     assert "Open ${flow.name} in the progressive flowchart" in html
     assert "Select logic block on line" in html
+    assert "selectedSourceRange" in html
+    assert "sel.flowId === flow.id" in html
 
     # Canvas component polish: edge labels are readable pills and decision blocks carry a
     # compact semantic kind badge, so dense flowcharts retain their visual grammar.
@@ -317,12 +338,19 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
 
 def test_render_html_wires_framework_viewer_runtime(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # The default artifact remains static/offline, but a framework-backed runtime can be
-    # activated with ?runtime=react. This pins the bridge so the typed frontend cannot
-    # drift into an unused side project while the mature static viewer remains the default.
+    # The framework-backed progressive canvas is now the default HTML runtime. The legacy
+    # static canvas remains available as an explicit fallback for debugging and bundle
+    # failures, but ordinary generated viewers should open on the typed frontend.
     assert 'id="typedViewerHost"' in html
     assert 'data-runtime = "react"' not in html
     assert 'dataset.runtime = "react"' in html
-    assert 'params.get("runtime") !== "react"' in html
+    assert 'params.get("runtime") === "static"' in html
+    assert 'dataset.runtime = "static"' in html
     assert "mountStandaloneLogicChartViewer" in html
     assert "logicchartTypedViewer" in html
+    # After the React viewer mounts successfully, the hidden legacy SVG must not keep a
+    # second copy of the flow nodes in the DOM. Keeping it empty avoids duplicate canvas
+    # query/hit state while preserving the static fallback when React cannot start.
+    assert 'legacyCanvas.textContent = ""' in html
+    assert 'legacyCanvas.setAttribute("aria-hidden", "true")' in html
+    assert 'legacyCanvas.setAttribute("data-runtime-inactive", "true")' in html

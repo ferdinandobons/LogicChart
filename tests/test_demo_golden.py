@@ -1,10 +1,10 @@
 """Golden-master precision SLA, measured on examples/demo.
 
-The demo is a polyglot, multi-scope codebase (11 languages across backend,
-frontend, and edge). The SLA pins the published-artifact noise budget:
-across the whole codebase LogicChart surfaces exactly one true-positive review
-signal (the TS switch with no default) and nothing else - every other service is
-clean. A second test proves same-language cross-flow detection still fires.
+The demo is a dense polyglot frontend/backend codebase (11 languages across two
+macro-parts). The SLA pins the published-artifact noise budget: across the whole
+codebase LogicChart surfaces exactly two intentional enum-exhaustiveness review
+signals and nothing else. A second test proves same-language cross-flow detection
+still fires.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from logicchart.model import Evidence
 
 DEMO = Path(__file__).resolve().parent.parent / "examples" / "demo"
 
-_SOURCE_ROOTS = ("backend", "frontend", "edge", "logicchart.toml")
+_SOURCE_ROOTS = ("backend", "frontend", "logicchart.toml")
 # Every language the polyglot demo is meant to exercise end to end.
 _EXPECTED_LANGUAGES = {
     "python",
@@ -32,7 +32,7 @@ _EXPECTED_LANGUAGES = {
     "rust",
     "ruby",
 }
-_EXPECTED_SCOPES = {"backend", "frontend", "edge"}
+_EXPECTED_SCOPES = {"backend", "frontend"}
 
 
 def _analyze_copy(source: Path, tmp_path: Path) -> ProjectAnalyzer:
@@ -61,16 +61,31 @@ def test_demo_precision_sla(tmp_path: Path) -> None:
     model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
     findings = model.findings
 
-    # Exactly one finding across the whole polyglot codebase: the TS users route
-    # handles UserStatus.ACTIVE/SUSPENDED but not the declared DELETED member.
-    assert len(findings) == 1
-    only = findings[0]
-    assert only.kind == "enum_exhaustiveness"
-    assert only.evidence is Evidence.INFERRED
-    flagged = next(flow for flow in model.flows if flow.id == only.flow_id)
-    assert flagged.language == "typescript"
-    assert "user.status" in only.message
-    assert "UserStatus.DELETED" in only.metadata.get("missing", [])
+    # Exactly two findings across the whole polyglot codebase: the frontend
+    # intentionally leaves some enum states unhandled in two route switches.
+    assert len(findings) == 2
+    assert {finding.kind for finding in findings} == {"enum_exhaustiveness"}
+    assert {finding.evidence for finding in findings} == {Evidence.INFERRED}
+
+    missing_by_subject = {
+        finding.metadata["subject"]: set(finding.metadata["missing"]) for finding in findings
+    }
+    assert missing_by_subject == {
+        "order.state": {
+            "OrderState.BACKORDERED",
+            "OrderState.CHARGEBACK",
+            "OrderState.RETURNED",
+        },
+        "user.status": {
+            "UserStatus.ARCHIVED",
+            "UserStatus.DELETED",
+            "UserStatus.LOCKED",
+        },
+    }
+    assert all(
+        next(flow for flow in model.flows if flow.id == finding.flow_id).language == "typescript"
+        for finding in findings
+    )
 
     # No cross-flow false positive survives, and no review-only noise either.
     assert not any(f.kind == "inconsistent_case_handling" for f in findings)
@@ -81,7 +96,7 @@ def test_demo_rust_match_is_not_a_false_positive(tmp_path: Path) -> None:
     # The Rust router's exhaustive `match` must not be flagged as a missing fallback.
     model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
     rust_flows = {flow.id for flow in model.flows if flow.language == "rust"}
-    assert rust_flows  # the edge router was discovered
+    assert rust_flows  # the backend router was discovered
     assert not any(f.flow_id in rust_flows for f in model.findings)
 
 

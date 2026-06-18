@@ -9,6 +9,7 @@ const GAP_X = 82;
 const GAP_Y = 136;
 const DEFAULT_NODE_WIDTH = 270;
 const DEFAULT_NODE_HEIGHT = 78;
+const START_EDGE_HEIGHT = 38;
 
 export interface FlowDetailNodePosition {
   id: string;
@@ -33,10 +34,20 @@ export interface FlowDetailLayout {
   edgeRoutes: FlowDetailEdgeRoute[];
   measure: ExpandedFlowMeasure;
   nodePositions: Map<string, FlowDetailNodePosition>;
+  startRoutes: FlowDetailEdgeRoute[];
 }
 
-export function layoutFlowDetail(flow: LogicChartFlow): FlowDetailLayout | null {
-  const nodes = flow.nodes || [];
+export interface FlowDetailLayoutOptions {
+  omitEntryNode?: boolean;
+}
+
+export function layoutFlowDetail(
+  flow: LogicChartFlow,
+  options: FlowDetailLayoutOptions = {},
+): FlowDetailLayout | null {
+  const nodes = options.omitEntryNode
+    ? (flow.nodes || []).filter(node => node.kind !== "entry")
+    : flow.nodes || [];
   if (!nodes.length) return null;
 
   const nodeIds = new Set(nodes.map(node => node.id));
@@ -79,6 +90,7 @@ export function layoutFlowDetail(flow: LogicChartFlow): FlowDetailLayout | null 
   const edgeRoutes = edges
     .map((edge, index) => routeEdge(edge, index, nodePositions))
     .filter((route): route is FlowDetailEdgeRoute => route !== null);
+  const startRoutes = options.omitEntryNode ? routeStartEdges(nodePositions) : [];
   const bounds = mergeBounds(boundsItems);
   const width = Math.max(DEFAULT_NODE_WIDTH, bounds.maxX - bounds.minX);
   const height = Math.max(DEFAULT_NODE_HEIGHT, bounds.maxY - bounds.minY);
@@ -95,6 +107,7 @@ export function layoutFlowDetail(flow: LogicChartFlow): FlowDetailLayout | null 
       width,
     },
     nodePositions,
+    startRoutes,
   };
 }
 
@@ -184,6 +197,27 @@ function routeEdge(
     labelX: (source.x + target.x) / 2,
     labelY: midY - 8,
   };
+}
+
+function routeStartEdges(
+  positions: ReadonlyMap<string, FlowDetailNodePosition>,
+): FlowDetailEdgeRoute[] {
+  return [...positions.values()]
+    .filter(position => position.layer === 0)
+    .map(position => {
+      const endY = position.y - position.height / 2;
+      const midY = -START_EDGE_HEIGHT / 2;
+      return {
+        id: `start->${position.id}`,
+        edge: {
+          source: "__flow_host__",
+          target: position.id,
+        },
+        d: `M 0 ${-START_EDGE_HEIGHT} L 0 ${midY} L ${position.x} ${midY} L ${position.x} ${endY}`,
+        labelX: position.x / 2,
+        labelY: midY - 8,
+      };
+    });
 }
 
 function sizeForKind(kind: string | undefined): { width: number; height: number } {

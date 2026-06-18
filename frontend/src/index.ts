@@ -29,8 +29,15 @@ export {
   createViewerLayout,
   DEFAULT_PROGRESSIVE_LAYOUT_OPTIONS,
   DEFAULT_SCOPE_LAYOUT_OPTIONS,
+  flowCallEdgeObstacleHits,
+  flowCallLayoutObstacleHits,
   isLogicChartFlow,
   overlappingLayoutBoxes,
+  topLevelLayoutObstacleHits,
+  viewerLayoutEdgeObstacleHits,
+  viewerLayoutQualityReport,
+  viewerLayoutStructureIssues,
+  viewerNodeKey,
   viewerLayoutBoxes,
 } from "./viewer-layout";
 export { useViewerStore } from "./viewer-store";
@@ -65,7 +72,18 @@ export type {
   ScopeSummary,
 } from "./logicchart-model";
 export type {
+  FlowCallEdge,
   LayoutBox,
+  ManualNodePosition,
+  RootNodePosition,
+  RootScopeEdge,
   ViewerLayout,
+  ViewerLayoutEdgeKind,
+  ViewerLayoutEdgeObstacleHit,
   ViewerLayoutInput,
+  ViewerLayoutQualityOptions,
+  ViewerLayoutQualityReport,
+  ViewerLayoutStructureIssue,
+  ViewerLayoutStructureOptions,
+  ViewerNodeKind,
 } from "./viewer-layout";

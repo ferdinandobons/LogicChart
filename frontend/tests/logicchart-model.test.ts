@@ -85,7 +85,69 @@ describe("LogicChart payload model", () => {
     expect(model.layers.map(layer => layer.map(flow => flow.id))).toEqual([
       ["orders-route", "users-route"],
       ["load-order"],
+    ]);
+  });
+
+  it("opens directly selected internal flows through their visible caller chain", () => {
+    const model = buildProgressiveModel(payload, "frontend", ["load-order"]);
+
+    expect(model.entryFlowIds).toEqual(["orders-route", "users-route"]);
+    expect(model.layers.map(layer => layer.map(flow => flow.id))).toEqual([
+      ["orders-route", "users-route"],
+      ["load-order"],
+    ]);
+  });
+
+  it("keeps cross-scope targets in their owning scope instead of duplicating them", () => {
+    const frontendModel = buildProgressiveModel(payload, "frontend", [
+      "orders-route",
+      "load-order",
+      "status-label",
+    ]);
+    const libModel = buildProgressiveModel(payload, "lib", [], ["status-label"]);
+
+    expect(frontendModel.layers.flat().map(flow => flow.id)).toEqual([
+      "orders-route",
+      "users-route",
+      "load-order",
+    ]);
+    expect(libModel.layers.map(layer => layer.map(flow => flow.id))).toEqual([
       ["status-label"],
+    ]);
+  });
+
+  it("uses called_by metadata as a deterministic fallback for progressive call links", () => {
+    const calledByOnlyPayload: LogicChartPayload = {
+      flows: [
+        {
+          id: "entry",
+          name: "Entry",
+          language: "typescript",
+          entry_kind: "route",
+          is_entrypoint: true,
+          location: { path: "frontend/app/api/entry/route.ts", start_line: 1 },
+          calls: [],
+          called_by: [],
+          metadata: { scope: ["frontend"] },
+        },
+        {
+          id: "load-user",
+          name: "loadUser",
+          language: "typescript",
+          entry_kind: "function",
+          location: { path: "frontend/lib/load-user.ts", start_line: 8 },
+          calls: [],
+          called_by: ["entry"],
+          metadata: { scope: ["frontend"] },
+        },
+      ],
+    };
+
+    const model = buildProgressiveModel(calledByOnlyPayload, "frontend", ["load-user"]);
+
+    expect(model.layers.map(layer => layer.map(flow => flow.id))).toEqual([
+      ["entry"],
+      ["load-user"],
     ]);
   });
 

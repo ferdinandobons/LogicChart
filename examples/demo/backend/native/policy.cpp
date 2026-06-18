@@ -8,17 +8,17 @@ enum class CacheTier {
 
 class NativePolicy {
 public:
-  int ttl(CacheTier tier, bool degraded) {
+  int ttl(CacheTier tier, bool degraded, bool paid_customer) {
     if (degraded) {
-      return 30;
+      return paid_customer ? 45 : 30;
     }
     switch (tier) {
       case CacheTier::Cold:
-        return 60;
+        return paid_customer ? 120 : 60;
       case CacheTier::Warm:
-        return 300;
+        return paid_customer ? 600 : 300;
       case CacheTier::Hot:
-        return 900;
+        return paid_customer ? 1200 : 900;
       default:
         return 120;
     }

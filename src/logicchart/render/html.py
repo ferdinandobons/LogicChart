@@ -82,7 +82,6 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="metric"><strong id="entryCount">0</strong><span>entries</span></div>
         <div class="metric"><strong id="findingCount">0</strong><span>review</span></div>
       </div>
-      <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light/dark theme">&#9789;</button>
     </header>
 
     <aside class="left-rail" id="leftRail">
@@ -105,14 +104,21 @@ _HTML_TEMPLATE = r"""<!doctype html>
     <main>
       <nav id="breadcrumb" class="breadcrumb" aria-label="Canvas level"></nav>
       <div class="canvas-toolbar" aria-label="Canvas controls">
-        <button class="tool" id="menuButton" title="Toggle codebase tree" aria-label="Toggle codebase tree">&#9776;</button>
-        <button class="tool detail-tool" id="detailButton" title="Show source and findings" aria-label="Toggle source and findings" aria-pressed="false">i</button>
-        <button class="tool" id="zoomOut" title="Zoom out" aria-label="Zoom out">&minus;</button>
-        <button class="tool" id="resetView" title="Reset expanded sections and fit current scope" aria-label="Reset expanded sections and fit current scope">0</button>
-        <button class="tool" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
-        <button class="tool export-tool" id="exportPng" title="Export current flowchart as PNG" aria-label="Export current flowchart as PNG">PNG</button>
-        <button class="tool export-tool" id="exportJpg" title="Export current flowchart as JPG" aria-label="Export current flowchart as JPG">JPG</button>
-        <button class="tool" id="fullscreenToggle" data-action="fullscreen" title="Full screen (Esc to exit)" aria-label="Toggle full-screen canvas" aria-pressed="false">&#9974;</button>
+        <div class="tool-group" aria-label="Panels">
+          <button class="tool" id="menuButton" title="Toggle codebase tree" aria-label="Toggle codebase tree">&#9776;</button>
+          <button class="tool detail-tool" id="detailButton" title="Show source and findings" aria-label="Toggle source and findings" aria-pressed="false">i</button>
+        </div>
+        <div class="tool-group" aria-label="Viewport">
+          <button class="tool" id="zoomOut" title="Zoom out" aria-label="Zoom out">&minus;</button>
+          <button class="tool" id="fitView" title="Fit current flowchart" aria-label="Fit current flowchart">&#8982;</button>
+          <button class="tool reset-tool" id="resetView" title="Reset expanded sections and fit current scope" aria-label="Reset expanded sections and fit current scope">Reset</button>
+          <button class="tool" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        </div>
+        <div class="tool-group" aria-label="Output">
+          <button class="tool export-tool" id="exportPng" title="Export current flowchart as PNG" aria-label="Export current flowchart as PNG">PNG</button>
+          <button class="tool export-tool" id="exportJpg" title="Export current flowchart as JPG" aria-label="Export current flowchart as JPG">JPG</button>
+          <button class="tool" id="fullscreenToggle" data-action="fullscreen" title="Full screen (Esc to exit)" aria-label="Toggle full-screen canvas" aria-pressed="false">&#9974;</button>
+        </div>
       </div>
       <svg id="canvas" role="img" aria-label="Codebase canvas" data-level="0"></svg>
       <div id="typedViewerHost" class="typed-viewer-host" hidden aria-label="Framework-backed flowchart"></div>
@@ -162,7 +168,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <script>
     (function () {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("runtime") !== "react") return;
+      if (params.get("runtime") === "static") {
+        document.body.dataset.runtime = "static";
+        return;
+      }
       const runtime = window.LogicChartViewer;
       const host = document.getElementById("typedViewerHost");
       const data = document.getElementById("logicchart-data");
@@ -172,6 +181,12 @@ _HTML_TEMPLATE = r"""<!doctype html>
       try {
         const payload = JSON.parse(data.textContent || "{}");
         window.logicchartTypedViewer = runtime.mountStandaloneLogicChartViewer(host, payload);
+        const legacyCanvas = document.getElementById("canvas");
+        if (legacyCanvas) {
+          legacyCanvas.textContent = "";
+          legacyCanvas.setAttribute("aria-hidden", "true");
+          legacyCanvas.setAttribute("data-runtime-inactive", "true");
+        }
       } catch (error) {
         host.hidden = true;
         document.body.dataset.runtime = "static";

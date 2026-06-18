@@ -7,6 +7,7 @@ export type ExportImageFormat = "png" | "jpg";
 
 export interface MountedLogicChartViewer {
   exportImage: (format: ExportImageFormat) => void;
+  fitView: () => void;
   resetView: () => void;
   update: (props: ViewerAppProps) => void;
   zoom: (factor: number) => void;
@@ -17,60 +18,83 @@ export function mountLogicChartViewer(
   container: Element,
   props: ViewerAppProps,
 ): MountedLogicChartViewer {
-  const root = createRoot(container);
+  const frame = container.ownerDocument.createElement("div");
+  frame.className = "logicchart-viewer-frame";
+  container.appendChild(frame);
+
+  const root = createRoot(frame);
   let baseViewBox: ViewBox | null = null;
   let cleanupPan: (() => void) | null = null;
+  let cleanupOverview: (() => void) | null = null;
   let panSvg: SVGSVGElement | null = null;
+  let refreshOverview: (() => void) | null = null;
+  let resetToken = props.resetToken ?? 0;
+  let currentProps: ViewerAppProps = { ...props, resetToken };
 
   const captureBaseViewBox = () => {
-    const svg = findViewerSvg(container);
+    const svg = findViewerSvg(frame);
     baseViewBox = svg ? readViewBox(svg) : null;
   };
   const bindViewportControls = () => {
-    const svg = findViewerSvg(container);
-    if (svg === panSvg) return;
+    const svg = findViewerSvg(frame);
+    if (svg === panSvg) {
+      refreshOverview?.();
+      return;
+    }
     cleanupPan?.();
+    cleanupOverview?.();
     panSvg = svg;
     cleanupPan = svg ? bindSvgPan(svg) : null;
+    const overview = svg ? bindCanvasOverview(container, svg) : null;
+    cleanupOverview = overview?.cleanup ?? null;
+    refreshOverview = overview?.refresh ?? null;
   };
 
-  render(root, props);
+  render(root, currentProps);
   bindViewportControls();
   captureBaseViewBox();
 
   return {
     exportImage(format) {
-      const svg = findViewerSvg(container);
+      const svg = findViewerSvg(frame);
       if (svg) exportSvgImage(svg, format);
     },
+    fitView() {
+      const svg = findViewerSvg(frame);
+      if (!svg) return;
+      const bounds = svgContentBounds(svg) ?? readViewBox(svg);
+      if (bounds) writeViewBox(svg, bounds);
+    },
     resetView() {
-      const svg = findViewerSvg(container);
-      if (svg && baseViewBox) writeViewBox(svg, baseViewBox);
+      const targetViewBox = baseViewBox;
+      resetToken += 1;
+      currentProps = { ...currentProps, resetToken };
+      render(root, currentProps);
+      bindViewportControls();
+      const svg = findViewerSvg(frame);
+      if (svg && targetViewBox) writeViewBox(svg, targetViewBox);
+      captureBaseViewBox();
     },
     update(nextProps) {
-      render(root, nextProps);
+      currentProps = { ...nextProps, resetToken };
+      render(root, currentProps);
       bindViewportControls();
       captureBaseViewBox();
     },
     zoom(factor) {
-      const svg = findViewerSvg(container);
+      const svg = findViewerSvg(frame);
       if (!svg) return;
-      const current = readViewBox(svg);
-      if (!current) return;
-      const nextWidth = current.width * factor;
-      const nextHeight = current.height * factor;
-      writeViewBox(svg, {
-        x: current.x + (current.width - nextWidth) / 2,
-        y: current.y + (current.height - nextHeight) / 2,
-        width: nextWidth,
-        height: nextHeight,
-      });
+      zoomSvgViewBox(svg, factor);
     },
     unmount() {
       cleanupPan?.();
+      cleanupOverview?.();
       cleanupPan = null;
+      cleanupOverview = null;
       panSvg = null;
+      refreshOverview = null;
       root.unmount();
+      frame.remove();
     },
   };
 }
@@ -104,9 +128,22 @@ function readViewBox(svg: SVGSVGElement): ViewBox | null {
 }
 
 function writeViewBox(svg: SVGSVGElement, viewBox: ViewBox) {
+  if (!isValidViewBox(viewBox)) return;
   svg.setAttribute(
     "viewBox",
     `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`,
+  );
+  svg.dispatchEvent(new CustomEvent("logicchart:viewboxchange"));
+}
+
+function isValidViewBox(viewBox: ViewBox): boolean {
+  return (
+    Number.isFinite(viewBox.x) &&
+    Number.isFinite(viewBox.y) &&
+    Number.isFinite(viewBox.width) &&
+    Number.isFinite(viewBox.height) &&
+    viewBox.width > 0 &&
+    viewBox.height > 0
   );
 }
 
@@ -118,6 +155,40 @@ function bindSvgPan(svg: SVGSVGElement): () => void {
     startX: number;
     startY: number;
   } | null = null;
+  let globalListenersAttached = false;
+  let lastMoveEvent: PointerEvent | null = null;
+
+  const attachGlobalListeners = () => {
+    if (globalListenersAttached) return;
+    globalListenersAttached = true;
+    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointerup", onPointerEnd, true);
+    window.addEventListener("pointercancel", onPointerEnd, true);
+    window.addEventListener("mouseup", abortDrag, true);
+    window.addEventListener("blur", abortDrag, true);
+    document.addEventListener("pointermove", onPointerMove, true);
+    document.addEventListener("pointerup", onPointerEnd, true);
+    document.addEventListener("pointercancel", onPointerEnd, true);
+    document.addEventListener("mouseup", abortDrag, true);
+    document.addEventListener("visibilitychange", onVisibilityChange, true);
+    svg.addEventListener("lostpointercapture", onPointerEnd as EventListener);
+  };
+
+  const detachGlobalListeners = () => {
+    if (!globalListenersAttached) return;
+    globalListenersAttached = false;
+    window.removeEventListener("pointermove", onPointerMove, true);
+    window.removeEventListener("pointerup", onPointerEnd, true);
+    window.removeEventListener("pointercancel", onPointerEnd, true);
+    window.removeEventListener("mouseup", abortDrag, true);
+    window.removeEventListener("blur", abortDrag, true);
+    document.removeEventListener("pointermove", onPointerMove, true);
+    document.removeEventListener("pointerup", onPointerEnd, true);
+    document.removeEventListener("pointercancel", onPointerEnd, true);
+    document.removeEventListener("mouseup", abortDrag, true);
+    document.removeEventListener("visibilitychange", onVisibilityChange, true);
+    svg.removeEventListener("lostpointercapture", onPointerEnd as EventListener);
+  };
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return;
@@ -125,13 +196,14 @@ function bindSvgPan(svg: SVGSVGElement): () => void {
     if (
       target instanceof Element &&
       target.closest(
-        '[role="button"], a, .node, .detail-node, .edge-hit-path, .scope-entry-link, .edge-link-group',
+        '[role="button"], a, .node, .detail-node, .flow-detail-edge-hit, .flow-detail-edge-group, .flow-call-hit, .flow-call-edge-group, .root-scope-hit, .root-scope-edge-group, .edge-hit-path, .scope-entry-link, .edge-link-group',
       )
     ) {
       return;
     }
     const origin = readViewBox(svg);
     if (!origin) return;
+    finishDrag();
     drag = {
       moved: 0,
       origin,
@@ -139,7 +211,9 @@ function bindSvgPan(svg: SVGSVGElement): () => void {
       startX: event.clientX,
       startY: event.clientY,
     };
+    attachGlobalListeners();
     svg.classList.add("dragging");
+    event.preventDefault();
     try {
       svg.setPointerCapture(event.pointerId);
     } catch {
@@ -147,45 +221,123 @@ function bindSvgPan(svg: SVGSVGElement): () => void {
     }
   };
 
-  const onPointerMove = (event: PointerEvent) => {
+  const writePanFromPointer = (event: PointerEvent) => {
     if (!drag) return;
-    const width = svg.clientWidth || Number(svg.getAttribute("width")) || drag.origin.width;
-    const height = svg.clientHeight || Number(svg.getAttribute("height")) || drag.origin.height;
+    if (event.pointerId !== drag.pointerId) return;
+    if (event === lastMoveEvent) return;
+    lastMoveEvent = event;
+    const viewport = svgViewportSize(svg, drag.origin);
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
     writeViewBox(svg, {
       ...drag.origin,
-      x: drag.origin.x - dx * (drag.origin.width / width),
-      y: drag.origin.y - dy * (drag.origin.height / height),
+      x: drag.origin.x - dx * (drag.origin.width / viewport.width),
+      y: drag.origin.y - dy * (drag.origin.height / viewport.height),
     });
+  };
+
+  const onPointerMove = (event: PointerEvent) => {
+    writePanFromPointer(event);
     event.preventDefault();
   };
 
-  const finishDrag = (event: PointerEvent) => {
+  const onPointerEnd = (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    writePanFromPointer(event);
+    finishDrag(event);
+  };
+
+  const abortDrag = (event: Event) => {
+    finishDrag(event);
+  };
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") finishDrag();
+  };
+
+  const finishDrag = (event?: Event) => {
     if (!drag) return;
     const pointerId = drag.pointerId;
     drag = null;
+    lastMoveEvent = null;
+    detachGlobalListeners();
     svg.classList.remove("dragging");
     try {
       svg.releasePointerCapture(pointerId);
     } catch {
       // See setPointerCapture fallback above.
     }
-    event.preventDefault();
+    event?.preventDefault();
   };
 
   svg.addEventListener("pointerdown", onPointerDown);
   svg.addEventListener("pointermove", onPointerMove);
-  svg.addEventListener("pointerup", finishDrag);
-  svg.addEventListener("pointercancel", finishDrag);
+  svg.addEventListener("pointerup", onPointerEnd);
+  svg.addEventListener("pointercancel", onPointerEnd);
+  svg.addEventListener("wheel", onWheel, { passive: false });
 
   return () => {
-    svg.classList.remove("dragging");
+    finishDrag();
+    detachGlobalListeners();
     svg.removeEventListener("pointerdown", onPointerDown);
     svg.removeEventListener("pointermove", onPointerMove);
-    svg.removeEventListener("pointerup", finishDrag);
-    svg.removeEventListener("pointercancel", finishDrag);
+    svg.removeEventListener("pointerup", onPointerEnd);
+    svg.removeEventListener("pointercancel", onPointerEnd);
+    svg.removeEventListener("wheel", onWheel);
+  };
+
+  function onWheel(event: WheelEvent) {
+    const factor = event.deltaY > 0 ? 1.08 : 0.92;
+    zoomSvgViewBox(svg, factor, { clientX: event.clientX, clientY: event.clientY });
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
+function svgViewportSize(svg: SVGSVGElement, fallback: ViewBox): Pick<ViewBox, "height" | "width"> {
+  const rect = svg.getBoundingClientRect();
+  return {
+    height: rect.height || svg.clientHeight || Number(svg.getAttribute("height")) || fallback.height,
+    width: rect.width || svg.clientWidth || Number(svg.getAttribute("width")) || fallback.width,
+  };
+}
+
+function zoomSvgViewBox(
+  svg: SVGSVGElement,
+  factor: number,
+  anchor?: { clientX: number; clientY: number },
+) {
+  if (!Number.isFinite(factor) || factor <= 0) return;
+  const current = readViewBox(svg);
+  if (!current) return;
+  const anchorPoint = anchor
+    ? clientPointToViewBoxPoint(svg, current, anchor.clientX, anchor.clientY)
+    : {
+        x: current.x + current.width / 2,
+        y: current.y + current.height / 2,
+      };
+  const nextWidth = current.width * factor;
+  const nextHeight = current.height * factor;
+  writeViewBox(svg, {
+    x: anchorPoint.x - (anchorPoint.x - current.x) * factor,
+    y: anchorPoint.y - (anchorPoint.y - current.y) * factor,
+    width: nextWidth,
+    height: nextHeight,
+  });
+}
+
+function clientPointToViewBoxPoint(
+  svg: SVGSVGElement,
+  viewBox: ViewBox,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
+  const rect = svg.getBoundingClientRect();
+  const viewport = svgViewportSize(svg, viewBox);
+  return {
+    x: viewBox.x + ((clientX - rect.left) / Math.max(1, viewport.width)) * viewBox.width,
+    y: viewBox.y + ((clientY - rect.top) / Math.max(1, viewport.height)) * viewBox.height,
   };
 }
 
@@ -203,7 +355,11 @@ function exportSvgImage(svg: SVGSVGElement, format: ExportImageFormat) {
   clone.setAttribute("height", String(height));
   clone.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
   clone.setAttribute("data-theme", document.documentElement.dataset.theme || "light");
-  clone.querySelectorAll(".canvas-hit-zone, .edge-hit-path").forEach(node => node.remove());
+  clone
+    .querySelectorAll(
+      ".canvas-hit-zone, .root-scope-hit, .edge-hit-path, .flow-detail-edge-hit, .flow-call-hit",
+    )
+    .forEach(node => node.remove());
 
   const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
   style.textContent = [...document.querySelectorAll("style")]
@@ -247,7 +403,11 @@ function exportSvgImage(svg: SVGSVGElement, format: ExportImageFormat) {
 }
 
 function svgContentBounds(svg: SVGSVGElement): ViewBox | null {
-  const hitPaths = [...svg.querySelectorAll<SVGElement>(".canvas-hit-zone, .edge-hit-path")];
+  const hitPaths = [
+    ...svg.querySelectorAll<SVGElement>(
+      ".canvas-hit-zone, .root-scope-hit, .edge-hit-path, .flow-detail-edge-hit, .flow-call-hit",
+    ),
+  ];
   const previousDisplays = hitPaths.map(node => node.style.display);
   hitPaths.forEach(node => {
     node.style.display = "none";
@@ -289,6 +449,122 @@ function svgContentBounds(svg: SVGSVGElement): ViewBox | null {
 
 function hasBBox(node: Element): node is Element & { getBBox: () => DOMRect } {
   return typeof (node as { getBBox?: unknown }).getBBox === "function";
+}
+
+interface OverviewBinding {
+  cleanup: () => void;
+  refresh: () => void;
+}
+
+function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBinding {
+  const document = container.ownerDocument;
+  const namespace = "http://www.w3.org/2000/svg";
+  container.querySelectorAll(":scope > .logicchart-overview").forEach(node => node.remove());
+
+  const overview = document.createElement("button");
+  overview.className = "logicchart-overview";
+  overview.type = "button";
+  overview.title = "Fit the full flowchart";
+  overview.setAttribute("aria-label", "Canvas overview. Fit the full flowchart");
+
+  const overviewSvg = document.createElementNS(namespace, "svg");
+  overviewSvg.classList.add("logicchart-overview-map");
+  overviewSvg.setAttribute("aria-hidden", "true");
+  overviewSvg.setAttribute("focusable", "false");
+  overviewSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+  const contentRect = document.createElementNS(namespace, "rect");
+  contentRect.classList.add("logicchart-overview-content");
+  const nodeLayer = document.createElementNS(namespace, "g");
+  nodeLayer.classList.add("logicchart-overview-nodes");
+  const viewportRect = document.createElementNS(namespace, "rect");
+  viewportRect.classList.add("logicchart-overview-viewport");
+
+  overviewSvg.append(contentRect, nodeLayer, viewportRect);
+  overview.appendChild(overviewSvg);
+  container.appendChild(overview);
+
+  let contentBounds: ViewBox | null = null;
+
+  const sync = () => {
+    const viewBox = readViewBox(svg);
+    if (!viewBox || !contentBounds) {
+      overview.hidden = true;
+      return;
+    }
+    overview.hidden = false;
+    overviewSvg.setAttribute(
+      "viewBox",
+      `${contentBounds.x} ${contentBounds.y} ${contentBounds.width} ${contentBounds.height}`,
+    );
+    setRectAttributes(contentRect, contentBounds);
+    setRectAttributes(viewportRect, viewBox);
+  };
+
+  const refresh = () => {
+    contentBounds = svgContentBounds(svg) ?? readViewBox(svg);
+    nodeLayer.replaceChildren();
+    if (contentBounds) {
+      overviewNodeBounds(svg).forEach(box => {
+        const node = document.createElementNS(namespace, "rect");
+        node.classList.add("logicchart-overview-node");
+        setRectAttributes(node, box);
+        nodeLayer.appendChild(node);
+      });
+    }
+    sync();
+  };
+
+  const fitOverview = () => {
+    if (contentBounds) writeViewBox(svg, contentBounds);
+  };
+
+  svg.addEventListener("logicchart:viewboxchange", sync);
+  overview.addEventListener("click", fitOverview);
+  refresh();
+
+  return {
+    cleanup() {
+      svg.removeEventListener("logicchart:viewboxchange", sync);
+      overview.removeEventListener("click", fitOverview);
+      overview.remove();
+    },
+    refresh,
+  };
+}
+
+function overviewNodeBounds(svg: SVGSVGElement): ViewBox[] {
+  const maxNodes = 240;
+  return [...svg.querySelectorAll<Element>(".node, .detail-node")]
+    .slice(0, maxNodes)
+    .map(node => {
+      if (!hasBBox(node)) return null;
+      try {
+        const box = node.getBBox();
+        if (
+          !box ||
+          !Number.isFinite(box.x) ||
+          !Number.isFinite(box.y) ||
+          !Number.isFinite(box.width) ||
+          !Number.isFinite(box.height) ||
+          box.width <= 0 ||
+          box.height <= 0
+        ) {
+          return null;
+        }
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      } catch {
+        return null;
+      }
+    })
+    .filter((box): box is ViewBox => box !== null);
+}
+
+function setRectAttributes(rect: SVGRectElement, box: ViewBox) {
+  rect.setAttribute("x", String(box.x));
+  rect.setAttribute("y", String(box.y));
+  rect.setAttribute("width", String(box.width));
+  rect.setAttribute("height", String(box.height));
 }
 
 function cssVar(name: string, fallback: string): string {

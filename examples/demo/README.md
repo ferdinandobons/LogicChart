@@ -1,39 +1,43 @@
-# LogicChart demo: a polyglot, multi-scope codebase
+# LogicChart demo: a dense frontend/backend codebase
 
 A small but realistic "users & orders" platform, deliberately spread across **11
-languages** and **3 macro-parts** to show LogicChart representing a whole codebase,
-a single scope, or one flow, all from the same deterministic model.
+languages** and **2 macro-parts** to show LogicChart representing a broad
+frontend/backend system, a single scope, or one flow, all from the same deterministic
+model.
 
 ## Layout
 
-| Scope      | Path             | Language    | What it does                          |
-| ---------- | ---------------- | ----------- | ------------------------------------- |
-| `backend`  | `backend/users.py`             | Python      | FastAPI user endpoint                 |
-| `backend`  | `backend/orders/service.go`    | Go          | Order lifecycle state machine         |
-| `backend`  | `backend/billing/BillingService.java` | Java | Payment settlement                    |
-| `backend`  | `backend/auth/AuthService.cs`  | C#          | Role-based access checks              |
-| `backend`  | `backend/catalog/Catalog.php`  | PHP         | Catalog reorder logic                 |
-| `backend`  | `backend/notifications/notifier.rb` | Ruby   | Channel-based delivery                |
-| `frontend` | `frontend/app/api/users/route.ts`   | TypeScript | User API route                  |
-| `frontend` | `frontend/app/api/orders/route.ts`  | TypeScript | Order API route                 |
-| `frontend` | `frontend/app/users/page.tsx`  | TypeScript  | User dashboard page                   |
-| `frontend` | `frontend/lib/status.js`       | JavaScript  | Status label helper                   |
-| `edge`     | `edge/cache.c`                 | C           | Cache eviction policy                 |
-| `edge`     | `edge/native/*.cpp`            | C++         | Native admission and cache policies   |
-| `edge`     | `edge/router/src/lib.rs`       | Rust        | Request router (exhaustive `match`)   |
+| Scope      | Path                               | Language    | What it does                          |
+| ---------- | ---------------------------------- | ----------- | ------------------------------------- |
+| `backend`  | `backend/users.py`                 | Python      | FastAPI user read/update workflow     |
+| `backend`  | `backend/orders/service.go`        | Go          | Order fulfillment state machine       |
+| `backend`  | `backend/billing/BillingService.java` | Java     | Payment and refund settlement         |
+| `backend`  | `backend/auth/AuthService.cs`      | C#          | Role/resource access policy           |
+| `backend`  | `backend/catalog/Catalog.php`      | PHP         | Catalog reorder and merchandising     |
+| `backend`  | `backend/notifications/notifier.rb` | Ruby       | Multi-channel notification routing    |
+| `backend`  | `backend/cache/cache.c`            | C           | Backend cache eviction policy         |
+| `backend`  | `backend/native/*.cpp`             | C++         | Native admission and cache policies   |
+| `backend`  | `backend/router/src/lib.rs`        | Rust        | Backend request router                |
+| `frontend` | `frontend/app/api/users/route.ts`  | TypeScript  | User API route and moderation flow    |
+| `frontend` | `frontend/app/api/orders/route.ts` | TypeScript  | Order API route and action planner    |
+| `frontend` | `frontend/app/users/page.tsx`      | TypeScript  | User dashboard page                   |
+| `frontend` | `frontend/lib/status.js`           | JavaScript  | Status labels and visual tones        |
 
-## The one finding
+## Intentional findings
 
-Across the whole codebase LogicChart surfaces exactly **one** finding:
-`frontend/app/api/users/route.ts` switches on `user.status` and handles
-`UserStatus.ACTIVE` and `UserStatus.SUSPENDED`, but the `UserStatus` enum also
-declares `DELETED`, which is unhandled with no `default`. Because the enum is a
-declared closed set, LogicChart names the missing member precisely
-(`enum_exhaustiveness`, evidence `INFERRED`). The JavaScript helper in
-`frontend/lib/status.js` switches on the same statuses and *does* handle
-`deleted`, so it is clean: the contrast is the point. Every other service
-(including the Rust `match`, which the compiler already proves exhaustive) is
-reported clean: the model stays precise as the codebase grows.
+Across the whole codebase LogicChart surfaces exactly **two** findings, both in the
+frontend API layer:
+
+- `frontend/app/api/orders/route.ts` switches on `order.state` and omits
+  `OrderState.RETURNED`, `OrderState.CHARGEBACK`, and `OrderState.BACKORDERED`.
+- `frontend/app/api/users/route.ts` switches on `user.status` and omits
+  `UserStatus.DELETED`, `UserStatus.ARCHIVED`, and `UserStatus.LOCKED`.
+
+Both findings are `enum_exhaustiveness` with `INFERRED` evidence. The JavaScript helper in
+`frontend/lib/status.js` handles every user status, so it stays clean: the contrast is the
+point. Every backend service (including the Rust `match`, which the compiler already proves
+exhaustive) is reported clean, so the demo stays precise while still giving the review panel
+multiple realistic problems to show.
 
 ## Explore it
 
