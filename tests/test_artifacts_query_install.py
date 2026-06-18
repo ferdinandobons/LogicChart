@@ -37,7 +37,10 @@ def get_user(user_id: str):
     assert markdown_path.exists()
     assert html_path is not None and html_path.exists()
     assert "flowchart TD" in markdown_path.read_text(encoding="utf-8")
-    assert "Decision flow index" in html_path.read_text(encoding="utf-8")
+    html = html_path.read_text(encoding="utf-8")
+    assert "<title>LogicChart</title>" in html
+    assert 'id="typedViewerHost"' in html
+    assert "Decision flow index" not in html
     assert load_model(tmp_path).flows
     schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
     artifact = read_json(json_path)
@@ -46,7 +49,7 @@ def get_user(user_id: str):
     assert schema_file_language_ids(schema) == supported_language_ids()
     assert artifact["root"] == "."
     assert str(tmp_path) not in markdown_path.read_text(encoding="utf-8")
-    assert str(tmp_path) in html_path.read_text(encoding="utf-8")
+    assert str(tmp_path) in html
 
     matches = query_model(result.model, "suspended user")
     assert matches and matches[0].flow.name == "get_user"
