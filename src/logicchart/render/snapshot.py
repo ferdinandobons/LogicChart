@@ -13,7 +13,14 @@ MAX_FLOW_NODES = 44
 def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
     return {
         "error": f"Unsupported snapshot format: {requested}",
+        "error_code": "unsupported_snapshot_format",
+        "requested_format": requested,
         "supported_formats": list(SNAPSHOT_FORMATS),
+        "recoverable": True,
+        "guardrail": (
+            "This reports an unsupported visual export format; it is not a source-code "
+            "logical finding."
+        ),
     }
 
 
@@ -27,7 +34,7 @@ def render_flow_snapshot(
 ) -> dict[str, Any]:
     flow = next((item for item in model.flows if item.id == flow_id), None)
     if flow is None:
-        return {"error": f"Unknown flow: {flow_id}"}
+        return _snapshot_request_error("flow", flow_id)
     findings = [item for item in model.findings if item.flow_id == flow.id]
     highlighted = highlight_node_ids or set()
     rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
@@ -49,10 +56,10 @@ def render_finding_snapshot(
 ) -> dict[str, Any]:
     finding = next((item for item in model.findings if item.id == finding_id), None)
     if finding is None:
-        return {"error": f"Unknown finding: {finding_id}"}
+        return _snapshot_request_error("finding", finding_id)
     flow = next((item for item in model.flows if item.id == finding.flow_id), None)
     if flow is None:
-        return {"error": f"Unknown flow: {finding.flow_id}"}
+        return _snapshot_request_error("flow", finding.flow_id, finding_id=finding_id)
     node = next((item for item in flow.nodes if item.id == finding.node_id), None)
     highlighted = {finding.node_id} if finding.node_id else set()
     rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
@@ -80,6 +87,28 @@ def render_finding_snapshot(
         "diagnostic_category": diagnostic.get("category"),
         "evidence_item_count": len(diagnostic.get("evidence_chain", [])),
     }
+
+
+def _snapshot_request_error(
+    target_type: str,
+    target_id: str,
+    *,
+    finding_id: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "error": f"Unknown {target_type}: {target_id}",
+        "error_code": f"snapshot_{target_type}_not_found",
+        "target_type": target_type,
+        "target_id": target_id,
+        "recoverable": True,
+        "guardrail": (
+            "This reports an invalid snapshot target from the generated model; it is not "
+            "a source-code logical finding."
+        ),
+    }
+    if finding_id is not None:
+        payload["finding_id"] = finding_id
+    return payload
 
 
 def render_impact_snapshot(

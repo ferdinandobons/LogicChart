@@ -278,7 +278,9 @@ logicchart snapshot impact --flow flow-id --output impact.svg
 Snapshots are generated from the committed model artifact, not from browser screenshots.
 `flow`, `finding`, and `impact` support `--token-budget`; `impact` accepts the same
 `--flow`, `--symbol`, `--finding`, `--scope`, and changed-file targets as `impact`.
-Only SVG is supported by the CLI today; raster export remains available in the local viewer.
+Invalid snapshot targets and unsupported formats return structured, recoverable error
+payloads in JSON mode. Only SVG is supported by the CLI today; raster export remains
+available in the local viewer.
 
 ### `impact`
 
@@ -486,7 +488,8 @@ reconstructing the traversal. `context_pack` accepts the same explicit `flow_ids
 `symbols`, and `finding_ids` impact targets as `analyze_impact`.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
-actions instead of surfacing a raw traceback.
+actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid
+snapshot targets use the same structured error shape with recovery hints.
 `analysis_quality` returns deterministic analyzer-depth signals with guardrails and
 follow-up tool pointers, including parse-warning attention when tree-sitter recovered
 flows from partially malformed files. `context_pack` stays lightweight by default and

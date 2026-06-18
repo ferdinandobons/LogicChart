@@ -28,6 +28,8 @@ The project follows Semantic Versioning.
   guardrails, and next-tool/CLI recovery actions.
 - Added MCP artifact workflow hints for update/validate/review sequencing, including stale
   model recovery through `update_logicchart`.
+- Added structured recoverable errors for unknown MCP flow/finding targets and invalid
+  snapshot targets.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,

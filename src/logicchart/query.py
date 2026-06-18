@@ -618,12 +618,45 @@ def _resolve_flow_target(
     if len(by_name) == 1:
         return by_name[0], None
     if len(by_name) > 1:
-        return None, {
-            "error": f"ambiguous flow target: {target}",
-            "target": target,
-            "matches": [_flow_summary(flow) for flow in by_name],
-        }
-    return None, {"error": f"flow not found: {target}", "target": target}
+        return None, _flow_target_error(
+            f"ambiguous flow target: {target}",
+            "flow_target_ambiguous",
+            target,
+            matches=[_flow_summary(flow) for flow in by_name],
+        )
+    return None, _flow_target_error(f"flow not found: {target}", "flow_not_found", target)
+
+
+def _flow_target_error(
+    message: str,
+    error_code: str,
+    target: str,
+    *,
+    matches: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "error": message,
+        "error_code": error_code,
+        "target": target,
+        "recoverable": True,
+        "guardrail": (
+            "This reports an invalid flow-navigation target from the generated model; it "
+            "is not a source-code logical finding."
+        ),
+        "next_tools": {
+            "list_flows": {
+                "tool": "list_flows",
+                "arguments": {"entrypoints_only": False, "token_budget": 600},
+            },
+            "query_logic": {
+                "tool": "query_logic",
+                "arguments": {"question": target, "token_budget": 600},
+            },
+        },
+    }
+    if matches is not None:
+        payload["matches"] = matches
+    return payload
 
 
 def _navigation_cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:

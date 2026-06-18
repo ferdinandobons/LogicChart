@@ -147,8 +147,31 @@ def test_impact_snapshot_budget_reports_omitted_flows() -> None:
     assert "1 direct and 1 caller flows omitted" in snapshot["svg"]
 
 
+def test_snapshot_target_errors_are_structured() -> None:
+    model = ProjectModel(
+        schema_version="1.1",
+        generated_at="2026-06-18T00:00:00+00:00",
+        root=".",
+    )
+
+    flow_error = render_flow_snapshot(model, "missing-flow")
+    finding_error = render_finding_snapshot(model, "missing-finding")
+
+    assert flow_error["error"] == "Unknown flow: missing-flow"
+    assert flow_error["error_code"] == "snapshot_flow_not_found"
+    assert flow_error["target_type"] == "flow"
+    assert flow_error["recoverable"] is True
+    assert finding_error["error"] == "Unknown finding: missing-finding"
+    assert finding_error["error_code"] == "snapshot_finding_not_found"
+    assert finding_error["target_type"] == "finding"
+    assert finding_error["recoverable"] is True
+
+
 def test_unsupported_snapshot_format_reports_supported_formats() -> None:
-    assert unsupported_snapshot_format("png") == {
-        "error": "Unsupported snapshot format: png",
-        "supported_formats": ["svg"],
-    }
+    payload = unsupported_snapshot_format("png")
+
+    assert payload["error"] == "Unsupported snapshot format: png"
+    assert payload["error_code"] == "unsupported_snapshot_format"
+    assert payload["requested_format"] == "png"
+    assert payload["supported_formats"] == ["svg"]
+    assert payload["recoverable"] is True

@@ -340,6 +340,8 @@ Current checkpoint:
   confidence, review prompt, and evidence-chain summaries next to the highlighted flow.
 - Unsupported raster formats return an explicit supported-format response instead of
   silently falling back to browser screenshots.
+- Unknown flow/finding snapshot targets return structured recoverable errors with stable
+  `error_code` fields instead of untyped error strings.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
@@ -394,6 +396,8 @@ Current checkpoint:
   stale-model recovery and the update -> validate -> review sequence.
 - MCP tests cover a source-change cycle where validation detects stale artifacts,
   `update_logicchart` regenerates the model, and validation passes afterward.
+- MCP tests cover unknown flow/finding targets for retrieval, navigation, explanation,
+  context, and snapshot tools as structured recoverable errors.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 

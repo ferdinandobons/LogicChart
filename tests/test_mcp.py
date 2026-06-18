@@ -135,6 +135,33 @@ def authorize(user):
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
                 assert "Missing explicit fallback" in str(rules.content)
+                missing_finding = await session.call_tool(
+                    "explain_finding_chain",
+                    {"finding_id": "missing-finding"},
+                )
+                assert not missing_finding.isError
+                missing_finding_payload = missing_finding.structuredContent  # type: ignore[assignment]
+                assert missing_finding_payload["error_code"] == "finding_not_found"  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    missing_finding_payload["next_tools"]["review_queue"]["tool"] == "review_queue"
+                )
+                missing_finding_context = await session.call_tool(
+                    "get_finding_context",
+                    {"finding_id": "missing-finding"},
+                )
+                assert not missing_finding_context.isError
+                assert (  # type: ignore[index]
+                    missing_finding_context.structuredContent["error_code"] == "finding_not_found"
+                )
+                missing_finding_snapshot = await session.call_tool(
+                    "get_finding_snapshot",
+                    {"finding_id": "missing-finding"},
+                )
+                assert not missing_finding_snapshot.isError
+                assert (  # type: ignore[index]
+                    missing_finding_snapshot.structuredContent["error_code"]
+                    == "snapshot_finding_not_found"
+                )
 
                 navigation = await session.call_tool(
                     "get_flow_navigation",
@@ -151,6 +178,33 @@ def authorize(user):
                 )
                 assert not flow_snapshot.isError
                 assert "<svg" in str(flow_snapshot.content)
+                missing_flow = await session.call_tool("get_flow", {"flow_id": "missing-flow"})
+                assert not missing_flow.isError
+                missing_flow_payload = missing_flow.structuredContent  # type: ignore[assignment]
+                assert missing_flow_payload["error_code"] == "flow_not_found"  # type: ignore[index]
+                assert missing_flow_payload["target_id"] == "missing-flow"  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    missing_flow_payload["next_tools"]["list_flows"]["tool"] == "list_flows"
+                )
+                missing_navigation = await session.call_tool(
+                    "get_flow_navigation",
+                    {"flow_id": "missing-flow"},
+                )
+                assert not missing_navigation.isError
+                missing_navigation_payload = missing_navigation.structuredContent  # type: ignore[assignment]
+                assert missing_navigation_payload["error_code"] == "flow_not_found"  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    missing_navigation_payload["next_tools"]["query_logic"]["tool"] == "query_logic"
+                )
+                missing_flow_snapshot = await session.call_tool(
+                    "get_flow_snapshot",
+                    {"flow_id": "missing-flow"},
+                )
+                assert not missing_flow_snapshot.isError
+                missing_flow_snapshot_payload = missing_flow_snapshot.structuredContent  # type: ignore[assignment]
+                assert (  # type: ignore[index]
+                    missing_flow_snapshot_payload["error_code"] == "snapshot_flow_not_found"
+                )
 
                 impact_snapshot = await session.call_tool(
                     "get_impact_snapshot",

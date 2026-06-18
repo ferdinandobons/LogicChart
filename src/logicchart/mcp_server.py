@@ -125,7 +125,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         assert model is not None
         flow = next((item for item in model.flows if item.id == flow_id), None)
         if flow is None:
-            return {"error": f"Unknown flow: {flow_id}"}
+            return _unknown_target_error("flow", flow_id)
         flow_dict = _flow_dict(flow)
         # Honor the budget by trimming the largest list-shaped fields of the graph, then
         # keep the subgraph internally consistent: drop any edge whose source or target
@@ -287,7 +287,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         assert model is not None
         result = explain_finding(model, finding_id)
         if result is None:
-            return {"error": f"Unknown finding: {finding_id}"}
+            return _unknown_target_error("finding", finding_id)
         result["next_tools"] = {
             "finding_context": {
                 "tool": "get_finding_context",
@@ -308,7 +308,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             return error
         assert model is not None
         result = finding_context(model, finding_id, token_budget)
-        return result if result is not None else {"error": f"Unknown finding: {finding_id}"}
+        return result if result is not None else _unknown_target_error("finding", finding_id)
 
     @server.tool()
     def where_state_handled(
@@ -1028,6 +1028,44 @@ def _finding_next_tools(finding: Any) -> dict[str, dict[str, Any]]:
             "tool": "get_flow_navigation",
             "arguments": {"flow_id": finding.flow_id},
         },
+    }
+
+
+def _unknown_target_error(target_type: str, target_id: str) -> dict[str, Any]:
+    next_tools: dict[str, dict[str, Any]]
+    if target_type == "flow":
+        next_tools = {
+            "list_flows": {
+                "tool": "list_flows",
+                "arguments": {"entrypoints_only": False, "token_budget": 600},
+            },
+            "query_logic": {
+                "tool": "query_logic",
+                "arguments": {"question": target_id, "token_budget": 600},
+            },
+        }
+    else:
+        next_tools = {
+            "review_queue": {
+                "tool": "review_queue",
+                "arguments": {"token_budget": 600},
+            },
+            "get_findings": {
+                "tool": "get_findings",
+                "arguments": {"token_budget": 600},
+            },
+        }
+    return {
+        "error": f"Unknown {target_type}: {target_id}",
+        "error_code": f"{target_type}_not_found",
+        "target_type": target_type,
+        "target_id": target_id,
+        "recoverable": True,
+        "guardrail": (
+            "This reports an invalid MCP target from the generated model; it is not a "
+            "source-code logical finding."
+        ),
+        "next_tools": next_tools,
     }
 
 
