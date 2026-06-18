@@ -472,9 +472,11 @@ explanation, finding-context subgraphs, state-handling lookup, decision-node sea
 impact analysis, token-bounded deterministic SVG snapshots for flows/findings/impact
 sets, review queue, context pack, artifact validation, and artifact update. Finding
 snapshots include a compact diagnostic panel with evidence tier, confidence, review
-prompt, and evidence-chain summaries. MCP impact analysis includes per-flow `reasons`
-alongside a top-level `impact_reasons` map so agents can explain direct and transitive
-impact without reconstructing the traversal.
+prompt, and evidence-chain summaries. MCP impact analysis and `context_pack` include
+per-flow `reasons` alongside a top-level `impact_reasons` map so agents can explain
+direct and transitive impact without reconstructing the traversal. `context_pack` accepts
+the same explicit `flow_ids`, `symbols`, and `finding_ids` impact targets as
+`analyze_impact`.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback.

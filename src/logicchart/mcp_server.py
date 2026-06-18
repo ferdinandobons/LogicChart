@@ -367,15 +367,13 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             symbols=symbols,
             finding_ids=finding_ids,
         )
-
-        def impact_flow_summary(flow: Any) -> dict[str, Any]:
-            return {
-                **_flow_summary(flow),
-                "reasons": result.impact_reasons.get(flow.id, []),
-            }
-
-        direct = [impact_flow_summary(item) for item in result.directly_impacted]
-        transitive = [impact_flow_summary(item) for item in result.transitively_impacted]
+        direct = [
+            _impact_flow_summary(item, result.impact_reasons) for item in result.directly_impacted
+        ]
+        transitive = [
+            _impact_flow_summary(item, result.impact_reasons)
+            for item in result.transitively_impacted
+        ]
         return {
             "changed_files": result.changed_files,
             "target_flow_ids": result.target_flow_ids,
@@ -463,16 +461,31 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         question: str | None = None,
         changed_files: list[str] | None = None,
         scope: str | None = None,
+        flow_ids: list[str] | None = None,
+        symbols: list[str] | None = None,
+        finding_ids: list[str] | None = None,
         include_visual: bool = False,
         token_budget: int = 600,
     ) -> dict[str, Any]:
-        """Compact orientation pack: summary, relevant flows, impact, review, visuals."""
+        """Compact orientation pack: summary, relevant flows, impact, review, visuals.
+
+        ``flow_ids``, ``symbols``, and ``finding_ids`` mirror ``analyze_impact`` so an
+        agent can build a context pack around an exact flow, symbol, or diagnostic without
+        pretending a source file changed.
+        """
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
         assert model is not None
-        changes = changed_files if changed_files is not None else git_changed_files(project_root)
-        impact = impact_model(model, changes, scope)
+        changes = _impact_changed_files(project_root, changed_files, flow_ids, symbols, finding_ids)
+        impact = impact_model(
+            model,
+            changes,
+            scope,
+            flow_ids=flow_ids,
+            symbols=symbols,
+            finding_ids=finding_ids,
+        )
         matches = query_model(model, question or " ".join(changes), limit=8, scope=scope)
         review_flow_ids = {flow.id for flow in impact.all_flows} | {
             match.flow.id for match in matches
@@ -491,14 +504,27 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "query": _cap([match.to_dict() for match in matches], token_budget),
             "impact": {
                 "changed_files": impact.changed_files,
+                "target_flow_ids": impact.target_flow_ids,
+                "target_symbols": impact.target_symbols,
+                "target_finding_ids": impact.target_finding_ids,
+                "unresolved_targets": impact.unresolved_targets,
+                "impact_reasons": impact.impact_reasons,
                 "direct": _cap(
-                    [_flow_summary(item) for item in impact.directly_impacted],
+                    [
+                        _impact_flow_summary(item, impact.impact_reasons)
+                        for item in impact.directly_impacted
+                    ],
                     token_budget,
                 ),
                 "transitive": _cap(
-                    [_flow_summary(item) for item in impact.transitively_impacted],
+                    [
+                        _impact_flow_summary(item, impact.impact_reasons)
+                        for item in impact.transitively_impacted
+                    ],
                     token_budget,
                 ),
+                "subgraph_flow_ids": impact.subgraph_flow_ids,
+                "subgraph_finding_ids": impact.subgraph_finding_ids,
             },
             "review": _cap(review_rows, token_budget),
             "visual_context": _context_visual_pack(
@@ -572,6 +598,13 @@ def _flow_summary(flow: Any) -> dict[str, Any]:
     }
 
 
+def _impact_flow_summary(flow: Any, impact_reasons: dict[str, list[str]]) -> dict[str, Any]:
+    return {
+        **_flow_summary(flow),
+        "reasons": impact_reasons.get(flow.id, []),
+    }
+
+
 def _flow_dict(flow: Any) -> dict[str, Any]:
     return asdict(flow)
 
@@ -619,6 +652,12 @@ def _context_visual_pack(
     }
     if scope is not None:
         impact_arguments["scope"] = scope
+    if impact.target_flow_ids:
+        impact_arguments["flow_ids"] = impact.target_flow_ids
+    if impact.target_symbols:
+        impact_arguments["symbols"] = impact.target_symbols
+    if impact.target_finding_ids:
+        impact_arguments["finding_ids"] = impact.target_finding_ids
     payload: dict[str, Any] = {
         "include_visual": include_visual,
         "format": "svg",

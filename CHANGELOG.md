@@ -58,6 +58,8 @@ The project follows Semantic Versioning.
   handled values across CLI and MCP.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, flow, and
   finding snapshots gated by `include_visual` and capped by `token_budget`.
+- Added explicit flow/symbol/finding impact targets and per-flow impact reasons to MCP
+  `context_pack`, matching `analyze_impact` for agent-oriented context retrieval.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer

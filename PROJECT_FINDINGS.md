@@ -446,6 +446,9 @@ Current checkpoint:
   and subgraph finding ids.
 - JSON/MCP impact responses include per-flow impact reasons, distinguishing changed-file
   matches, explicit flow/symbol/finding targets, and caller propagation.
+- MCP `context_pack` accepts the same explicit impact targets and preserves per-flow
+  impact reasons plus subgraph ids, so agents can request a bounded context pack for an
+  exact flow, symbol, or finding without inventing a changed file.
 
 Still open:
 

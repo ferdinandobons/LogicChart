@@ -87,6 +87,8 @@ def authorize(user):
                 ):
                     properties = schema_by_name[budget_tool].get("properties", {})
                     assert "token_budget" in properties, budget_tool
+                context_properties = schema_by_name["context_pack"].get("properties", {})
+                assert {"flow_ids", "symbols", "finding_ids"} <= set(context_properties)
 
                 response = await session.call_tool(
                     "query_logic",
@@ -188,6 +190,26 @@ def authorize(user):
                     context_payload["visual_context"]["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
                     == "get_impact_snapshot"
                 )
+                targeted_context = await session.call_tool(
+                    "context_pack",
+                    {"flow_ids": [flow.id], "token_budget": 120},
+                )
+                assert not targeted_context.isError
+                targeted_context_payload = targeted_context.structuredContent  # type: ignore[assignment]
+                targeted_impact = targeted_context_payload["impact"]  # type: ignore[index]
+                assert targeted_impact["changed_files"] == []
+                assert targeted_impact["target_flow_ids"] == [flow.id]
+                assert targeted_impact["impact_reasons"] == {
+                    flow.id: [f"explicit flow target `{flow.id}`"]
+                }
+                assert targeted_impact["direct"][0]["reasons"] == [
+                    f"explicit flow target `{flow.id}`"
+                ]
+                assert flow.id in targeted_impact["subgraph_flow_ids"]
+                impact_next_args = targeted_context_payload["visual_context"]["next_tools"][  # type: ignore[index]
+                    "impact_snapshot"
+                ]["arguments"]
+                assert impact_next_args["flow_ids"] == [flow.id]
 
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError
