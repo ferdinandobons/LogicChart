@@ -15,6 +15,8 @@ The project follows Semantic Versioning.
   guards, swallowed handlers, no-op branches, and asymmetric dispatch returns.
 - Added bounded related-decision scope to cross-flow diagnostics, including related flow
   and node ids plus source ranges for evidence-chain entries.
+- Added `logicchart explain <finding-id>` for deterministic CLI finding explanations with
+  evidence-tier guardrails and JSON output for agents.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
 - Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.

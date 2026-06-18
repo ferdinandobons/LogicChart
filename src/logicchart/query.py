@@ -331,6 +331,70 @@ def render_impact(result: ImpactResult) -> str:
     return "\n".join(lines)
 
 
+def render_finding_explanation(explanation: dict[str, Any]) -> str:
+    diagnostic = explanation.get("diagnostic") or {}
+    confidence = diagnostic.get("confidence") or {}
+    scope = diagnostic.get("scope") or {}
+    decision = explanation.get("decision") or {}
+    lines = [
+        f"Finding: {explanation['id']}",
+        f"Kind: {explanation['kind']}",
+        f"Evidence: {explanation['evidence']} ({confidence.get('basis', 'unknown basis')})",
+        f"Severity: {explanation['severity']}",
+        f"Location: {explanation['location']}",
+        f"Flow: {explanation.get('flow') or '(unknown)'}",
+        f"Message: {explanation['message']}",
+    ]
+    if explanation.get("detail"):
+        lines.append(f"Detail: {explanation['detail']}")
+    if decision:
+        lines.append("\nDecision:")
+        lines.append(f"- label: {decision.get('label') or '(unknown)'}")
+        if decision.get("subject"):
+            lines.append(f"- subject: {decision['subject']}")
+        if decision.get("condition"):
+            lines.append(f"- condition: {decision['condition']}")
+        branches = decision.get("branches") or []
+        if branches:
+            lines.append(f"- branches: {_compact_list(branches)}")
+    if diagnostic:
+        lines.append("\nDiagnostic:")
+        lines.append(f"- rule: {diagnostic.get('rule_id', explanation['kind'])}")
+        lines.append(f"- category: {diagnostic.get('category', 'unknown')}")
+        lines.append(f"- source: {scope.get('source', explanation['location'])}")
+        if diagnostic.get("missing"):
+            lines.append(f"- missing: {_compact_list(diagnostic['missing'])}")
+        if diagnostic.get("expected"):
+            lines.append(f"- expected: {_metadata_text(diagnostic['expected'])}")
+        if diagnostic.get("actual"):
+            lines.append(f"- actual: {_metadata_text(diagnostic['actual'])}")
+        if diagnostic.get("review_prompt"):
+            lines.append(f"- review: {diagnostic['review_prompt']}")
+    actions = diagnostic.get("suggested_next_actions") or []
+    if actions:
+        lines.append("\nSuggested next actions:")
+        lines.extend(f"- {action}" for action in actions[:4])
+    chain = diagnostic.get("evidence_chain") or []
+    if chain:
+        lines.append("\nEvidence chain:")
+        for item in chain[:6]:
+            item_type = str(item.get("type", "evidence"))
+            location = (
+                item.get("source")
+                or _location_text(item.get("location"))
+                or scope.get("source")
+                or explanation["location"]
+            )
+            summary = _evidence_summary(item)
+            lines.append(f"- {item_type} @ {location}: {summary}")
+        omitted = len(chain) - 6
+        if omitted > 0:
+            lines.append(f"- {omitted} additional evidence item(s) omitted")
+    lines.append("\nGuardrail:")
+    lines.append(f"- {evidence_guardrail(explanation['evidence'])}")
+    return "\n".join(lines)
+
+
 def model_summary(model: ProjectModel) -> dict[str, Any]:
     """An orientation snapshot: counts of flows, findings by kind/severity/evidence."""
     rules = model.metadata.get("finding_rules") or finding_rule_contracts_by_kind()
@@ -359,6 +423,47 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
         "scopes": model.metadata.get("scopes", {}),
         "quality": quality,
     }
+
+
+def evidence_guardrail(evidence: str) -> str:
+    if evidence == "VERIFIED":
+        return "syntax-backed fact"
+    if evidence == "INFERRED":
+        return "deterministic heuristic; inspect before treating as a confirmed bug"
+    return "review candidate; never treat as a confirmed bug without inspection"
+
+
+def _compact_list(value: Any, limit: int = 6) -> str:
+    items = _list_value(value)
+    shown = items[:limit]
+    text = ", ".join(_metadata_text(item) for item in shown)
+    omitted = len(items) - len(shown)
+    return f"{text} (+{omitted} more)" if omitted > 0 else text
+
+
+def _evidence_summary(item: dict[str, Any]) -> str:
+    if "nodes" in item and isinstance(item["nodes"], list):
+        return f"{len(item['nodes'])} related node(s)"
+    if "values" in item:
+        return f"values: {_compact_list(item['values'])}"
+    if "branches" in item:
+        return f"branches: {_compact_list(item['branches'])}"
+    payload = {
+        key: value
+        for key, value in item.items()
+        if key not in {"type", "location", "source"} and value not in (None, "", [], {})
+    }
+    return _metadata_text(payload) if payload else "see source range"
+
+
+def _location_text(value: Any) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    path = value.get("path")
+    line = value.get("start_line")
+    if not path or line is None:
+        return None
+    return f"{path}:{line}"
 
 
 def flow_in_scope(flow: Flow, scope: str | None) -> bool:

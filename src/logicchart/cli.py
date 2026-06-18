@@ -17,9 +17,11 @@ from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
 from logicchart.install import install_all
 from logicchart.quality import render_quality
 from logicchart.query import (
+    explain_finding,
     git_changed_files,
     impact_model,
     query_model,
+    render_finding_explanation,
     render_impact,
     render_query,
 )
@@ -93,6 +95,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_profile_argument(query)
     query.add_argument("--json", action="store_true", dest="json_output")
+
+    explain = subparsers.add_parser("explain", help="Explain one logical finding.")
+    explain.add_argument("finding_id")
+    explain.add_argument("--path", default=".")
+    _add_profile_argument(explain)
+    explain.add_argument("--json", action="store_true", dest="json_output")
 
     view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
     view.add_argument("path", nargs="?", default=".")
@@ -224,6 +232,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.value,
                 args.profile,
             )
+        if args.command == "explain":
+            return _explain(
+                Path(args.path),
+                args.finding_id,
+                args.json_output,
+                args.profile,
+            )
         if args.command == "view":
             return _view(
                 Path(args.path),
@@ -259,6 +274,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         # permission-denied write surfaces as a clean message instead of a raw traceback.
         print(f"error: {error}", file=sys.stderr)
         return 1
+    return 0
+
+
+def _explain(
+    root: Path,
+    finding_id: str,
+    json_output: bool,
+    profile: str | None = None,
+) -> int:
+    root = root.resolve()
+    config = LogicChartConfig.load(root, profile=profile)
+    explanation = explain_finding(load_model(root, config), finding_id)
+    if explanation is None:
+        print(f"error: finding not found: {finding_id}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(explanation, indent=2))
+    else:
+        print(render_finding_explanation(explanation))
     return 0
 
 

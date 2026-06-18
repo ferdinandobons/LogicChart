@@ -113,6 +113,8 @@ Current checkpoint:
 - A shared detector-rule registry is emitted under `model.metadata.finding_rules`.
 - `explain_finding_chain`, `get_findings`, `review_queue`, and `context_pack` expose the
   diagnostic object over MCP.
+- `logicchart explain <finding-id>` exposes the same deterministic explanation payload over
+  the CLI, with evidence-tier guardrails and JSON output for agents.
 - `get_finding_context` exposes a bounded deterministic subgraph with the focus flow,
   evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
 - Cross-flow diagnostics include bounded related-decision scope with related flow/node ids
@@ -548,6 +550,7 @@ Before the next release:
 - Done: add tests for each detector's structured output.
 - Done: update viewer Logical Errors panel to show diagnostic details and related
   flow/evidence-node links.
+- Done: add a CLI `explain` command for deterministic finding explanations and JSON output.
 - Next: consider a compatible schema 1.2 only when the consumer migration story is ready.
 
 ### Phase 2: MCP Visual Context

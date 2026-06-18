@@ -234,6 +234,21 @@ Use `--json` for machine-readable output. Structured filters are deterministic a
 stand on their own with an empty question: `--source-path`, `--symbol`, `--domain`, and
 `--value` narrow the model before ranking.
 
+### `explain`
+
+Explain one logical finding from the committed model:
+
+```bash
+logicchart explain finding-id
+logicchart explain finding-id --json
+```
+
+The human output includes evidence tier, confidence basis, source range, decision context,
+diagnostic expected/actual/missing state, review prompt, suggested next actions, and an
+evidence-chain summary. The guardrail text distinguishes `VERIFIED`, `INFERRED`, and
+`POTENTIAL_GAP` so review candidates are not presented as confirmed bugs. JSON output uses
+the same deterministic explanation payload exposed by MCP.
+
 ### `impact`
 
 Show flows affected by changed files or explicit model targets:

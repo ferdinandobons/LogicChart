@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from logicchart.artifacts import load_model
 from logicchart.cli import main
+from logicchart.config import LogicChartConfig
 
 
 def test_analyze_nonexistent_path_errors_clearly(
@@ -49,6 +51,51 @@ def authorize(user):
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
     assert main(["query", "admin authorization", "--path", str(tmp_path)]) == 0
     assert main(["view", str(tmp_path), "--render-only"]) == 0
+
+
+def test_cli_explain_finding_human_and_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "service.py").write_text(
+        """
+from enum import Enum
+
+
+class Status(Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+    DELETED = "deleted"
+
+
+def handle(status):
+    match status:
+        case Status.OPEN:
+            return "open"
+        case Status.CLOSED:
+            return "closed"
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["analyze", str(tmp_path), "--full", "--no-html"]) == 0
+    capsys.readouterr()
+    model = load_model(tmp_path, LogicChartConfig())
+    finding = model.findings[0]
+
+    assert main(["explain", finding.id, "--path", str(tmp_path)]) == 0
+    human = capsys.readouterr().out
+    assert f"Finding: {finding.id}" in human
+    assert "Evidence:" in human
+    assert "Suggested next actions:" in human
+    assert "Guardrail:" in human
+
+    assert main(["explain", finding.id, "--path", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["id"] == finding.id
+    assert payload["diagnostic"]["rule_id"] == finding.kind
+
+    assert main(["explain", "missing-finding", "--path", str(tmp_path)]) == 1
+    assert "finding not found: missing-finding" in capsys.readouterr().err
 
 
 def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
