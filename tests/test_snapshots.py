@@ -117,6 +117,28 @@ def test_impact_snapshot_renders_empty_state() -> None:
     assert "No modeled flows are affected" in snapshot["svg"]
 
 
+def test_impact_snapshot_reports_targets_and_unresolved_targets() -> None:
+    snapshot = render_impact_snapshot(
+        changed_files=[],
+        direct=[],
+        transitive=[],
+        findings=[],
+        target_flow_ids=["missing-flow"],
+        unresolved_targets=[{"type": "flow", "value": "missing-flow", "reason": "not_found"}],
+        impact_reasons={},
+        subgraph_flow_ids=[],
+        subgraph_finding_ids=[],
+    )
+
+    assert snapshot["target_flow_ids"] == ["missing-flow"]
+    assert snapshot["unresolved_targets"] == [
+        {"type": "flow", "value": "missing-flow", "reason": "not_found"}
+    ]
+    assert snapshot["subgraph_flow_ids"] == []
+    assert "Unresolved targets: flow:missing-flow" in snapshot["svg"]
+    assert "No modeled flows matched the requested targets." in snapshot["svg"]
+
+
 def test_impact_snapshot_budget_reports_omitted_flows() -> None:
     flows = [
         Flow(

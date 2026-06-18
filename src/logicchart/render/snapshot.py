@@ -118,6 +118,13 @@ def render_impact_snapshot(
     transitive: list[Flow],
     findings: list[Finding],
     max_flows: int | None = None,
+    target_flow_ids: list[str] | None = None,
+    target_symbols: list[str] | None = None,
+    target_finding_ids: list[str] | None = None,
+    unresolved_targets: list[Any] | None = None,
+    impact_reasons: dict[str, list[str]] | None = None,
+    subgraph_flow_ids: list[str] | None = None,
+    subgraph_finding_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     rendered_direct = _select_impact_flows(direct, max_flows)
     rendered_transitive = _select_impact_flows(transitive, max_flows)
@@ -128,10 +135,18 @@ def render_impact_snapshot(
         findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
+        unresolved_targets=unresolved_targets or [],
     )
     return {
         "format": "svg",
         "changed_files": changed_files,
+        "target_flow_ids": target_flow_ids or [],
+        "target_symbols": target_symbols or [],
+        "target_finding_ids": target_finding_ids or [],
+        "unresolved_targets": unresolved_targets or [],
+        "impact_reasons": impact_reasons or {},
+        "subgraph_flow_ids": subgraph_flow_ids or [],
+        "subgraph_finding_ids": subgraph_finding_ids or [],
         "direct_flow_ids": [flow.id for flow in direct],
         "transitive_flow_ids": [flow.id for flow in transitive],
         "rendered_direct_flow_ids": [flow.id for flow in rendered_direct],
@@ -228,12 +243,14 @@ def _impact_svg(
     *,
     rendered_direct: list[Flow],
     rendered_transitive: list[Flow],
+    unresolved_targets: list[Any],
 ) -> str:
     width = 920
     row_height = 84
     row_gap = 22
     rows = max(1, max(len(rendered_direct), len(rendered_transitive)))
-    height = 156 + rows * (row_height + row_gap) + 80
+    target_offset = 24 if unresolved_targets else 0
+    height = 156 + target_offset + rows * (row_height + row_gap) + 80
     omitted_direct = max(0, len(direct) - len(rendered_direct))
     omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
     parts = [
@@ -249,15 +266,48 @@ def _impact_svg(
             "subtitle",
         ),
         _text(28, 84, _compact(", ".join(changed_files), 125), "meta"),
-        _text(80, 126, "Direct impact", "column"),
-        _text(530, 126, "Caller impact", "column"),
     ]
+    if unresolved_targets:
+        unresolved_label = ", ".join(_unresolved_target_label(item) for item in unresolved_targets)
+        parts.append(
+            _text(
+                28,
+                108,
+                _compact(f"Unresolved targets: {unresolved_label}", 125),
+                "meta",
+            )
+        )
+    parts.extend(
+        [
+            _text(80, 126 + target_offset, "Direct impact", "column"),
+            _text(530, 126 + target_offset, "Caller impact", "column"),
+        ]
+    )
     for index, flow in enumerate(rendered_direct):
-        parts.append(_impact_box(flow, 52, 150 + index * (row_height + row_gap), row_height))
+        parts.append(
+            _impact_box(
+                flow,
+                52,
+                150 + target_offset + index * (row_height + row_gap),
+                row_height,
+            )
+        )
     for index, flow in enumerate(rendered_transitive):
-        parts.append(_impact_box(flow, 502, 150 + index * (row_height + row_gap), row_height))
+        parts.append(
+            _impact_box(
+                flow,
+                502,
+                150 + target_offset + index * (row_height + row_gap),
+                row_height,
+            )
+        )
     if not direct and not transitive:
-        parts.append(_text(52, 184, "No modeled flows are affected by these files.", "meta"))
+        message = (
+            "No modeled flows matched the requested targets."
+            if unresolved_targets
+            else "No modeled flows are affected by these files."
+        )
+        parts.append(_text(52, 184 + target_offset, message, "meta"))
     if omitted_direct or omitted_transitive:
         parts.append(
             _text(
@@ -269,6 +319,16 @@ def _impact_svg(
         )
     parts.append("</svg>")
     return "\n".join(parts)
+
+
+def _unresolved_target_label(item: Any) -> str:
+    if isinstance(item, dict):
+        target_type = item.get("type")
+        value = item.get("value")
+        if target_type is not None and value is not None:
+            return f"{target_type}:{value}"
+        return _compact(str(item), 80)
+    return str(item)
 
 
 def _select_flow_nodes(

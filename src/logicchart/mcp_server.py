@@ -422,6 +422,13 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             transitive=result.transitively_impacted,
             findings=result.findings,
             max_flows=_snapshot_flow_budget(token_budget),
+            target_flow_ids=result.target_flow_ids,
+            target_symbols=result.target_symbols,
+            target_finding_ids=result.target_finding_ids,
+            unresolved_targets=result.unresolved_targets,
+            impact_reasons=result.impact_reasons,
+            subgraph_flow_ids=result.subgraph_flow_ids,
+            subgraph_finding_ids=result.subgraph_finding_ids,
         )
 
     @server.tool()
@@ -691,6 +698,13 @@ def _context_visual_pack(
         transitive=impact.transitively_impacted,
         findings=impact.findings,
         max_flows=_snapshot_flow_budget(token_budget),
+        target_flow_ids=impact.target_flow_ids,
+        target_symbols=impact.target_symbols,
+        target_finding_ids=impact.target_finding_ids,
+        unresolved_targets=impact.unresolved_targets,
+        impact_reasons=impact.impact_reasons,
+        subgraph_flow_ids=impact.subgraph_flow_ids,
+        subgraph_finding_ids=impact.subgraph_finding_ids,
     )
     payload["flow_snapshots"] = [
         render_flow_snapshot(

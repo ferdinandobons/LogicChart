@@ -278,8 +278,10 @@ logicchart snapshot impact --flow flow-id --output impact.svg
 Snapshots are generated from the committed model artifact, not from browser screenshots.
 `flow`, `finding`, and `impact` support `--token-budget`; `impact` accepts the same
 `--flow`, `--symbol`, `--finding`, `--scope`, and changed-file targets as `impact`.
-Invalid snapshot targets and unsupported formats return structured, recoverable error
-payloads in JSON mode. Only SVG is supported by the CLI today; raster export remains
+Impact snapshot JSON includes the same target, unresolved-target, impact-reason, and
+subgraph fields as `impact --json`, so agents can detect mistyped targets without parsing
+the SVG. Invalid snapshot targets and unsupported formats return structured, recoverable
+error payloads in JSON mode. Only SVG is supported by the CLI today; raster export remains
 available in the local viewer.
 
 ### `impact`
@@ -484,8 +486,9 @@ models without guessing the workflow. Finding snapshots include a compact diagno
 with evidence tier, confidence, review prompt, and evidence-chain summaries. MCP impact
 analysis and `context_pack` include per-flow `reasons` alongside a top-level
 `impact_reasons` map so agents can explain direct and transitive impact without
-reconstructing the traversal. `context_pack` accepts the same explicit `flow_ids`,
-`symbols`, and `finding_ids` impact targets as `analyze_impact`.
+reconstructing the traversal. Impact snapshot payloads carry the same target,
+unresolved-target, impact-reason, and subgraph fields. `context_pack` accepts the same
+explicit `flow_ids`, `symbols`, and `finding_ids` impact targets as `analyze_impact`.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid

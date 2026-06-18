@@ -32,6 +32,8 @@ The project follows Semantic Versioning.
   snapshot targets.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
+- Added target, unresolved-target, impact-reason, and subgraph metadata to impact snapshot
+  payloads across CLI and MCP.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
   confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,

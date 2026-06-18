@@ -342,6 +342,9 @@ Current checkpoint:
   silently falling back to browser screenshots.
 - Unknown flow/finding snapshot targets return structured recoverable errors with stable
   `error_code` fields instead of untyped error strings.
+- Impact snapshots now carry target lists, unresolved targets, impact reasons, and
+  subgraph ids, matching `impact --json`/MCP `analyze_impact` instead of forcing agents to
+  infer target errors from an empty SVG.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
@@ -457,6 +460,8 @@ Current checkpoint:
 - MCP `analyze_impact` and `get_impact_snapshot` accept the same target types.
 - JSON/MCP impact responses include target lists, unresolved targets, subgraph flow ids,
   and subgraph finding ids.
+- CLI/MCP impact snapshots include the same target, unresolved-target, impact-reason, and
+  subgraph fields as the non-visual impact responses.
 - JSON/MCP impact responses include per-flow impact reasons, distinguishing changed-file
   matches, explicit flow/symbol/finding targets, and caller propagation.
 - MCP `context_pack` accepts the same explicit impact targets and preserves per-flow

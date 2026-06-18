@@ -232,7 +232,25 @@ def authorize(user):
                     {"flow_ids": [flow.id], "token_budget": 120},
                 )
                 assert not targeted_snapshot.isError
+                targeted_snapshot_payload = targeted_snapshot.structuredContent  # type: ignore[assignment]
                 assert flow.id in str(targeted_snapshot.content)
+                assert targeted_snapshot_payload["target_flow_ids"] == [flow.id]  # type: ignore[index]
+                assert targeted_snapshot_payload["unresolved_targets"] == []  # type: ignore[index]
+                missing_target_snapshot = await session.call_tool(
+                    "get_impact_snapshot",
+                    {"flow_ids": ["missing-flow"], "token_budget": 120},
+                )
+                assert not missing_target_snapshot.isError
+                missing_target_payload = missing_target_snapshot.structuredContent  # type: ignore[assignment]
+                assert missing_target_payload["target_flow_ids"] == [  # type: ignore[index]
+                    "missing-flow"
+                ]
+                assert missing_target_payload["unresolved_targets"] == [  # type: ignore[index]
+                    {"type": "flow", "value": "missing-flow", "reason": "not_found"}
+                ]
+                assert "Unresolved targets: flow:missing-flow" in str(
+                    missing_target_snapshot.content
+                )
 
                 context = await session.call_tool(
                     "context_pack",
@@ -592,6 +610,7 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 visual = visual_payload["visual_context"]  # type: ignore[index]
                 assert visual["include_visual"] is True
                 assert visual["impact_snapshot"]["format"] == "svg"
+                assert "unresolved_targets" in visual["impact_snapshot"]
                 assert "<svg" in visual["impact_snapshot"]["svg"]
                 assert visual["flow_snapshots"]
                 assert visual["finding_snapshots"]

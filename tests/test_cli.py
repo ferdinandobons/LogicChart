@@ -188,6 +188,28 @@ def handle(status):
     )
     assert output.exists()
     assert "Impact snapshot" in output.read_text(encoding="utf-8")
+    capsys.readouterr()
+
+    assert (
+        main(
+            [
+                "snapshot",
+                "impact",
+                "--path",
+                str(tmp_path),
+                "--flow",
+                "missing-flow",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    missing_payload = json.loads(capsys.readouterr().out)
+    assert missing_payload["target_flow_ids"] == ["missing-flow"]
+    assert missing_payload["unresolved_targets"] == [
+        {"type": "flow", "value": "missing-flow", "reason": "not_found"}
+    ]
+    assert "Unresolved targets: flow:missing-flow" in missing_payload["svg"]
 
     assert main(["snapshot", "flow", flow.id, "--path", str(tmp_path), "--format", "png"]) == 1
     assert "Unsupported snapshot format: png" in capsys.readouterr().err
