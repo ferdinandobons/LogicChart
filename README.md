@@ -397,10 +397,11 @@ Start the server in the analyzed project:
 logicchart mcp .
 ```
 
-Available MCP tools include summary, flow listing, flow retrieval, query, findings,
-finding-rule contracts, finding-chain explanation, state-handling lookup, decision-node
-search, impact analysis, deterministic SVG snapshots for flows/findings/impact sets,
-review queue, context pack, artifact validation, and artifact update.
+Available MCP tools include summary, flow listing, flow retrieval, flow-navigation packs,
+query, findings, finding-rule contracts, finding-chain explanation, state-handling lookup,
+decision-node search, impact analysis, deterministic SVG snapshots for
+flows/findings/impact sets, review queue, context pack, artifact validation, and artifact
+update.
 
 ## Roadmap
 

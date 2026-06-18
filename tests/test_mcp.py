@@ -44,6 +44,7 @@ def authorize(user):
                     "logicchart_summary",
                     "explain_finding_chain",
                     "finding_rules",
+                    "get_flow_navigation",
                     "get_flow_snapshot",
                     "get_finding_snapshot",
                     "get_impact_snapshot",
@@ -58,6 +59,7 @@ def authorize(user):
                 schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
                 for budget_tool in (
                     "get_flow",
+                    "get_flow_navigation",
                     "query_logic",
                     "explain_finding_chain",
                     "finding_rules",
@@ -85,6 +87,14 @@ def authorize(user):
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
                 assert "Missing explicit fallback" in str(rules.content)
+
+                navigation = await session.call_tool(
+                    "get_flow_navigation",
+                    {"flow_id": flow.id},
+                )
+                assert not navigation.isError
+                assert "decision_nodes" in str(navigation.content)
+                assert "visual_snapshot" in str(navigation.content)
 
                 flow_snapshot = await session.call_tool(
                     "get_flow_snapshot",

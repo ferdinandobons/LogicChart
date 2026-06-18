@@ -22,6 +22,8 @@ The project follows Semantic Versioning.
 - Added persisted skipped-file reasons in generated metadata, quality metrics, and the
   viewer quality panel.
 - Added optional quality thresholds for CI-oriented `validate` and MCP artifact validation.
+- Added MCP flow-navigation packs with callers, callees, decisions, findings, and next-tool
+  hints for token-bounded agent workflows.
 
 ### Changed
 

@@ -8,7 +8,7 @@ from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
-from logicchart.model import ProjectModel
+from logicchart.model import NodeKind, ProjectModel
 from logicchart.query import (
     explain_finding,
     find_decisions,
@@ -117,6 +117,18 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 token_budget,
             ),
         }
+
+    @server.tool()
+    def get_flow_navigation(flow_id: str, token_budget: int = 0) -> dict[str, Any]:
+        """Return an agent navigation pack for one flow: relations, decisions, findings."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        flow = next((item for item in model.flows if item.id == flow_id), None)
+        if flow is None:
+            return {"error": f"Unknown flow: {flow_id}"}
+        return _flow_navigation(model, flow, token_budget)
 
     @server.tool()
     def get_flow_snapshot(flow_id: str, format: str = "svg") -> dict[str, Any]:
@@ -423,6 +435,82 @@ def _flow_summary(flow: Any) -> dict[str, Any]:
 
 def _flow_dict(flow: Any) -> dict[str, Any]:
     return asdict(flow)
+
+
+def _flow_navigation(model: ProjectModel, flow: Any, token_budget: int) -> dict[str, Any]:
+    by_id = {item.id: item for item in model.flows}
+    findings = sorted(
+        [item for item in model.findings if item.flow_id == flow.id],
+        key=lambda item: (_finding_priority(item), item.location.path, item.message),
+    )
+    finding_node_ids = {item.node_id for item in findings if item.node_id}
+    scope = flow.metadata.get("scope", [])
+    primary_scope = scope[0] if scope else None
+    return {
+        "flow": {
+            **_flow_summary(flow),
+            "symbol": flow.symbol,
+            "is_entrypoint": flow.is_entrypoint,
+            "nodes": len(flow.nodes),
+            "edges": len(flow.edges),
+            "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
+            "calls": len(flow.calls),
+            "callers": len(flow.called_by),
+            "tests": flow.tests,
+        },
+        "called_flows": _cap(_related_flow_summaries(flow.calls, by_id), token_budget),
+        "caller_flows": _cap(_related_flow_summaries(flow.called_by, by_id), token_budget),
+        "unresolved_call_ids": [target_id for target_id in flow.calls if target_id not in by_id],
+        "decision_nodes": _cap(
+            [
+                _decision_navigation(node, node.id in finding_node_ids)
+                for node in flow.nodes
+                if node.kind is NodeKind.DECISION
+            ],
+            token_budget,
+        ),
+        "findings": _cap([_finding_dict(item, model) for item in findings], token_budget),
+        "next_tools": {
+            "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": flow.id}},
+            "visual_snapshot": {
+                "tool": "get_flow_snapshot",
+                "arguments": {"flow_id": flow.id, "format": "svg"},
+            },
+            "source_impact": {
+                "tool": "analyze_impact",
+                "arguments": {"changed_files": [flow.location.path]},
+            },
+            "related_query": {
+                "tool": "query_logic",
+                "arguments": {
+                    "question": flow.name,
+                    **({"scope": primary_scope} if primary_scope else {}),
+                },
+            },
+        },
+    }
+
+
+def _related_flow_summaries(flow_ids: list[str], by_id: dict[str, Any]) -> list[dict[str, Any]]:
+    return sorted(
+        [_flow_summary(by_id[flow_id]) for flow_id in flow_ids if flow_id in by_id],
+        key=lambda item: (item["name"], item["id"]),
+    )
+
+
+def _decision_navigation(node: Any, has_findings: bool) -> dict[str, Any]:
+    return {
+        "node_id": node.id,
+        "label": node.label,
+        "source": f"{node.location.path}:{node.location.start_line}",
+        "condition": node.metadata.get("condition"),
+        "domain": node.metadata.get("domain"),
+        "subject": node.metadata.get("subject"),
+        "operator": node.metadata.get("operator"),
+        "values": node.metadata.get("values", []),
+        "branches": node.metadata.get("branches", []),
+        "has_findings": has_findings,
+    }
 
 
 def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, Any]:

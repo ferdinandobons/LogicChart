@@ -253,7 +253,7 @@ the current model hash.
 
 The MCP server exposes useful tools: summary, flow listing, flow retrieval, query, findings,
 finding explanation, state handling lookup, decision search, impact analysis, review queue,
-context pack, artifact validation, and update.
+context pack, flow-navigation packs, artifact validation, and update.
 
 ### Gap
 
@@ -292,6 +292,8 @@ Current checkpoint:
 - Snapshots are generated from the deterministic model and returned as inline SVG.
 - Unsupported raster formats return an explicit supported-format response instead of
   silently falling back to browser screenshots.
+- MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
+  and next-tool orientation before an agent pulls the complete graph.
 
 Still open:
 
@@ -491,6 +493,8 @@ Before the next release:
 - Done: add deterministic SVG snapshot rendering.
 - Done: expose snapshot tools over MCP.
 - Done: add tool contract tests for snapshot discovery and output shape.
+- Done: add a flow-navigation MCP pack for caller/callee, decision, finding, and next-tool
+  orientation.
 - Next: add token-budget behavior for visual context and optional raster outputs.
 
 ### Phase 3: LLM Enrichment
