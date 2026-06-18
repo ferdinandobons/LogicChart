@@ -219,8 +219,8 @@ def build_scope_edges(flows: list[Flow], scope_index: dict[str, list[str]]) -> l
     each membership -- the documented convention that matches ``build_scope_index``,
     which already places a flow under every listed scope. Same-scope pairs (and calls
     to unresolved/external ids not in the model) are dropped: L0 shows only cross-scope
-    structure. The ``canvas.js`` ``deriveScopeEdges`` fallback mirrors this exactly so
-    the viewer is robust even if this field is ever absent.
+    structure. Keeping these edges in the payload makes the viewer deterministic and
+    avoids deriving cross-scope topology in the browser.
     """
     by_id = {flow.id: flow for flow in flows}
     # flow id -> its scope memberships, recomputed the same way build_scope_index does.

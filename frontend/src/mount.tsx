@@ -6,6 +6,10 @@ import { ViewerApp, type ViewerAppProps } from "./ViewerApp";
 export type ExportImageFormat = "png" | "jpg";
 
 const MAX_OVERVIEW_SCROLL_DELTA = 48;
+const EXPORT_PREFERRED_SCALE = 2;
+const EXPORT_MAX_PIXEL_SIDE = 16_384;
+const EXPORT_MAX_PIXEL_AREA = 96_000_000;
+const EXPORT_MIN_SCALE = 0.1;
 
 export interface MountedLogicChartViewer {
   exportImage: (format: ExportImageFormat) => void;
@@ -347,10 +351,7 @@ function exportSvgImage(svg: SVGSVGElement, format: ExportImageFormat) {
   const bounds = svgContentBounds(svg) ?? readViewBox(svg);
   if (!bounds) return;
 
-  const maxPixelSide = 4096;
-  const scale = Math.min(2, maxPixelSide / Math.max(bounds.width, bounds.height));
-  const width = Math.max(1, Math.round(bounds.width * scale));
-  const height = Math.max(1, Math.round(bounds.height * scale));
+  const { height, width } = rasterExportSizeForBounds(bounds);
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("width", String(width));
@@ -402,6 +403,26 @@ function exportSvgImage(svg: SVGSVGElement, format: ExportImageFormat) {
   };
   image.onerror = () => URL.revokeObjectURL(imageUrl);
   image.src = imageUrl;
+}
+
+export function rasterExportSizeForBounds(
+  bounds: Pick<ViewBox, "height" | "width">,
+): { height: number; scale: number; width: number } {
+  const boundedWidth = Math.max(1, bounds.width);
+  const boundedHeight = Math.max(1, bounds.height);
+  const largestSide = Math.max(boundedWidth, boundedHeight);
+  const area = boundedWidth * boundedHeight;
+  const sideScale = EXPORT_MAX_PIXEL_SIDE / largestSide;
+  const areaScale = Math.sqrt(EXPORT_MAX_PIXEL_AREA / area);
+  const scale = Math.max(
+    EXPORT_MIN_SCALE,
+    Math.min(EXPORT_PREFERRED_SCALE, sideScale, areaScale),
+  );
+  return {
+    height: Math.max(1, Math.round(boundedHeight * scale)),
+    scale,
+    width: Math.max(1, Math.round(boundedWidth * scale)),
+  };
 }
 
 function svgContentBounds(svg: SVGSVGElement): ViewBox | null {
@@ -466,10 +487,10 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   const overview = document.createElement("div");
   overview.className = "logicchart-overview";
   overview.tabIndex = 0;
-  overview.title = "Scroll to pan the canvas; double-click to fit all";
+  overview.title = "Drag or scroll to pan the canvas; double-click to fit all";
   overview.setAttribute(
     "aria-label",
-    "Canvas overview. Scroll to pan the viewport; double-click to fit all",
+    "Canvas overview. Drag or scroll to pan the viewport; double-click to fit all",
   );
   overview.setAttribute("role", "region");
 
@@ -489,6 +510,13 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   container.appendChild(overview);
 
   let contentBounds: ViewBox | null = null;
+  let overviewDrag: {
+    origin: ViewBox;
+    pointerId: number;
+    scale: { x: number; y: number };
+    startX: number;
+    startY: number;
+  } | null = null;
 
   const sync = () => {
     const viewBox = readViewBox(svg);
@@ -551,7 +579,81 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
     if (contentBounds) writeViewBox(svg, contentBounds);
   };
 
+  const writeOverviewDrag = (event: PointerEvent): boolean => {
+    if (!overviewDrag || event.pointerId !== overviewDrag.pointerId) return false;
+    const dx = event.clientX - overviewDrag.startX;
+    const dy = event.clientY - overviewDrag.startY;
+    writeViewBox(svg, {
+      ...overviewDrag.origin,
+      x: overviewDrag.origin.x + dx * overviewDrag.scale.x,
+      y: overviewDrag.origin.y + dy * overviewDrag.scale.y,
+    });
+    return true;
+  };
+
+  const finishOverviewDrag = (event?: Event) => {
+    if (!overviewDrag) return;
+    const pointerId = overviewDrag.pointerId;
+    overviewDrag = null;
+    overview.classList.remove("dragging");
+    window.removeEventListener("pointermove", onOverviewPointerMove, true);
+    window.removeEventListener("pointerup", onOverviewPointerEnd, true);
+    window.removeEventListener("pointercancel", onOverviewPointerEnd, true);
+    document.removeEventListener("pointermove", onOverviewPointerMove, true);
+    document.removeEventListener("pointerup", onOverviewPointerEnd, true);
+    document.removeEventListener("pointercancel", onOverviewPointerEnd, true);
+    try {
+      overview.releasePointerCapture(pointerId);
+    } catch {
+      // Embedded renderers and tests may not implement pointer capture.
+    }
+    event?.preventDefault();
+    event?.stopPropagation();
+  };
+
+  const onOverviewPointerDown = (event: PointerEvent) => {
+    if (event.button !== 0 || !contentBounds) return;
+    const current = readViewBox(svg);
+    const scale = current ? overviewPanScale(overviewSvg, current) : null;
+    if (!current || !scale) return;
+    finishOverviewDrag();
+    overviewDrag = {
+      origin: current,
+      pointerId: event.pointerId,
+      scale,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+    overview.classList.add("dragging");
+    window.addEventListener("pointermove", onOverviewPointerMove, true);
+    window.addEventListener("pointerup", onOverviewPointerEnd, true);
+    window.addEventListener("pointercancel", onOverviewPointerEnd, true);
+    document.addEventListener("pointermove", onOverviewPointerMove, true);
+    document.addEventListener("pointerup", onOverviewPointerEnd, true);
+    document.addEventListener("pointercancel", onOverviewPointerEnd, true);
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      overview.setPointerCapture(event.pointerId);
+    } catch {
+      // See releasePointerCapture fallback above.
+    }
+  };
+
+  function onOverviewPointerMove(event: PointerEvent) {
+    if (!writeOverviewDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function onOverviewPointerEnd(event: PointerEvent) {
+    if (!overviewDrag || event.pointerId !== overviewDrag.pointerId) return;
+    writeOverviewDrag(event);
+    finishOverviewDrag(event);
+  }
+
   svg.addEventListener("logicchart:viewboxchange", sync);
+  overview.addEventListener("pointerdown", onOverviewPointerDown);
   overview.addEventListener("wheel", panOverview, { passive: false });
   overview.addEventListener("keydown", panOverviewWithKeyboard);
   overview.addEventListener("dblclick", fitOverview);
@@ -559,7 +661,9 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
 
   return {
     cleanup() {
+      finishOverviewDrag();
       svg.removeEventListener("logicchart:viewboxchange", sync);
+      overview.removeEventListener("pointerdown", onOverviewPointerDown);
       overview.removeEventListener("wheel", panOverview);
       overview.removeEventListener("keydown", panOverviewWithKeyboard);
       overview.removeEventListener("dblclick", fitOverview);

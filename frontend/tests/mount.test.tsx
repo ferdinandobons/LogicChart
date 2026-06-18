@@ -2,6 +2,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mountLogicChartViewer, type LogicChartPayload } from "../src";
+import { rasterExportSizeForBounds } from "../src/mount";
 
 const payload: LogicChartPayload = {
   flows: [
@@ -308,7 +309,7 @@ describe("mountLogicChartViewer", () => {
     if (!svg || !overview || !overviewMap || !content || !viewport) {
       throw new Error("expected viewer overview");
     }
-    expect(overview.getAttribute("aria-label")).toContain("Scroll to pan the viewport");
+    expect(overview.getAttribute("aria-label")).toContain("Drag or scroll to pan the viewport");
     expect(container.querySelector(".logicchart-viewer-frame")).not.toBeNull();
     expect(container.querySelector(".logicchart-overview-node")).toBeNull();
     expect(content.getAttribute("width")).toBe("600");
@@ -342,6 +343,24 @@ describe("mountLogicChartViewer", () => {
     });
     expect(parseViewBox(svg)).toEqual(zoomedViewBox);
 
+    await act(async () => {
+      overview.dispatchEvent(
+        pointerEvent("pointerdown", { clientX: 24, clientY: 24, pointerId: 12 }),
+      );
+      window.dispatchEvent(
+        pointerEvent("pointermove", { clientX: 54, clientY: 44, pointerId: 12 }),
+      );
+      window.dispatchEvent(
+        pointerEvent("pointerup", { clientX: 54, clientY: 44, pointerId: 12 }),
+      );
+    });
+    const draggedViewBox = parseViewBox(svg);
+    expect(draggedViewBox[0]).toBeGreaterThan(zoomedViewBox[0]);
+    expect(draggedViewBox[1]).toBeGreaterThan(zoomedViewBox[1]);
+    expect(draggedViewBox[2]).toBeCloseTo(zoomedViewBox[2]);
+    expect(draggedViewBox[3]).toBeCloseTo(zoomedViewBox[3]);
+    expect(overview.classList.contains("dragging")).toBe(false);
+
     const scrollEvent = new WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
@@ -352,10 +371,10 @@ describe("mountLogicChartViewer", () => {
       overview.dispatchEvent(scrollEvent);
     });
     const scrolledViewBox = parseViewBox(svg);
-    expect(scrolledViewBox[0]).toBeGreaterThan(zoomedViewBox[0]);
-    expect(scrolledViewBox[1]).toBeGreaterThan(zoomedViewBox[1]);
-    expect(scrolledViewBox[2]).toBeCloseTo(zoomedViewBox[2]);
-    expect(scrolledViewBox[3]).toBeCloseTo(zoomedViewBox[3]);
+    expect(scrolledViewBox[0]).toBeGreaterThan(draggedViewBox[0]);
+    expect(scrolledViewBox[1]).toBeGreaterThan(draggedViewBox[1]);
+    expect(scrolledViewBox[2]).toBeCloseTo(draggedViewBox[2]);
+    expect(scrolledViewBox[3]).toBeCloseTo(draggedViewBox[3]);
     expect(scrollEvent.defaultPrevented).toBe(true);
 
     await act(async () => {
@@ -962,6 +981,21 @@ describe("mountLogicChartViewer", () => {
 
     mounted.unmount();
     container.remove();
+  });
+
+  it("sizes raster exports from graph bounds instead of a fixed low-resolution cap", () => {
+    const small = rasterExportSizeForBounds({ height: 440, width: 600 });
+    expect(small).toMatchObject({ height: 880, scale: 2, width: 1200 });
+
+    const large = rasterExportSizeForBounds({ height: 2400, width: 9000 });
+    expect(large.width).toBeGreaterThan(4096);
+    expect(large.width).toBeLessThanOrEqual(16384);
+    expect(large.height).toBeGreaterThan(2400);
+
+    const huge = rasterExportSizeForBounds({ height: 20000, width: 40000 });
+    expect(huge.width).toBeGreaterThan(4096);
+    expect(huge.width).toBeLessThanOrEqual(16384);
+    expect(huge.width * huge.height).toBeLessThanOrEqual(96_100_000);
   });
 });
 

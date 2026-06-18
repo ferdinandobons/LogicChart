@@ -3,7 +3,8 @@
 The HTML viewer is assembled from a template plus extracted assets
 (``render/assets/styles.css`` and ``render/assets/shell.js``) and a JSON payload
 built by :func:`build_payload`. These tests pin the seams so a future split of
-the assets cannot silently drop the style block, the data hook, or the canvas.
+the assets cannot silently drop the style block, the data hook, or the official
+React chart runtime.
 """
 
 from __future__ import annotations
@@ -31,8 +32,8 @@ def test_render_html_emits_shell(tmp_path: Path) -> None:
     assert "<style>" in html
     # The JSON payload hook the shell script reads from is present.
     assert "logicchart-data" in html
-    # The main canvas the viewer draws into is wired up.
-    assert 'id="canvas"' in html
+    # The official chart host the viewer draws into is wired up.
+    assert 'id="typedViewerHost"' in html
     # The header stays compact and avoids decorative product-tagline copy.
     assert "Decision flow index" not in html
 
@@ -86,7 +87,6 @@ def test_render_html_has_no_leftover_placeholders(tmp_path: Path) -> None:
     for placeholder in (
         "__STYLES__",
         "__SHELL_JS__",
-        "__CANVAS_JS__",
         "__TREE_JS__",
         "__PANELS_JS__",
         "__LOGICCHART_DATA__",
@@ -94,17 +94,14 @@ def test_render_html_has_no_leftover_placeholders(tmp_path: Path) -> None:
         assert placeholder not in html
 
 
-def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
+def test_render_html_emits_official_react_flowchart(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # The canvas carries a level attribute (L0 by default); the codebase-canvas smoke test
-    # asserts the level seam exists so the two-level canvas cannot silently regress.
-    assert "data-level" in html
-    # The breadcrumb container the canvas level path renders into is wired up.
+    # The breadcrumb container the chart level path renders into is wired up.
     assert 'id="breadcrumb"' in html
-    # canvas.js is actually inlined: a structural marker unique to it (the renderL0
-    # entry) plus the data-scope attribute literal it stamps on every super-node.
-    assert "renderL0" in html
-    assert "data-scope" in html
+    # The old static renderer is not present or inlined.
+    assert 'id="canvas"' not in html
+    assert "renderL0" not in html
+    assert "expandFlowInline" not in html
     # The payload carries the aggregated cross-scope edge list the L0 view draws.
     match = re.search(
         r'<script id="logicchart-data" type="application/json">(.*?)</script>',
@@ -114,14 +111,9 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert match is not None
     payload = json.loads(match.group(1).replace("<\\/", "</"))
     assert isinstance(payload["scope_edges"], list)
-    # A focused scope remains inside the global codebase map: sibling scopes stay visible
-    # as dimmed context nodes while the active scope expands into a progressive route.
-    assert "layoutExpandedCodebase" in html
-    assert "dimmed" in html
-    assert "focusScope" in html
     # The primary canvas is flow-first: scopes expand into a universal progressive
     # entrypoint/call graph, not file boxes tuned to a particular repository shape.
-    assert "buildProgressiveLayers" in html
+    assert "mountStandaloneLogicChartViewer" in html
     assert "routeFlowIds" in html
 
 
@@ -136,22 +128,23 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert ".scope-node .shape" in html
     assert "--scope-hue" in html
     assert '[data-theme="dark"] .typed-viewer-host .scope-node .shape' in html
-    assert "expandedFlowIds" in html
+    assert "openedFlowIds" in html
+    assert "openedScopeIds" in html
     assert "progressive-row-label" in html
     assert "unlocked calls" in html
     assert "flow-source-tag" in html
     assert "flow-expand-pill" in html
     assert "expandCallTarget" in html
-    assert "clearAllInlineFlows" in html
-    assert "omitEntry" in html
-    assert "draggable: true" in html
-    assert "flowLayoutNodes" in html
-    assert "selectProgressiveLink" in html
+    assert "resetView()" in html
+    assert "omitEntryNode" in html
+    assert "movable" in html
+    assert "routeFlowIds" in html
+    assert "selectedConnection" in html
     assert "progressive-call-edge" in html
     assert "progressive-call-hit" in html
     assert "progressive-call-label" in html
     assert "scope-entry-link" in html
-    assert "scopeEntryGeometry" in html
+    assert "scope-entry" in html
     assert "rowWidthForLayer" in html
     assert "scope-expansion-link" not in html
     assert "edge-source" in html
@@ -162,11 +155,10 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert "edge-hit" in html
     assert "edge-hit-segment" in html
     assert "edgeId" in html
-    assert "manualScopePositions" in html
-    assert "manualFlowPositions" in html
+    assert "manualNodePositions" in html
     assert "cssEscape(" in html
-    assert 'typeof window.CSS.escape === "function"' in html
-    assert '"node entry scope-node movable"' in html
+    assert ".scope-node" in html
+    assert "movable" in html
     assert "hsl(var(--scope-hue" in html
     assert ".scope-node .scope-name" not in html
     assert "active-parent" in html
@@ -178,7 +170,6 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert 'id="expandView"' in html
     assert ">EXPAND</button>" in html
     assert "typed.expandAll" in html
-    assert "LC.expandCanvas" in html
     assert 'class="tool-group"' in html
     assert 'class="tool reset-tool command-tool"' in html
     assert 'class="tool expand-tool command-tool"' in html
@@ -191,18 +182,15 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert "expandedFiles" not in html
 
 
-def test_render_html_wires_inline_decision_expansion(tmp_path: Path) -> None:
+def test_render_html_wires_framework_decision_expansion(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # Phase 3 (L2): a flow node unfolds its decision flowchart in place inside the L1
-    # canvas. Pin the seam so the inline expander cannot silently regress:
-    #   - canvas.js exposes the inline entry shell.js's selectFlow delegates to,
-    #   - it draws a dedicated inline sub-graph layer,
-    #   - shell.js exposes the reusable decision renderer the inline path reuses.
-    assert "expandFlowInline" in html
-    assert "inline-flow" in html
-    assert "drawFlowGraph" in html
-    # The reusable measure helper that reserves the inline band (so siblings never overlap).
-    assert "measureFlow" in html
+    # The framework runtime owns progressive expansion. Pin these seams so the generated
+    # viewer cannot regress into the deleted static canvas path.
+    assert "mountStandaloneLogicChartViewer" in html
+    assert "selectFlow(flow.id)" in html
+    assert "selectScope" in html
+    assert "syncShellFromHash" in html
+    assert "expandFlowInline" not in html
 
 
 def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
@@ -255,12 +243,12 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
     # File/path selections must drive the same shared selection store as flow/node clicks,
     # otherwise opening a file can leave the Source panel showing a stale sibling file.
-    assert "selectFile(" in html
-    assert "setLevelHeader(" in html
+    assert "syncShellFromHash" in html
+    assert 'key === "path"' in html
 
     # Breadcrumb and file chips should use a context-bearing path label, not only the
     # basename (many frameworks have repeated names like route.ts).
-    assert "shortPathLabel(" in html
+    assert "flowSourceLabel(" in html
     assert "treePathLabel(" in html
 
     # Flow rows in the tree should render metadata as compact chips, not stacked text that
@@ -298,7 +286,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
 
     # Opening a tree directory/file should focus that area on the integrated canvas,
     # including nested folders via the path hash route.
-    assert "focusPath" in html
+    assert "highlightPath" in html
     assert 'key === "path"' in html
     assert "active-folder" in html
     # Revealing the active flow in the tree is programmatic; it must not fire the same
@@ -307,10 +295,9 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "suppressScopeFocus" in html
 
     # Large-codebase scan aids: scope finding density, progressive route expansion, and
-    # tree empty state for search/filter misses should stay wired into the static viewer.
-    assert "scopeStats(" in html
-    assert "directCallTargets(" in html
-    assert "entryFlowsForScope(" in html
+    # tree empty state for search/filter misses should stay wired into the viewer.
+    assert "contextFlowIds" in html
+    assert "entryFlowIds" in html
     assert "No matching flows" in html
 
     # Desktop rails are not static columns: each sidebar has an accessible drag separator,
@@ -321,7 +308,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "logicchart-left-rail-width" in html
     assert "logicchart-right-rail-width" in html
     assert "resizeRailFromKeyboard" in html
-    assert "refreshCanvasLayout" in html
+    assert "scheduleCanvasLayoutRefresh" in html
     assert "data-nav-closed" in html
     assert "body[data-nav-closed] .shell" in html
     assert "data-detail-closed" in html
@@ -345,30 +332,24 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "node-kind-badge" in html
     assert "safeDecodeHashValue" in html
     assert "manualPositions.clear()" in html
-    assert "clearCanvasFocus" in html
     assert "openDetails" in html
     assert ".edge-hit, .edge-hit-segment, .edge-label-wrap" in html
     assert "bindEdgeActivationParts" in html
     assert "setEdgeHitGeometry(hit, geometry, activate" in html
-    assert "routeEdgeRecordFromElement" in html
-    assert "decisionEdgeRecordFromElement" in html
+    assert "selectedConnection" in html
+    assert "flow-call" in html
 
 
 def test_render_html_wires_framework_viewer_runtime(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # The framework-backed progressive canvas is now the default HTML runtime. The legacy
-    # static canvas remains available as an explicit fallback for debugging and bundle
-    # failures, but ordinary generated viewers should open on the typed frontend.
+    # The framework-backed progressive canvas is the official HTML runtime. The old static
+    # chart is not a selectable runtime anymore.
     assert 'id="typedViewerHost"' in html
     assert 'data-runtime = "react"' not in html
     assert 'dataset.runtime = "react"' in html
-    assert 'params.get("runtime") === "static"' in html
-    assert 'dataset.runtime = "static"' in html
+    assert 'params.get("runtime") === "static"' not in html
+    assert 'dataset.runtime = "static"' not in html
+    assert 'dataset.runtime = "unavailable"' in html
     assert "mountStandaloneLogicChartViewer" in html
     assert "logicchartTypedViewer" in html
-    # After the React viewer mounts successfully, the hidden legacy SVG must not keep a
-    # second copy of the flow nodes in the DOM. Keeping it empty avoids duplicate canvas
-    # query/hit state while preserving the static fallback when React cannot start.
-    assert 'legacyCanvas.textContent = ""' in html
-    assert 'legacyCanvas.setAttribute("aria-hidden", "true")' in html
-    assert 'legacyCanvas.setAttribute("data-runtime-inactive", "true")' in html
+    assert "legacyCanvas" not in html

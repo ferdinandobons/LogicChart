@@ -374,10 +374,10 @@
         const scope = sel.scope || (sel.path ? sel.path.split("/").filter(Boolean)[0] : null);
         lastActiveFlowId = null;
         highlightActive(null);
-        if (scope && LC.showScope) {
-          LC.showScope(scope);
-        } else if (LC.showL0) {
-          LC.showL0();
+        if (scope && LC.selectScope) {
+          LC.selectScope(scope);
+        } else if (LC.resetGraph) {
+          LC.resetGraph();
         } else if (LC.select) {
           LC.select({ scope: null, path: null, flowId: null, nodeId: null, findingId: null });
         }

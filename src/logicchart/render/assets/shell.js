@@ -17,10 +17,10 @@
     LC.model = model;
     LC.flows = flows;
     LC.byId = byId;
-    // Ownership seam: which renderer owns the SVG right now. "canvas" (L0/L1, owned by
-    // canvas.js) or "flow" (L2 decision chart, owned by renderFlow here). EVERY entry
-    // into the SVG sets this so the two renderers never write behind each other's back.
-    LC.mode = "canvas";
+    // The generated HTML now has one official chart renderer: the typed React runtime.
+    // The shell still owns shared selection, rails, tree, source, findings, and toolbar
+    // buttons, but it no longer routes users into the retired static renderer.
+    LC.mode = "react";
 
     // --- Shared selection store (Phase 4) ---------------------------------------
     // ONE selection model, ONE accent color. Every surface -- a canvas decision block,
@@ -74,7 +74,9 @@
       }
     };
 
-    const svg = document.getElementById("canvas");
+    const svg =
+      document.getElementById("canvas") ||
+      document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const rightRail = document.getElementById("rightRail");
     const leftRail = document.getElementById("leftRail");
     const detailButton = document.getElementById("detailButton");
@@ -304,6 +306,42 @@
     document.getElementById("entryCount").textContent = flows.filter(item => item.is_entrypoint).length;
     document.getElementById("findingCount").textContent = findings.length;
 
+    function headerFlowKind(flow) {
+      return `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
+    }
+
+    function setHeaderFlow(flow) {
+      activeFlow = flow || null;
+      if (!flow) return;
+      document.getElementById("flowTitle").textContent = flow.name;
+      document.getElementById("flowKind").textContent = headerFlowKind(flow);
+    }
+
+    function setHeaderScope(scope) {
+      activeFlow = null;
+      document.getElementById("flowTitle").textContent = scope || "codebase";
+      document.getElementById("flowKind").textContent = "scope";
+    }
+
+    function setHeaderRoot() {
+      activeFlow = null;
+      document.getElementById("flowTitle").textContent = "Codebase";
+      document.getElementById("flowKind").textContent = "progressive flowchart";
+    }
+
+    function selectionForFlow(flow) {
+      return {
+        edgeId: null,
+        endLine: flow.location?.end_line ?? flow.location?.start_line ?? null,
+        findingId: null,
+        flowId: flow.id,
+        line: flow.location?.start_line ?? null,
+        nodeId: null,
+        path: flow.location?.path || null,
+        scope: null,
+      };
+    }
+
     // Entry points first, then by name. Shared so the tree lists a file's flows in the
     // same order the old flat list used.
     LC.sortFlows = list =>
@@ -311,33 +349,19 @@
         (a, b) => Number(b.is_entrypoint) - Number(a.is_entrypoint) || a.name.localeCompare(b.name)
       );
 
-    // Updates the header + the active-flow bookkeeping shared by the tree and breadcrumb.
-    // Selection RENDERS via canvas.js's inline-L2 expander (LC.expandFlowInline) when it
-    // is registered -- the flow's decisions unfold IN PLACE inside the L1 canvas, keeping
-    // the surrounding codebase route visible. Only when no inline expander is available (a
-    // bare deep link before canvas.js boots, or a degraded shell) does it fall back to the
-    // full-screen renderFlow, so #flow= and tree clicks never dead-end.
+    // Updates the header + the active-flow bookkeeping shared by the tree and details.
+    // Rendering belongs to the typed React runtime; the shell only delegates selection and
+    // keeps the surrounding HTML controls synchronized.
     function selectFlow(flowId) {
       const flow = byId.get(flowId);
       if (!flow) return;
-      activeFlow = flow;
-      document.getElementById("flowTitle").textContent = flow.name;
-      document.getElementById("flowKind").textContent =
-        `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
+      setHeaderFlow(flow);
       const typed = activeTypedViewer();
       if (typed && typeof typed.selectFlow === "function") {
         typed.selectFlow(flow.id);
-      }
-      if (window.LC.expandFlowInline) {
-        // canvas.js owns the SVG (mode stays "canvas"); it sets the hash, draws the
-        // inline sub-graph, refreshes the breadcrumb, and calls inspectFlow itself.
-        window.LC.expandFlowInline(flow.id);
       } else {
         location.hash = "flow=" + encodeURIComponent(flow.id);
-        LC.mode = "flow"; // single dispatch into the standalone full-screen L2 renderer.
-        renderFlow(flow);
-        inspectFlow(flow);
-        if (window.LC.onCanvasFlow) window.LC.onCanvasFlow(flow);
+        LC.select(selectionForFlow(flow));
       }
       // On phones the tree is a drawer, so a selection should clear the canvas. On
       // desktop/tablet the tree is working context; keep it open unless the user closes it.
@@ -572,9 +596,8 @@
       return group;
     }
 
-    // Decision-flow defs (shadow filters + arrow marker). canvas.js draws its own copy
-    // for L0/L1, but the inline-L2 sub-graph reuses these ids, so renderFlow and the
-    // inline path both ensure a <defs> is present in whatever SVG they draw into.
+    // Decision-flow defs (shadow filters + arrow marker). The visible chart is rendered
+    // by the React runtime; these helpers remain for shared source/export compatibility.
     function flowDefs() {
       const defs = svgEl("defs");
       defs.innerHTML = `
@@ -593,10 +616,9 @@
       return defs;
     }
 
-    // Reusable decision-graph renderer. Draws `flow`'s nodes/edges (the L2 chart) into a
-    // fresh <g> layer and RETURNS it WITHOUT touching the SVG, the global `view`, or
-    // data-level -- so the same code powers both the full-screen renderFlow and the
-    // inline-L2 sub-graph canvas.js anchors under an expanded flow node.
+    // Reusable decision-graph renderer retained for shared source/export compatibility.
+    // It draws `flow`'s nodes/edges into a fresh <g> layer and returns it without touching
+    // the SVG, the global `view`, or data-level.
     //
     // opts.originX/originY translate the whole sub-graph (layoutFlow is origin-relative;
     // the caller places it). opts.spine adds the decision spine (full-screen only). Drag
@@ -855,9 +877,7 @@
       return { layer, nodeGroups, edgeRecords, bounds: worldBounds };
     }
 
-    // Bind a freshly drawn decision graph as the active highlight target. Inline-L2
-    // (canvas.js) calls this after placing the sub-graph so a click on a decision node
-    // routes through the same inspectNode -> highlightNode path as the full-screen view.
+    // Bind a freshly drawn decision graph as the active highlight target.
     function setCurrentRender(render) {
       currentRender = render ? { nodeGroups: render.nodeGroups, edgeRecords: render.edgeRecords } : null;
     }
@@ -1139,10 +1159,18 @@
         return;
       }
       const bounds = canvasContentBounds();
-      const maxPixelSide = 4096;
-      const scale = Math.min(
-        2,
-        maxPixelSide / Math.max(bounds.width, bounds.height),
+      const preferredScale = 2;
+      const maxPixelSide = 16384;
+      const maxPixelArea = 96000000;
+      const boundedWidth = Math.max(1, bounds.width);
+      const boundedHeight = Math.max(1, bounds.height);
+      const scale = Math.max(
+        0.1,
+        Math.min(
+          preferredScale,
+          maxPixelSide / Math.max(boundedWidth, boundedHeight),
+          Math.sqrt(maxPixelArea / (boundedWidth * boundedHeight)),
+        ),
       );
       const width = Math.max(1, Math.round(bounds.width * scale));
       const height = Math.max(1, Math.round(bounds.height * scale));
@@ -1228,9 +1256,7 @@
       const typed = activeTypedViewer();
       if (typed && typeof typed.expandAll === "function") {
         typed.expandAll();
-        return;
       }
-      if (LC.expandCanvas) LC.expandCanvas();
     }
 
     document.getElementById("resetView").addEventListener("click", () => {
@@ -1239,14 +1265,10 @@
         typed.resetView();
         return;
       }
-      // Mode-aware: flow mode re-lays out the active flow; canvas mode drops the
-      // current view's drag overrides and re-fits via canvas.js.
       if (LC.mode === "flow") {
         if (!activeFlow) return;
         manualPositions.delete(activeFlow.id);  // discard hand-placed positions, re-layout
         renderFlow(activeFlow);
-      } else if (LC.resetCanvas) {
-        LC.resetCanvas();
       }
     });
     document.getElementById("expandView").addEventListener("click", expandView);
@@ -1337,11 +1359,8 @@
     });
     svg.addEventListener("pointerup", () => {
       if (drag && drag.moved < 4) {
-        if (LC.clearCanvasFocus) LC.clearCanvasFocus();
-        else {
-          if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
-          clearHighlight();
-        }
+        if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+        clearHighlight();
       }
       drag = null;
       svg.classList.remove("dragging");
@@ -1349,15 +1368,49 @@
 
     document.documentElement.dataset.theme = "dark";
 
-    // Expose flow selection so the directory tree (tree.js, a later <script>) can
-    // drive the canvas. tree.js renders the left rail and reads LC.activeFlowId() to
-    // mark the active row.
+    // Expose flow/scope selection so the directory tree and details panel can drive the
+    // official React chart without knowing about its implementation.
     LC.selectFlow = selectFlow;
+    LC.selectScope = scope => {
+      const typed = activeTypedViewer();
+      setHeaderScope(scope);
+      if (typed && typeof typed.selectScope === "function") {
+        typed.selectScope(scope);
+      } else {
+        location.hash = "scope=" + encodeURIComponent(scope);
+        LC.select({
+          edgeId: null,
+          endLine: null,
+          findingId: null,
+          flowId: null,
+          line: null,
+          nodeId: null,
+          path: null,
+          scope,
+        });
+      }
+    };
+    LC.resetGraph = () => {
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.resetView === "function") typed.resetView();
+      else {
+        location.hash = "root";
+        setHeaderRoot();
+        LC.select({
+          edgeId: null,
+          endLine: null,
+          findingId: null,
+          flowId: null,
+          line: null,
+          nodeId: null,
+          path: null,
+          scope: null,
+        });
+      }
+    };
     LC.activeFlowId = () => activeFlow?.id || null;
 
-    // Viewport primitives canvas.js reuses WITHOUT redefining. The pan/zoom/wheel
-    // handlers above mutate this shared `view` object and call updateViewBox, so they
-    // work for BOTH renderers untouched (generic over `view`).
+    // Viewport primitives retained for shared shell helpers.
     LC.renderFlow = renderFlow;
     LC.svg = svg;
     LC.openDetails = () => setRightRailOpen(true);
@@ -1365,10 +1418,7 @@
     LC.setView = v => { view = v; updateViewBox(); };
     LC.updateViewBox = updateViewBox;
     LC.getView = () => view;
-    // Inline-L2 seam: canvas.js draws a flow's decisions in place (inside the L1 canvas)
-    // by reusing the very same decision renderer. drawFlowGraph returns a detached <g>
-    // (no SVG/view side effects); flowDefs supplies the shared filter/marker ids;
-    // setCurrentRender binds the sub-graph as the active inspect/highlight target.
+    // Shared decision-render helpers retained for source/export compatibility.
     LC.drawFlowGraph = drawFlowGraph;
     LC.flowDefs = flowDefs;
     LC.setCurrentRender = setCurrentRender;
@@ -1391,15 +1441,9 @@
       if (!flow || !nodeId) return null;
       return flow.nodes.find(n => n.id === nodeId) || null;
     };
-    // Half-extents of a drawn decision node plus badges/source labels, so measureFlow
-    // can inflate center-only bounds to the visual box the rendered nodes occupy.
-    // Origin-relative bounds of a flow's decision layout, so canvas.js can RESERVE the
-    // band an inline-expanded sub-graph will occupy BEFORE drawing it (layout then draw),
-    // keeping siblings from overlapping. Same layoutFlow the renderer uses, so the
-    // reserved box matches the drawn one (manual drag overrides included). layoutFlow
-    // returns bounds over node CENTERS only; inflate by the node half-extents so the
-    // reserved band/panel actually contains the rendered nodes (a single-node flow then
-    // measures 290x116, not 0x0) -- callers add their own DECISION_PAD breathing room.
+    // Origin-relative bounds of a flow's decision layout. layoutFlow returns bounds over
+    // node CENTERS only; inflate by the node half-extents so callers reserve the visual
+    // footprint, not just center points.
     LC.measureFlow = (flow, opts) => {
       if (!flow || !flow.nodes || !flow.nodes.length) {
         return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
@@ -1449,44 +1493,93 @@
       }
     });
 
-    // Single hash router. Parsed once on load and on every hashchange; dispatches to
-    // the right owner so a deep link / refresh / back-button restores the level.
-    //   #flow=<id>   -> selectFlow (mode flow, L2)
-    //   #scope=<name> (name in model.scopes) -> canvas L1 for that scope
-    //   #path=<path>  -> canvas L1 with that folder/file area selected
-    //   bare #<id> with byId.has(decoded) -> treated as #flow=<id> (back-compat)
-    //   empty / unrecognized -> canvas L0
-    function routeFromHash() {
+    // Keep the HTML shell in sync with the hash the React runtime owns. This deliberately
+    // does not render canvas content; it only updates header/tree/source state.
+    function syncShellFromHash() {
       const raw = location.hash.slice(1);
       const eq = raw.indexOf("=");
       const scopes = model.scopes || {};
       if (eq !== -1) {
         const key = raw.slice(0, eq);
         const value = safeDecodeHashValue(raw.slice(eq + 1));
-        if (value == null) { if (LC.showL0) LC.showL0(); return; }
-        if (key === "flow" && byId.has(value)) { selectFlow(value); return; }
+        if (value == null) { setHeaderRoot(); return; }
+        if (key === "flow" && byId.has(value)) {
+          const flow = byId.get(value);
+          setHeaderFlow(flow);
+          LC.select(selectionForFlow(flow));
+          if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
+          return;
+        }
         if (key === "scope" && Object.prototype.hasOwnProperty.call(scopes, value)) {
-          if (LC.showScope) LC.showScope(value);
+          setHeaderScope(value);
+          LC.select({
+            edgeId: null,
+            endLine: null,
+            findingId: null,
+            flowId: null,
+            line: null,
+            nodeId: null,
+            path: null,
+            scope: value,
+          });
           return;
         }
         if (key === "path" && value) {
-          if (LC.showPath) LC.showPath(value);
+          const scope = value.split("/").filter(Boolean)[0] || null;
+          if (scope) setHeaderScope(scope);
+          LC.select({
+            edgeId: null,
+            endLine: null,
+            findingId: null,
+            flowId: null,
+            line: null,
+            nodeId: null,
+            path: value,
+            scope,
+          });
+          return;
+        }
+        if (key === "edge") return;
+        if (key === "node" && value === "codebase") {
+          setHeaderRoot();
+          LC.select({
+            edgeId: null,
+            endLine: null,
+            findingId: null,
+            flowId: null,
+            line: null,
+            nodeId: null,
+            path: null,
+            scope: null,
+          });
           return;
         }
       } else if (raw) {
         const decoded = safeDecodeHashValue(raw);
-        if (decoded == null) { if (LC.showL0) LC.showL0(); return; }
-        if (byId.has(decoded)) { selectFlow(decoded); return; }
+        if (decoded == null) { setHeaderRoot(); return; }
+        if (byId.has(decoded)) {
+          const flow = byId.get(decoded);
+          setHeaderFlow(flow);
+          LC.select(selectionForFlow(flow));
+          if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
+          return;
+        }
+        if (decoded === "root") {
+          setHeaderRoot();
+          LC.select({
+            edgeId: null,
+            endLine: null,
+            findingId: null,
+            flowId: null,
+            line: null,
+            nodeId: null,
+            path: null,
+            scope: null,
+          });
+        }
       }
-      if (LC.showL0) LC.showL0();
+      if (!raw) setHeaderRoot();
     }
-    LC.routeFromHash = routeFromHash;
-
-    // Boot: defer the first route until canvas.js has registered showL0/showScope.
-    // canvas.js is the very next <script>, so a microtask is enough; guard anyway.
-    function boot() {
-      if (!LC.showL0) { setTimeout(boot, 0); return; }
-      routeFromHash();
-      window.addEventListener("hashchange", routeFromHash);
-    }
-    boot();
+    LC.syncShellFromHash = syncShellFromHash;
+    window.addEventListener("hashchange", syncShellFromHash);
+    syncShellFromHash();

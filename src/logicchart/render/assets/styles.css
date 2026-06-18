@@ -513,9 +513,6 @@
       text-transform: uppercase;
     }
     .detail-tool { display: grid; place-items: center; font-weight: 800; font-family: ui-serif, Georgia, serif; }
-    #canvas { width: 100%; height: 100%; cursor: grab; user-select: none; -webkit-user-select: none; }
-    #canvas.dragging { cursor: grabbing; }
-    body[data-runtime="react"] #canvas,
     body[data-runtime="react"] #emptyState {
       display: none;
     }
@@ -558,6 +555,10 @@
     .typed-viewer-host .logicchart-overview:focus-visible {
       border-color: color-mix(in srgb, var(--blue) 72%, var(--line-strong));
       outline: none;
+      opacity: 1;
+    }
+    .typed-viewer-host .logicchart-overview.dragging {
+      cursor: grabbing;
       opacity: 1;
     }
     .typed-viewer-host .logicchart-overview-map {

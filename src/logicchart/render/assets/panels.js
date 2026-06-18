@@ -74,9 +74,9 @@
       // re-renders the panel (replaceChildren destroys the focused element, dropping focus
       // to <body>). When an activation originates INSIDE a panel, we record the stable id of
       // the activated item here, then restore focus to the equivalent row/line AFTER the
-      // whole selection cascade settles. Deferring matters: a code-line click runs
-      // LC.selectFlow, and canvas.js's expandFlowInline ends by focusing the host flow node
-      // -- restoring synchronously during render would be immediately overwritten by that.
+      // whole selection cascade settles. Deferring matters: a code-line click can trigger
+      // a chart selection focus update; restoring synchronously during render would be
+      // immediately overwritten by that.
       // Scheduling the restore last (a microtask after the cascade) lets the panel keep
       // focus. Cleared once consumed so a later unrelated selection does not steal focus.
       let pendingFocus = null;
@@ -552,8 +552,7 @@
         // status clobbers the other's in the single shared live region.
         flushAnnounce();
         // Restore focus to the panel item the user just activated AFTER the whole cascade
-        // settles -- canvas.js's expandFlowInline focuses the host flow node synchronously
-        // during this same select(), so restoring synchronously would lose to it.
+        // settles, so chart focus updates do not immediately overwrite it.
         if (pendingFocus) afterCascade(restorePendingFocus);
       }
       if (LC.onSelection) LC.onSelection(onSelection);
@@ -596,11 +595,10 @@
       function isMaximized() {
         return fallbackActive || fsElement() === mainEl;
       }
-      // Expose the in-page fallback state so canvas.js's Esc handler can DEFER to panels.js
-      // here: while the CSS fallback is maximized, panels.js owns the Esc (it exits the
-      // fallback) and canvas.js must NOT also collapse a canvas level on the same keypress
-      // (which would double-fire one Esc into two state changes). The real Fullscreen API
-      // path is handled by the browser, so this flag is only ever true for the fallback.
+      // Expose the in-page fallback state so other shell handlers can defer to panels.js:
+      // while the CSS fallback is maximized, panels.js owns Esc and exits the fallback.
+      // The real Fullscreen API path is handled by the browser, so this flag is only ever
+      // true for the fallback.
       LC.fullscreenFallbackActive = () => fallbackActive;
 
       function reflectFsState() {
@@ -689,10 +687,7 @@
         document.addEventListener(evt, reflectFsState);
       });
       // Esc exits the in-page maximize fallback (the real Fullscreen API handles its own
-      // Esc, which fires fullscreenchange -> reflectFsState). Ignored while typing. panels.js
-      // OWNS fallback exit: while fallbackActive, canvas.js's Esc handler defers (it reads
-      // LC.fullscreenFallbackActive), so this is the single handler that reacts to that Esc
-      // -- no double-fire collapsing a canvas level on the same keypress.
+      // Esc, which fires fullscreenchange -> reflectFsState). Ignored while typing.
       document.addEventListener("keydown", event => {
         if (event.key !== "Escape") return;
         const t = event.target;

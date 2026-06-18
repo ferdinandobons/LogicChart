@@ -28,19 +28,19 @@ The canvas should read as one navigable flowchart:
 The renderer must remain shape-agnostic. It should never special-case names such as
 `backend`, `frontend`, or `edge`; those are ordinary scope values from the generated model.
 
-## Runtime paths
+## Runtime path
 
-There are two viewer paths:
+There is one official viewer path:
 
 | Runtime | How to open it | Responsibility |
 | --- | --- | --- |
-| React runtime | `logic-flow.html` | Default progressive canvas, scope nodes, scope-entry links, flow detail charts, viewport zoom/pan/reset, raster export |
-| Static shell | `logic-flow.html?runtime=static` | Explicit fallback for debugging or runtime bundle failures; tree, panels, theme, side rails, legacy canvas, fullscreen |
+| React runtime | `logic-flow.html` | Default progressive canvas, scope nodes, scope-entry links, flow detail charts, viewport zoom/pan/reset, graph-bounds-aware raster export |
 
 The React runtime is built from `frontend/` into
 `src/logicchart/render/assets/generated/logicchart-viewer-runtime.iife.js` and then embedded
-by `src/logicchart/render/html.py`. The generated HTML falls back to the static runtime if
-the React bundle is unavailable or fails to mount.
+by `src/logicchart/render/html.py`. Generated HTML should always mount the React runtime;
+the retired static canvas is no longer shipped as a selectable runtime because it split
+behavior between two chart implementations.
 
 The shell and React runtime deliberately share the same generated payload. The shell still
 drives the side panels and tree selection; the React runtime synchronizes through hashes
@@ -82,8 +82,7 @@ The viewer layout should preserve these invariants:
 - Pan and zoom are viewport operations; they must not mutate model layout.
 - Viewport operations must remain finite and recoverable: invalid zoom inputs are ignored,
   free pan is unbounded, and Reset returns to the collapsed baseline view.
-- Wheel and trackpad zoom must stay anchored to the cursor in the active runtime and must
-  not bubble into the static shell fallback as a second zoom operation.
+- Wheel and trackpad zoom must stay anchored to the cursor in the active runtime.
 - The minimap is an aggregate navigator, not a second tiny node renderer: it shows the
   graph bounds and current viewport, scrolls to pan the canvas, double-clicks to fit, and
   keeps the viewport visible even when free pan moves outside the graph bounds.
@@ -123,7 +122,6 @@ Before declaring a viewer change done, also run:
 ```bash
 node --check src/logicchart/render/assets/generated/logicchart-viewer-runtime.iife.js
 node --check src/logicchart/render/assets/shell.js
-node --check src/logicchart/render/assets/canvas.js
 node --check src/logicchart/render/assets/tree.js
 UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_render_html.py
 UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest
@@ -146,12 +144,14 @@ High-value browser checks:
 - Clicking blank canvas clears connection focus.
 - Clicking an entrypoint from the canvas and from the tree opens the same flow detail.
 - The source panel shows the selected flow's file and line range.
-- Wheel zoom, canvas pan, minimap scroll pan, fit, reset, PNG export, and JPG export route
-  through the active runtime.
+- Wheel zoom, canvas pan, minimap drag/scroll pan, fit, reset, PNG export, and JPG export
+  route through the active runtime.
+- PNG/JPG export resolution follows the graph bounds rather than the current viewport, with
+  browser-safe caps for very large charts.
 - SVG hit paths remain invisible in screenshots and exports.
 
 ## Documentation discipline
 
 Keep `README.md`, `CONTRIBUTING.md`, this file, and the generated agent instructions in
-sync whenever the viewer workflow changes. When runtime ownership changes, update both the
-default URL examples and the explicit fallback path in the same change.
+sync whenever the viewer workflow changes. When runtime ownership changes, update the
+default URL examples and make sure no retired runtime path remains documented.
