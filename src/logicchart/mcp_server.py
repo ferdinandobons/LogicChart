@@ -444,9 +444,10 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         question: str | None = None,
         changed_files: list[str] | None = None,
         scope: str | None = None,
+        include_visual: bool = False,
         token_budget: int = 600,
     ) -> dict[str, Any]:
-        """Compact orientation pack: summary, relevant flows, impact, and review queue."""
+        """Compact orientation pack: summary, relevant flows, impact, review, visuals."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -457,11 +458,15 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         review_flow_ids = {flow.id for flow in impact.all_flows} | {
             match.flow.id for match in matches
         }
-        review_rows = [
-            _finding_dict(finding, model)
+        review_findings = [
+            finding
             for finding in model.findings
             if not review_flow_ids or finding.flow_id in review_flow_ids
         ]
+        review_findings.sort(
+            key=lambda item: (_finding_priority(item), item.location.path, item.message)
+        )
+        review_rows = [_finding_dict(finding, model) for finding in review_findings]
         return {
             "summary": model_summary(model),
             "query": _cap([match.to_dict() for match in matches], token_budget),
@@ -477,6 +482,15 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 ),
             },
             "review": _cap(review_rows, token_budget),
+            "visual_context": _context_visual_pack(
+                model,
+                impact=impact,
+                matches=matches,
+                review_findings=review_findings,
+                scope=scope,
+                include_visual=include_visual,
+                token_budget=token_budget,
+            ),
         }
 
     @server.tool()
@@ -541,6 +555,112 @@ def _flow_summary(flow: Any) -> dict[str, Any]:
 
 def _flow_dict(flow: Any) -> dict[str, Any]:
     return asdict(flow)
+
+
+def _context_visual_pack(
+    model: ProjectModel,
+    *,
+    impact: Any,
+    matches: list[Any],
+    review_findings: list[Any],
+    scope: str | None,
+    include_visual: bool,
+    token_budget: int,
+) -> dict[str, Any]:
+    flow_candidates = _context_visual_flows(impact, matches)
+    finding_candidates = review_findings
+    flow_limit = _context_visual_item_budget(token_budget)
+    finding_limit = _context_visual_item_budget(token_budget)
+    flow_tool_args = [
+        {
+            "tool": "get_flow_snapshot",
+            "arguments": {
+                "flow_id": flow.id,
+                "format": "svg",
+                "token_budget": token_budget,
+            },
+        }
+        for flow in flow_candidates[:flow_limit]
+    ]
+    finding_tool_args = [
+        {
+            "tool": "get_finding_snapshot",
+            "arguments": {
+                "finding_id": finding.id,
+                "format": "svg",
+                "token_budget": token_budget,
+            },
+        }
+        for finding in finding_candidates[:finding_limit]
+    ]
+    impact_arguments: dict[str, Any] = {
+        "changed_files": impact.changed_files,
+        "format": "svg",
+        "token_budget": token_budget,
+    }
+    if scope is not None:
+        impact_arguments["scope"] = scope
+    payload: dict[str, Any] = {
+        "include_visual": include_visual,
+        "format": "svg",
+        "snapshot_budget": {
+            "flow_snapshots": flow_limit,
+            "finding_snapshots": finding_limit,
+            "node_budget": _snapshot_node_budget(token_budget),
+            "flow_budget": _snapshot_flow_budget(token_budget),
+        },
+        "next_tools": {
+            "impact_snapshot": {
+                "tool": "get_impact_snapshot",
+                "arguments": impact_arguments,
+            },
+            "flow_snapshots": flow_tool_args,
+            "finding_snapshots": finding_tool_args,
+        },
+        "omitted_flow_snapshot_count": max(0, len(flow_candidates) - flow_limit),
+        "omitted_finding_snapshot_count": max(0, len(finding_candidates) - finding_limit),
+    }
+    if not include_visual:
+        return payload
+    payload["impact_snapshot"] = render_impact_snapshot(
+        changed_files=impact.changed_files,
+        direct=impact.directly_impacted,
+        transitive=impact.transitively_impacted,
+        findings=impact.findings,
+        max_flows=_snapshot_flow_budget(token_budget),
+    )
+    payload["flow_snapshots"] = [
+        render_flow_snapshot(
+            model,
+            flow.id,
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
+        for flow in flow_candidates[:flow_limit]
+    ]
+    payload["finding_snapshots"] = [
+        render_finding_snapshot(
+            model,
+            finding.id,
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
+        for finding in finding_candidates[:finding_limit]
+    ]
+    return payload
+
+
+def _context_visual_flows(impact: Any, matches: list[Any]) -> list[Any]:
+    flows: dict[str, Any] = {}
+    for flow in [*impact.directly_impacted, *impact.transitively_impacted]:
+        flows.setdefault(flow.id, flow)
+    for match in matches:
+        flows.setdefault(match.flow.id, match.flow)
+    return list(flows.values())
+
+
+def _context_visual_item_budget(token_budget: int) -> int:
+    if token_budget <= 0:
+        return 2
+    return max(1, min(3, token_budget // 300))
 
 
 def _flow_navigation(

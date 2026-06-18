@@ -157,6 +157,12 @@ def authorize(user):
                 )
                 assert not context.isError
                 assert "impact" in str(context.content)
+                context_payload = context.structuredContent  # type: ignore[assignment]
+                assert context_payload["visual_context"]["include_visual"] is False  # type: ignore[index]
+                assert (
+                    context_payload["visual_context"]["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
+                    == "get_impact_snapshot"
+                )
 
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError
@@ -287,6 +293,26 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 )
                 assert not explanation.isError
                 assert "get_finding_context" in str(explanation.content)
+                visual_context = await session.call_tool(
+                    "context_pack",
+                    {
+                        "question": "dispatch status",
+                        "changed_files": ["app.py"],
+                        "include_visual": True,
+                        "token_budget": 120,
+                    },
+                )
+                assert not visual_context.isError
+                visual_payload = visual_context.structuredContent  # type: ignore[assignment]
+                visual = visual_payload["visual_context"]  # type: ignore[index]
+                assert visual["include_visual"] is True
+                assert visual["impact_snapshot"]["format"] == "svg"
+                assert "<svg" in visual["impact_snapshot"]["svg"]
+                assert visual["flow_snapshots"]
+                assert visual["finding_snapshots"]
+                assert visual["flow_snapshots"][0]["rendered_node_count"] >= 1
+                assert visual["finding_snapshots"][0]["finding_id"] == captured[0]["id"]
+                assert visual["snapshot_budget"]["flow_snapshots"] == 1
 
     asyncio.run(call_review_queue())
 

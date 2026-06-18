@@ -32,6 +32,8 @@ The project follows Semantic Versioning.
   MCP, with subgraph ids and unresolved-target reporting.
 - Added deterministic query filters for source paths, symbols/names, decision domains, and
   handled values across CLI and MCP.
+- Added optional inline visual context to MCP `context_pack`, with SVG impact, flow, and
+  finding snapshots gated by `include_visual` and capped by `token_budget`.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer

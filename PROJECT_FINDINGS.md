@@ -312,13 +312,15 @@ Current checkpoint:
   silently falling back to browser screenshots.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
+- `context_pack(include_visual=true)` can include inline SVG impact, flow, and finding
+  snapshots while the default response stays lightweight with follow-up snapshot tools.
 
 Still open:
 
 - Share more layout intelligence with the React viewer, especially for larger subgraphs.
 - Add optional SVG-to-PNG/JPG rasterization.
-- Add visual snapshots to `context_pack` once payload size and token-budget behavior are
-  pinned.
+- Keep monitoring whether context-pack visual payloads need stricter size caps after more
+  real agent usage.
 
 ## Finding 6: MCP Coverage and Contracts Lag Behind the Core
 
@@ -533,6 +535,8 @@ Before the next release:
   evidence guardrails, and next-tool orientation.
 - Done: make MCP flow/finding/impact SVG snapshots honor `token_budget` by omitting excess
   nodes or impact flows while reporting omission counts.
+- Done: add optional inline SVG visual context to `context_pack` with lightweight default
+  follow-up tools.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment
