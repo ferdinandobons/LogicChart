@@ -11,11 +11,13 @@ LogicChart is in a strong alpha state.
 
 - The viewer is now the most mature surface: the official chart path is the React
   progressive flowchart runtime, with persisted expansion state, node dragging, link
-  focus, layout/detail caching, asynchronous chunked expansion with progress feedback,
-  graph-bounds-aware PNG/JPG export, and layout quality tests. Expand All now batches all
-  scope/flow openings into one bounded render pass and uses indexed visible call targets,
-  so full-graph expansion avoids repeated large-layout recalculations on real-world
-  codebases. The minimap has been removed to keep large-canvas updates lighter. The
+  focus, layout/detail caching, fast expand-overview progress feedback,
+  graph-bounds-aware PNG/JPG export, and layout quality tests. Expand All now opens the
+  graph as a lightweight expanded overview with progress feedback, deferred inline detail
+  charts, indexed direct-call context, and simplified overview edge routing, so full-graph
+  expansion avoids repeated large-layout recalculations and quadratic detail-collision work
+  on real-world codebases. The minimap has been removed to keep large-canvas updates
+  lighter. The
   Details rail now lets Project Quality, Source, and Logical Errors collapse independently
   during large-codebase inspection with visible, keyboard-accessible section headers plus
   rail-level expand-all/collapse-all controls, while tablet-width drawer layouts keep the
@@ -89,8 +91,11 @@ Rules:
 - Keep `examples/Certifexp/` ignored by `.gitignore`.
 - Keep `examples/Certifexp/` ignored by the root `.logicchartignore`, so `logicchart update`
   for this repository cannot accidentally embed private project facts in `logicchart-out`.
-- Use `tests/test_certifexp_local.py` as the local regression gate. It skips when the
-  fixture is absent, so public CI remains reproducible.
+- Use `tests/test_certifexp_local.py` as the local analyzer regression gate. It skips when
+  the fixture is absent, so public CI remains reproducible.
+- Use `frontend/tests/certifexp-local.test.tsx` as the optional local viewer-scale gate.
+  It reads only the ignored generated `logic-flow.json`, verifies fast Expand All overview
+  behavior, and skips when the fixture is absent.
 - The local test and root-wide analyzer check avoid nested Git data, virtual environments,
   generated graph output, build artifacts, dependency directories, or infrastructure state
   files.
@@ -99,6 +104,7 @@ Run the local real-project gate with:
 
 ```bash
 UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.py
+npm run viewer:test -- frontend/tests/certifexp-local.test.tsx
 ```
 
 ## Finding 1: Logical Errors Need a First-Class Diagnostic Model

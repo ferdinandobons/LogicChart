@@ -1024,13 +1024,20 @@ describe("standalone viewer bridge", () => {
     expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="users-route"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="load-order"]')).not.toBeNull();
-    expect(container.querySelector(".flow-detail")).not.toBeNull();
+    expect(container.querySelector(".flow-detail")).toBeNull();
 
     await act(async () => {
       await flushAsyncTimers(3);
     });
 
     expect(progress?.hidden).toBe(true);
+
+    await act(async () => {
+      mounted.selectFlow("orders-route");
+      await flushAsyncTimers(3);
+    });
+
+    expect(container.querySelector(".flow-detail")).not.toBeNull();
 
     await act(async () => {
       mounted.resetView();

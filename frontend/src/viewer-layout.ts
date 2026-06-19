@@ -62,6 +62,7 @@ export interface ViewerLayoutInput {
   contextFlowIds?: readonly string[];
   expandedScopes?: readonly string[];
   expandedMeasures?: ReadonlyMap<string, ExpandedFlowMeasure>;
+  performanceMode?: "normal" | "expanded-overview";
   manualNodePositions?: ReadonlyMap<string, ManualNodePosition>;
   scopeNode?: ScopeNodePosition;
   progressiveOptions?: ProgressiveLayoutOptions;
@@ -236,6 +237,7 @@ export function viewerNodeKey(kind: ViewerNodeKind, id: string): string {
 export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
   const progressiveOptions = input.progressiveOptions ?? DEFAULT_PROGRESSIVE_LAYOUT_OPTIONS;
   const scopeOptions = input.scopeOptions ?? DEFAULT_SCOPE_LAYOUT_OPTIONS;
+  const expandedOverviewMode = input.performanceMode === "expanded-overview";
   const scopeInputs = input.payload
     ? scopeSummaries(input.payload).map(summary => ({
         name: summary.name,
@@ -416,6 +418,7 @@ export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
     flowPositionsSeed,
     inlineAnchorsSeed,
     layoutBoxesFromParts(rootNode, scopeNodes, new Map(), []),
+    { skipFlowPairCollisions: expandedOverviewMode },
   );
   const flowPositions = resolvedDetailLayout.flowPositions;
   const inlineAnchors = resolvedDetailLayout.inlineAnchors;
@@ -449,6 +452,7 @@ export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
     flowPositions,
     flowCallSourceExitYs(inlineAnchors, input.expandedMeasures),
     flowCallObstacles(flowPositions, inlineAnchors),
+    { avoidObstacles: !expandedOverviewMode },
   );
   const viewBoxFlowCallBounds = boundsForFlowCallEdges(flowCallEdges);
   const viewBoxTopLevelEdgeBounds = boundsForTopLevelEdges(rootEdges, entryEdges);
@@ -961,6 +965,7 @@ function progressiveFlowCallEdges(
   positions: ReadonlyMap<string, LayoutNodePosition>,
   sourceExitYs: ReadonlyMap<string, number>,
   obstacles: readonly LayoutBox[],
+  options: { avoidObstacles?: boolean } = {},
 ): FlowCallEdge[] {
   const pairs: FlowCallPair[] = [];
   const visibleTargetsByCaller = visibleCallTargetsByCaller(flowById);
@@ -991,6 +996,9 @@ function progressiveFlowCallEdges(
       a.source.id.localeCompare(b.source.id) ||
       a.target.id.localeCompare(b.target.id),
   );
+  if (options.avoidObstacles === false) {
+    return sortedPairs.map(routeOverviewFlowCallEdge);
+  }
   const verticalGroups = new Map<string, typeof sortedPairs>();
   const lateralGroups = new Map<string, typeof sortedPairs>();
   sortedPairs.forEach(pair => {
@@ -1022,6 +1030,23 @@ function progressiveFlowCallEdges(
       (positions.get(a.source)?.x || 0) - (positions.get(b.source)?.x || 0) ||
       a.target.localeCompare(b.target),
   );
+}
+
+function routeOverviewFlowCallEdge(pair: FlowCallPair): FlowCallEdge {
+  const { source, startY, target, targetTopY } = pair;
+  const endY = targetTopY > startY ? targetTopY : target.y + target.height / 2;
+  const laneY =
+    targetTopY > startY
+      ? startY + Math.max(80, (targetTopY - startY) * 0.45)
+      : (startY + endY) / 2;
+  const points = elbowPoints(source.x, startY, target.x, endY, laneY);
+  return {
+    source: source.id,
+    target: target.id,
+    d: pathForPoints(points),
+    focusD: `M ${source.x} ${startY} C ${source.x} ${laneY}, ${target.x} ${laneY}, ${target.x} ${endY}`,
+    points,
+  };
 }
 
 function visibleCallTargetIds(
@@ -1176,6 +1201,7 @@ function resolveDetailContentCollisions(
   positions: ReadonlyMap<string, LayoutNodePosition>,
   anchors: readonly InlineAnchor[],
   staticObstacles: readonly LayoutBox[] = [],
+  options: { skipFlowPairCollisions?: boolean } = {},
 ): {
   flowPositions: Map<string, LayoutNodePosition>;
   inlineAnchors: InlineAnchor[];
@@ -1282,29 +1308,31 @@ function resolveDetailContentCollisions(
       }
     }
 
-    const sortedFlowIds = [...nextPositions.keys()].sort((a, b) => {
-      const left = nextPositions.get(a);
-      const right = nextPositions.get(b);
-      return (
-        (left?.y ?? 0) - (right?.y ?? 0) ||
-        (left?.x ?? 0) - (right?.x ?? 0) ||
-        a.localeCompare(b)
-      );
-    });
-    for (let i = 0; i < sortedFlowIds.length; i += 1) {
-      for (let j = i + 1; j < sortedFlowIds.length; j += 1) {
-        const upper = nextPositions.get(sortedFlowIds[i]);
-        const lower = nextPositions.get(sortedFlowIds[j]);
-        if (!upper || !lower) continue;
-        const upperBox = flowLayoutBox(upper);
-        const lowerBox = flowLayoutBox(lower);
-        if (!boxesOverlap(upperBox, lowerBox, DETAIL_CONTENT_COLLISION_GAP)) continue;
-        const dy =
-          upperBox.maxY +
-          DETAIL_CONTENT_COLLISION_GAP +
-          lower.height / 2 -
-          lower.y;
-        if (shiftFlow(lower.id, dy)) changed = true;
+    if (!options.skipFlowPairCollisions) {
+      const sortedFlowIds = [...nextPositions.keys()].sort((a, b) => {
+        const left = nextPositions.get(a);
+        const right = nextPositions.get(b);
+        return (
+          (left?.y ?? 0) - (right?.y ?? 0) ||
+          (left?.x ?? 0) - (right?.x ?? 0) ||
+          a.localeCompare(b)
+        );
+      });
+      for (let i = 0; i < sortedFlowIds.length; i += 1) {
+        for (let j = i + 1; j < sortedFlowIds.length; j += 1) {
+          const upper = nextPositions.get(sortedFlowIds[i]);
+          const lower = nextPositions.get(sortedFlowIds[j]);
+          if (!upper || !lower) continue;
+          const upperBox = flowLayoutBox(upper);
+          const lowerBox = flowLayoutBox(lower);
+          if (!boxesOverlap(upperBox, lowerBox, DETAIL_CONTENT_COLLISION_GAP)) continue;
+          const dy =
+            upperBox.maxY +
+            DETAIL_CONTENT_COLLISION_GAP +
+            lower.height / 2 -
+            lower.y;
+          if (shiftFlow(lower.id, dy)) changed = true;
+        }
       }
     }
 

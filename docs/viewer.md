@@ -130,9 +130,12 @@ The viewer layout should preserve these invariants:
   expanding an arbitrary fallback scope.
 - Reset clears opened scopes, opened flows, manual positions, and viewport state, then
   returns to `#root`, the collapsed codebase map.
-- Expand all opens every non-test scope and flow from the generated payload in asynchronous
-  chunks with a visible progress indicator; it must be payload-driven rather than tuned to
-  demo scope names or file paths.
+- Expand all opens every non-test scope and flow from the generated payload as a
+  lightweight overview with a visible progress indicator; it must be payload-driven rather
+  than tuned to demo scope names or file paths.
+- Expand-all overview mode defers inline decision-detail charts until a specific flow is
+  selected, and uses simplified overview edge routing so very large canvases remain
+  responsive.
 - Expanded scope sections follow the root-map rows, so large codebases pack into readable
   vertical bands instead of one unbounded horizontal strip.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
@@ -216,8 +219,8 @@ High-value browser checks:
 - Direct `#flow=<flow-id>` and `#path=<source-path>` URLs open Details with the matching
   source context selected.
 - The source panel shows the selected flow's file and line range.
-- Wheel zoom, canvas pan, fit, reset, chunked expand, PNG export, and JPG export route
-  through the active runtime.
+- Wheel zoom, canvas pan, fit, reset, fast expand overview, PNG export, and JPG export
+  route through the active runtime.
 - PNG/JPG export resolution follows the graph bounds rather than the current viewport, with
   browser-safe caps for very large charts.
 - SVG hit paths remain invisible in screenshots and exports.

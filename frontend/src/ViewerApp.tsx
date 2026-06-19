@@ -83,9 +83,11 @@ export interface ViewerAppProps {
   payload?: LogicChartPayload;
   layers?: ProgressiveFlowNode[][];
   routeFlowIds?: string[];
+  detailFlowIds?: string[];
   contextFlowIds?: string[];
   expandedScopes?: readonly string[];
   selectedConnection?: SelectedConnection;
+  layoutMode?: "normal" | "expanded-overview";
   selectedRoot?: boolean;
   onConnectionSelect?: (connection: ActiveConnection) => void;
   onDetailEdgeSelect?: (selection: DetailEdgeSelection) => void;
@@ -108,9 +110,11 @@ export function ViewerApp({
   payload,
   layers,
   routeFlowIds = [],
+  detailFlowIds,
   contextFlowIds = [],
   expandedScopes,
   selectedConnection: selectedConnectionProp,
+  layoutMode = "normal",
   selectedRoot: selectedRootProp = false,
   onConnectionSelect,
   onDetailEdgeSelect,
@@ -213,8 +217,9 @@ export function ViewerApp({
         selectedConnection ??
         useViewerStore.getState().selectedConnection;
   const detailLayoutSignature = useMemo(
-    () => [payloadSignature(payload), routeFlowIds.join("\u0000")].join("\u0001"),
-    [payload, routeFlowIds],
+    () =>
+      [payloadSignature(payload), (detailFlowIds ?? routeFlowIds).join("\u0000")].join("\u0001"),
+    [detailFlowIds, payload, routeFlowIds],
   );
   const detailLayouts = useMemo(() => {
     const cached = detailLayoutCache.current.get(detailLayoutSignature);
@@ -223,7 +228,7 @@ export function ViewerApp({
       detailLayoutCache.current.set(detailLayoutSignature, cached);
       return cached;
     }
-    const nextLayouts = flowDetailLayouts(payload, routeFlowIds);
+    const nextLayouts = flowDetailLayouts(payload, detailFlowIds ?? routeFlowIds);
     detailLayoutCache.current.set(detailLayoutSignature, nextLayouts);
     while (detailLayoutCache.current.size > VIEWER_LAYOUT_CACHE_LIMIT) {
       const oldestKey = detailLayoutCache.current.keys().next().value;
@@ -248,6 +253,7 @@ export function ViewerApp({
           ? `${scopeNode.scope}:${scopeNode.x}:${scopeNode.y}:${scopeNode.width}:${scopeNode.height}`
           : "",
         expandedScopes === undefined ? "__auto__" : [...expandedScopes].join("\u0000"),
+        layoutMode,
         routeFlowIds.join("\u0000"),
         contextFlowIds.join("\u0000"),
         layersSignature(layers),
@@ -259,6 +265,7 @@ export function ViewerApp({
       contextFlowIds,
       effectiveExpandedMeasures,
       expandedScopes,
+      layoutMode,
       layers,
       manualNodePositions,
       payload,
@@ -275,6 +282,7 @@ export function ViewerApp({
           ? `${scopeNode.scope}:${scopeNode.x}:${scopeNode.y}:${scopeNode.width}:${scopeNode.height}`
           : "",
         expandedScopes === undefined ? "__auto__" : [...expandedScopes].join("\u0000"),
+        layoutMode,
         routeFlowIds.join("\u0000"),
         contextFlowIds.join("\u0000"),
         layersSignature(layers),
@@ -285,6 +293,7 @@ export function ViewerApp({
       contextFlowIds,
       effectiveExpandedMeasures,
       expandedScopes,
+      layoutMode,
       layers,
       payload,
       routeFlowIds,
@@ -306,6 +315,7 @@ export function ViewerApp({
         manualNodePositions,
         payload,
         contextFlowIds,
+        performanceMode: layoutMode,
         routeFlowIds,
         scope,
         scopeNode,

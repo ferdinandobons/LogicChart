@@ -44,18 +44,23 @@ export function mountStandaloneLogicChartViewer(
   const canSubscribe =
     typeof window !== "undefined" && options.location === undefined;
   const flowById = buildFlowIndex(payload);
+  const directConnectionIndex = directConnectionIndexForFlows(flowById);
   const stateStorageKey = viewerStateStorageKey(payload);
   const progress = createExpansionProgress(container);
   const persistedState = canSubscribe
     ? readViewerState(stateStorageKey, flowById)
     : emptyViewerState();
   const openedFlowIds = new Set<string>(persistedState.openedFlowIds);
+  const openedDetailFlowIds = new Set<string>(persistedState.openedDetailFlowIds);
   const openedScopeIds = new Set<string>(persistedState.openedScopeIds);
+  let expandedOverviewMode = persistedState.expandedOverviewMode;
   let manualNodePositions = new Map(persistedState.manualNodePositions);
   const persistState = () => {
     if (!canSubscribe) return;
     writeViewerState(stateStorageKey, {
+      expandedOverviewMode,
       manualNodePositions,
+      openedDetailFlowIds,
       openedFlowIds,
       openedScopeIds,
     });
@@ -67,7 +72,11 @@ export function mountStandaloneLogicChartViewer(
       openedFlowIds.add(flowId);
       changed = true;
     }
-    directConnectionScopeNames(flowById, flowId).forEach(scope => {
+    if (!openedDetailFlowIds.has(flowId)) {
+      openedDetailFlowIds.add(flowId);
+      changed = true;
+    }
+    directConnectionScopeNames(flowById, directConnectionIndex, flowId).forEach(scope => {
       if (openedScopeIds.has(scope)) return;
       openedScopeIds.add(scope);
       changed = true;
@@ -132,8 +141,10 @@ export function mountStandaloneLogicChartViewer(
       expandedScopes: routeRequestsRoot ? [] : [...openedScopeIds],
       contextFlowIds: routeRequestsRoot
         ? []
-        : contextFlowIdsForOpenedFlows(flowById, openedFlowIds),
+        : contextFlowIdsForOpenedFlows(directConnectionIndex, openedFlowIds),
+      detailFlowIds: routeRequestsRoot ? [] : [...openedDetailFlowIds],
       initialManualNodePositions: manualNodePositions,
+      layoutMode: expandedOverviewMode ? "expanded-overview" : "normal",
       routeFlowIds: routeRequestsRoot ? [] : [...openedFlowIds],
       syncHash: canSubscribe,
       onConnectionSelect(connection) {
@@ -222,6 +233,7 @@ export function mountStandaloneLogicChartViewer(
         progress.update(0, total);
         job.schedule(() => {
           if (expansionJob !== job) return;
+          expandedOverviewMode = true;
           scopeNames.forEach(scope => openedScopeIds.add(scope));
           flowIds.forEach(flowId => openedFlowIds.add(flowId));
           persistState();
@@ -266,7 +278,9 @@ export function mountStandaloneLogicChartViewer(
     resetView() {
       cancelExpansionJob();
       openedFlowIds.clear();
+      openedDetailFlowIds.clear();
       openedScopeIds.clear();
+      expandedOverviewMode = false;
       manualNodePositions = new Map();
       clearViewerState(stateStorageKey);
       mounted?.resetView();
@@ -397,17 +411,21 @@ function createExpansionProgress(container: Element): ExpansionProgress {
   };
 }
 
-const VIEWER_STATE_VERSION = 2;
+const VIEWER_STATE_VERSION = 4;
 
 interface ViewerPersistedState {
+  expandedOverviewMode: boolean;
   manualNodePositions: Map<string, ManualNodePosition>;
+  openedDetailFlowIds: string[];
   openedFlowIds: string[];
   openedScopeIds: string[];
 }
 
 function emptyViewerState(): ViewerPersistedState {
   return {
+    expandedOverviewMode: false,
     manualNodePositions: new Map(),
+    openedDetailFlowIds: [],
     openedFlowIds: [],
     openedScopeIds: [],
   };
@@ -415,11 +433,12 @@ function emptyViewerState(): ViewerPersistedState {
 
 function directConnectionScopeNames(
   flowById: ReadonlyMap<string, LogicChartFlow>,
+  directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   flowId: string,
 ): string[] {
   const relatedFlowIds = new Set<string>([
     flowId,
-    ...directConnectionFlowIds(flowById, flowId),
+    ...directConnectionFlowIds(directConnectionIndex, flowId),
   ]);
   const scopes = new Set<string>();
   relatedFlowIds.forEach(id => {
@@ -431,31 +450,39 @@ function directConnectionScopeNames(
 }
 
 function directConnectionFlowIds(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   flowId: string,
 ): string[] {
-  const flow = flowById.get(flowId);
-  if (!flow) return [];
-  const relatedFlowIds = new Set<string>();
-  flowById.forEach(candidate => {
-    if (candidate.id === flowId) return;
-    const linked =
-      (flow.calls || []).includes(candidate.id) ||
-      (flow.called_by || []).includes(candidate.id) ||
-      (candidate.calls || []).includes(flowId) ||
-      (candidate.called_by || []).includes(flowId);
-    if (linked) relatedFlowIds.add(candidate.id);
+  return [...(directConnectionIndex.get(flowId) || [])].sort();
+}
+
+function directConnectionIndexForFlows(
+  flowById: ReadonlyMap<string, LogicChartFlow>,
+): Map<string, Set<string>> {
+  const index = new Map<string, Set<string>>();
+  const add = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId || !flowById.has(sourceId) || !flowById.has(targetId)) return;
+    const sourceConnections = index.get(sourceId) || new Set<string>();
+    sourceConnections.add(targetId);
+    index.set(sourceId, sourceConnections);
+    const targetConnections = index.get(targetId) || new Set<string>();
+    targetConnections.add(sourceId);
+    index.set(targetId, targetConnections);
+  };
+  flowById.forEach(flow => {
+    (flow.calls || []).forEach(targetId => add(flow.id, targetId));
+    (flow.called_by || []).forEach(sourceId => add(sourceId, flow.id));
   });
-  return [...relatedFlowIds].sort();
+  return index;
 }
 
 function contextFlowIdsForOpenedFlows(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   openedFlowIds: ReadonlySet<string>,
 ): string[] {
   const context = new Set<string>();
   openedFlowIds.forEach(openedFlowId => {
-    directConnectionFlowIds(flowById, openedFlowId).forEach(flowId => {
+    directConnectionFlowIds(directConnectionIndex, openedFlowId).forEach(flowId => {
       if (!openedFlowIds.has(flowId)) context.add(flowId);
     });
   });
@@ -481,6 +508,12 @@ function readViewerState(
             typeof flowId === "string" && flowById.has(flowId),
         )
       : [];
+    const openedDetailFlowIds = Array.isArray(record.openedDetailFlowIds)
+      ? record.openedDetailFlowIds.filter(
+          (flowId): flowId is string =>
+            typeof flowId === "string" && flowById.has(flowId),
+        )
+      : [];
     const openedScopeIds = Array.isArray(record.openedScopeIds)
       ? record.openedScopeIds.filter((scope): scope is string => typeof scope === "string")
       : [];
@@ -500,7 +533,9 @@ function readViewerState(
       });
     }
     return {
+      expandedOverviewMode: record.expandedOverviewMode === true,
       manualNodePositions,
+      openedDetailFlowIds,
       openedFlowIds,
       openedScopeIds,
     };
@@ -512,7 +547,9 @@ function readViewerState(
 function writeViewerState(
   key: string,
   state: {
+    expandedOverviewMode: boolean;
     manualNodePositions: ReadonlyMap<string, ManualNodePosition>;
+    openedDetailFlowIds: ReadonlySet<string>;
     openedFlowIds: ReadonlySet<string>;
     openedScopeIds: ReadonlySet<string>;
   },
@@ -524,6 +561,8 @@ function writeViewerState(
       key,
       JSON.stringify({
         manualNodePositions: [...state.manualNodePositions.entries()],
+        expandedOverviewMode: state.expandedOverviewMode,
+        openedDetailFlowIds: [...state.openedDetailFlowIds],
         openedFlowIds: [...state.openedFlowIds],
         openedScopeIds: [...state.openedScopeIds],
         version: VIEWER_STATE_VERSION,

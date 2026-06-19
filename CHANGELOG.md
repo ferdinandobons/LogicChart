@@ -153,8 +153,8 @@ The project follows Semantic Versioning.
   unsupported analyzer features.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
-- Added React viewer layout/detail caches and asynchronous chunked expansion with a visible
-  loader/progress bar for large-codebase expand operations.
+- Added React viewer layout/detail caches and a visible loader/progress bar for
+  large-codebase expand overview operations.
 - Added a preserved `logicchart:local-notes` section to generated agent instructions, so
   project-specific private checks survive later `logicchart install` refreshes.
 
@@ -172,9 +172,9 @@ The project follows Semantic Versioning.
 - Updated quickstart and command help to prioritize simple no-flag first-run commands,
   including `logicchart analyze`, `logicchart view`, `logicchart llm setup`, and
   `logicchart enrich`, while keeping advanced flags documented for automation.
-- Updated Expand All performance so the viewer opens all scopes and flows in one bounded
-  render pass with progress feedback, avoiding repeated large-layout recalculations on
-  real-world codebases.
+- Updated Expand All performance so the viewer opens all scopes and flows as a lightweight
+  expanded overview with progress feedback, deferred inline detail charts, cached direct
+  call indexes, and simplified overview edge routing for large real-world codebases.
 - Updated the optional LLM provider preset list to keep the documented Qwen coder model
   aligned with `logicchart llm providers`, while keeping free-form model overrides for
   fast-moving provider catalogs.
