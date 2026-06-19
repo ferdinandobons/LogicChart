@@ -315,6 +315,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Call the configured provider and write validated logic-annotations.json.",
     )
     enrich.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the bounded enrichment payload locally without calling a provider.",
+    )
+    enrich.add_argument(
+        "--preview",
+        action="store_true",
+        help="Alias for --dry-run. This is also the default when --send is omitted.",
+    )
+    enrich.add_argument(
         "--timeout",
         type=float,
         default=60.0,
@@ -564,6 +574,8 @@ def _llm(args: argparse.Namespace) -> int:
 
 def _enrich(args: argparse.Namespace) -> int:
     root = Path(args.path).resolve()
+    if args.send and (args.dry_run or args.preview):
+        raise ValueError("pass either --send or --dry-run/--preview, not both.")
     config = LogicChartConfig.load(root, profile=args.profile)
     model = load_model(root, config)
     options = EnrichmentOptions(

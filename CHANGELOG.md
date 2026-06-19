@@ -77,6 +77,9 @@ The project follows Semantic Versioning.
   flow-navigation pack as MCP.
 - Added MCP `preview_enrichment` so agents can inspect the bounded optional LLM enrichment
   payload locally before any explicit provider send through the CLI.
+- Added explicit `logicchart enrich --dry-run` and `--preview` aliases for local
+  enrichment previews, with `--send` kept as the mutually exclusive provider-call
+  boundary.
 - Added MCP finding-context packs with focus flow, related evidence nodes, related flows,
   evidence guardrails, and next-tool hints for logical-error review.
 - Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and

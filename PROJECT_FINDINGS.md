@@ -774,7 +774,8 @@ Before the next release:
 - Done: save optional credentials in a dedicated, git-ignored `.env.logicchart` file with
   masked command output and no provider calls during setup.
 - Done: add `logicchart enrich` as an explicit opt-in command that previews the bounded
-  provider payload before any request and calls the configured provider only with `--send`.
+  provider payload before any request, supports explicit `--dry-run`/`--preview` aliases,
+  and calls the configured provider only with `--send`.
 - Done: validate provider enrichment output against known ids, supported annotation
   fields, text limits, and the current model hash before writing the sidecar.
 - Done: expose the enrichment preview through MCP as a local-only agent workflow helper,

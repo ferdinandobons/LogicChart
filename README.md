@@ -319,13 +319,15 @@ Preview or run optional LLM annotation enrichment:
 
 ```bash
 logicchart enrich --json
+logicchart enrich --dry-run --json
 logicchart enrich --scope backend --json
 logicchart enrich --flow flow-id --finding finding-id --json
 logicchart enrich --scope frontend --send
 ```
 
-Without `--send`, `enrich` is a local preview: it loads the existing model, selects a
-bounded set of flows/findings, prints the exact structured provider payload, and reports
+Without `--send`, `enrich` is a local preview; `--dry-run` and `--preview` make that
+default explicit. It loads the existing model, selects a bounded set of flows/findings,
+prints the exact structured provider payload, and reports
 `provider_call_made: false`. With `--send`, it reads `.env.logicchart`, calls the
 configured OpenAI-compatible provider, validates the returned annotation sidecar against
 the current model hash, and writes `logicchart-out/logic-annotations.json`.

@@ -32,8 +32,8 @@ When helping a user set up or learn LogicChart:
    unclear.
 3. For optional LLM setup, use `logicchart llm providers`, `logicchart llm setup --help`,
    `logicchart llm show`, and `logicchart enrich --help`; prefer `--api-key-stdin`,
-   review `logicchart enrich` preview output before `--send`, and never print or commit
-   keys.
+   review `logicchart enrich --dry-run --json` or `logicchart enrich --preview --json`
+   output before `--send`, and never print or commit keys.
 
 After a substantial code change:
 

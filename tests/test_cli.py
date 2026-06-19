@@ -376,9 +376,9 @@ def test_cli_install_can_write_mcp_config(
     assert "logicchart <command> --help" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "logicchart llm setup --help" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "logicchart enrich --help" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "review `logicchart enrich` preview output before `--send`" in (
-        tmp_path / "AGENTS.md"
-    ).read_text(encoding="utf-8")
+    assert "logicchart enrich --dry-run --json" in (tmp_path / "AGENTS.md").read_text(
+        encoding="utf-8"
+    )
     assert "--api-key-stdin" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "Updated" in capsys.readouterr().out
 

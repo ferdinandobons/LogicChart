@@ -32,14 +32,16 @@ Use `logicchart enrich` before sending anything to a provider:
 
 ```bash
 logicchart enrich --json
-logicchart enrich --scope backend --json
+logicchart enrich --dry-run --json
+logicchart enrich --preview --scope backend --json
 logicchart enrich --flow flow-id --finding finding-id --json
 ```
 
-Preview mode is local-only. It reads the existing `logic-flow.json`, selects a bounded
-slice of flows/findings, prints the exact structured request payload, and reports
-`provider_call_made: false`. Default selection prioritizes flows with logical findings,
-so error explanations are included early.
+Preview mode is local-only. It is the default when `--send` is omitted, and `--dry-run`
+or `--preview` make the same local boundary explicit. It reads the existing
+`logic-flow.json`, selects a bounded slice of flows/findings, prints the exact structured
+request payload, and reports `provider_call_made: false`. Default selection prioritizes
+flows with logical findings, so error explanations are included early.
 
 The request contains ids, names, source locations, node labels, calls, findings,
 diagnostic metadata, scopes, and omission counts. It does not upload an entire repository.
@@ -140,6 +142,7 @@ printf '%s' "$DASHSCOPE_API_KEY" | logicchart llm setup \
   upload, or call a provider.
 - Running `logicchart enrich` without `--send` is a local preview and never calls a
   provider.
+- `--dry-run` and `--preview` are preview aliases and cannot be combined with `--send`.
 - Running `logicchart enrich --send` is the explicit external-send boundary. Review the
   preview first when the codebase or payload is sensitive.
 - Provider output is rejected when it references unknown ids, stale model hashes,

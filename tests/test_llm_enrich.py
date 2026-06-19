@@ -73,6 +73,25 @@ def test_cli_enrich_preview_builds_payload_without_provider_call(
     assert "LOGICCHART_LLM_API_KEY" not in json.dumps(payload)
 
 
+def test_cli_enrich_dry_run_alias_is_local_preview(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _analyzed_project(tmp_path)
+
+    assert main(["enrich", str(tmp_path), "--dry-run", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["provider_call_made"] is False
+    assert payload["request"]["flows"]
+
+
+def test_cli_enrich_rejects_send_with_preview_alias(tmp_path: Path) -> None:
+    _analyzed_project(tmp_path)
+
+    assert main(["enrich", str(tmp_path), "--send", "--preview"]) == 1
+
+
 def test_enrichment_preview_prioritizes_flows_with_findings(tmp_path: Path) -> None:
     model = _analyzed_project_with_finding(tmp_path)
     config = LogicChartConfig.load(tmp_path)
