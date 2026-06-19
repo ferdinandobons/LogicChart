@@ -223,8 +223,16 @@ Incrementally refresh changed files:
 logicchart update .
 ```
 
+Useful flags:
+
+- `--full`: ignore the incremental cache while keeping the shorter update workflow.
+- `--no-html`: skip the viewer artifact.
+- `--include-gaps`: expand review-only `POTENTIAL_GAP` findings in Markdown.
+- `--profile demo|self|project`: use one of the built-in repository profiles.
+
 After substantial source changes, commit the refreshed `logic-flow.json` and
-`logic-flow.md`.
+`logic-flow.md`. Use `logicchart update --full` after analyzer upgrades or when you need
+to verify that cached file models cannot mask a change in LogicChart itself.
 
 ### `query`
 

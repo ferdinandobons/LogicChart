@@ -42,6 +42,9 @@ LogicChart is in a strong alpha state.
   usage remains optional enrichment, never a requirement for core correctness. The
   `logicchart enrich` path previews the bounded provider payload locally by default and
   calls a provider only with explicit `--send`.
+- The CLI update workflow can now bypass the incremental cache with
+  `logicchart update --full`, which keeps agent instructions concise while allowing safe
+  regeneration after analyzer upgrades or LogicChart itself changes.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
   frontend tests, frontend type checking, viewer build, artifact validation, and npm audit
   have all passed in this workspace.
@@ -803,6 +806,8 @@ Before the next release:
   explicit `break`/`continue` control nodes.
 - Done: surface TypeScript/JavaScript and profile-driven tree-sitter parse errors as
   skipped-file or parse-warning quality signals.
+- Done: add `logicchart update --full` so agents can force a fresh regeneration without
+  switching to the longer `analyze --full` workflow.
 
 ### Phase 5: Release Consolidation
 

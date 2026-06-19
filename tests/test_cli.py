@@ -36,6 +36,31 @@ def test_cli_catches_oserror_instead_of_leaking_a_traceback(
     assert "error:" in capsys.readouterr().err
 
 
+def test_update_full_flag_dispatches_to_full_analysis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import logicchart.cli as cli_module
+
+    calls: list[dict[str, object]] = []
+
+    def fake_analyze(root: Path, **kwargs: object) -> int:
+        calls.append({"root": root, **kwargs})
+        return 0
+
+    monkeypatch.setattr(cli_module, "_analyze", fake_analyze)
+
+    assert main(["update", str(tmp_path), "--full", "--no-html", "--include-gaps"]) == 0
+    assert calls == [
+        {
+            "root": tmp_path,
+            "full": True,
+            "include_html": False,
+            "include_gaps": True,
+            "profile": None,
+        }
+    ]
+
+
 def test_cli_analyze_query_and_view(tmp_path: Path, capsys: object) -> None:
     source = tmp_path / "main.py"
     source.write_text(

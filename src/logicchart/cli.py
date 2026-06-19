@@ -78,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     update = subparsers.add_parser("update", help="Incrementally refresh changed source files.")
     update.add_argument("path", nargs="?", default=".")
+    update.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
     update.add_argument("--no-html", action="store_true")
     update.add_argument("--include-gaps", action="store_true")
     _add_profile_argument(update)
@@ -410,7 +411,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "update":
             return _analyze(
                 Path(args.path),
-                full=False,
+                full=args.full,
                 include_html=not args.no_html,
                 include_gaps=args.include_gaps,
                 profile=args.profile,

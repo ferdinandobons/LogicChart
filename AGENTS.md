@@ -27,7 +27,8 @@ After a substantial code change:
 
 1. Run `logicchart impact`.
 2. Review every affected entry point and caller flow.
-3. Run `logicchart update`.
+3. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
+   when cached file models should be ignored.
 4. Commit synchronized changes to:
    - `logicchart-out/logic-flow.json`
    - `logicchart-out/logic-flow.md`
