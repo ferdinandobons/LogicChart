@@ -329,6 +329,8 @@ unknown ids, stale hashes, unsupported fields, or overlong text.
 When present, finding annotations are shown separately from deterministic diagnostics in
 `logicchart explain`, `logicchart navigate`, MCP finding/review/context tools, and the
 Logical Errors panel.
+Scope annotations are also rendered as progressive flowchart group labels and included in
+flow-navigation annotation payloads for flows that belong to the annotated scope.
 
 ### `snapshot`
 

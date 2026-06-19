@@ -69,6 +69,8 @@ Finding annotations are consumed as optional enrichment by `logicchart explain`,
 `logicchart navigate`, MCP finding/review/context tools, and the Logical Errors panel.
 The deterministic `diagnostic` data remains the source of correctness; enrichment text is
 kept in a separate `annotation` field.
+Scope annotations are rendered as progressive flowchart group labels and are included in
+flow-navigation annotation payloads for matching flows.
 
 The first implementation supports `openai` and `openai-compatible` API formats, including
 DeepSeek, OpenAI, xAI, Alibaba Qwen compatible endpoints, Z.AI, and Kimi/Moonshot. Other

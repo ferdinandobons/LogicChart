@@ -922,6 +922,7 @@ def _flow_annotations(
     flow_annotations = annotations.get("flows", {})
     node_annotations = annotations.get("nodes", {})
     finding_annotations = annotations.get("findings", {})
+    scope_annotations = annotations.get("scopes", {})
     return {
         "status": "loaded",
         "flow": flow_annotations.get(flow.id),
@@ -932,6 +933,11 @@ def _flow_annotations(
             finding.id: finding_annotations[finding.id]
             for finding in findings
             if finding.id in finding_annotations
+        },
+        "scopes": {
+            scope: scope_annotations[scope]
+            for scope in flow.metadata.get("scope", [])
+            if scope in scope_annotations
         },
     }
 

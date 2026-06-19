@@ -918,6 +918,7 @@ export function ViewerApp({
       <g className="scope-nodes">
         {scopeNodes.map(item => (
           <ScopeNode
+            annotation={payload?.annotations?.scopes?.[item.scope]}
             currentSelection={currentSelection}
             draggingNodeKey={draggingNodeKey}
             hasRootSelection={hasRootSelection}
@@ -1365,6 +1366,7 @@ function RootNode({
 }
 
 function ScopeNode({
+  annotation,
   currentSelection,
   draggingNodeKey,
   hasRootSelection,
@@ -1377,6 +1379,7 @@ function ScopeNode({
   suppressNodeClick,
   toneStyle,
 }: {
+  annotation?: LogicChartAnnotationText;
   currentSelection: SelectedConnection;
   draggingNodeKey: string | null;
   hasRootSelection: boolean;
@@ -1414,10 +1417,15 @@ function ScopeNode({
   ]
     .filter(Boolean)
     .join(" ");
+  const label = displayScopeLabel(item.scope, annotation);
+  const baseTitle = `${label} · ${plural(item.flowCount, "flow")}`;
+  const title = annotationTitle(baseTitle, annotation);
 
   return (
     <g
+      aria-label={title}
       className={className}
+      data-annotation-label={annotation?.label}
       data-scope={item.scope}
       role="button"
       style={toneStyle}
@@ -1450,9 +1458,10 @@ function ScopeNode({
         x={-item.width / 2}
         y={-item.height / 2}
       />
-      <text textAnchor="middle">{item.scope}</text>
+      <title>{title}</title>
+      <text textAnchor="middle">{label}</text>
       <text className="meta" textAnchor="middle" y="24">
-        {item.flowCount} flow{item.flowCount === 1 ? "" : "s"}
+        {plural(item.flowCount, "flow")}
       </text>
     </g>
   );
@@ -2322,6 +2331,10 @@ function displayFlowLabel(
 
 function displayNodeLabel(label: string, annotation?: LogicChartAnnotationText): string {
   return displayAnnotationLabel(label, annotation);
+}
+
+function displayScopeLabel(scope: string, annotation?: LogicChartAnnotationText): string {
+  return displayAnnotationLabel(scope, annotation);
 }
 
 function displayAnnotationLabel(

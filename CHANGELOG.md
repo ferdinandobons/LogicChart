@@ -19,6 +19,8 @@ The project follows Semantic Versioning.
   evidence-tier guardrails and JSON output for agents.
 - Added optional finding-annotation enrichment overlays across `logicchart explain`,
   `logicchart navigate`, MCP finding/review/context tools, and the Logical Errors panel.
+- Added optional scope-annotation labels and summaries to the React flowchart and flow
+  navigation annotation payloads.
 - Added finding ids and ready-to-run `logicchart explain ...` commands to the generated
   Markdown findings list.
 - Added a shared finding-rule registry to generated model metadata and exposed it through

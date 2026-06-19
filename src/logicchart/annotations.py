@@ -49,6 +49,11 @@ class AnnotationLoadResult:
         }
         if self.found_model_hash is not None:
             payload["found_model_hash"] = self.found_model_hash
+        if self.annotations is not None:
+            payload["counts"] = {
+                bucket: len(self.annotations.get(bucket, {}))
+                for bucket in ("flows", "nodes", "findings", "scopes")
+            }
         return payload
 
 

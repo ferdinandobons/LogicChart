@@ -48,6 +48,8 @@ def test_explain_finding_returns_chain(tmp_path: Path) -> None:
 def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> None:
     model = _model(tmp_path, _CHAIN)
     finding = next(f for f in model.findings if f.kind == "missing_branch")
+    flow = next(item for item in model.flows if item.id == finding.flow_id)
+    flow.metadata["scope"] = ["core"]
     annotations = {
         "findings": {
             finding.id: {
@@ -55,7 +57,8 @@ def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> No
                 "explanation": "The enum-like branch set only covers A and B.",
                 "remediation": "Add an explicit Status.C branch or fallback.",
             }
-        }
+        },
+        "scopes": {"core": {"label": "Core flows", "summary": "Decision-heavy core paths."}},
     }
 
     chain = explain_finding(model, finding.id, annotations)
@@ -68,6 +71,7 @@ def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> No
     assert navigation["annotations"]["findings"][finding.id]["summary"] == (
         "Status C is not handled."
     )
+    assert navigation["annotations"]["scopes"]["core"]["label"] == "Core flows"
 
     context = finding_context(model, finding.id, annotations=annotations)
     assert context is not None

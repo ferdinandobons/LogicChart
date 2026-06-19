@@ -60,6 +60,12 @@ def test_annotation_sidecar_loads_when_model_hash_matches(tmp_path: Path) -> Non
     assert report.ok
     assert report.annotations is not None
     assert report.annotations["status"] == "loaded"
+    assert report.annotations["counts"] == {
+        "findings": 0,
+        "flows": 1,
+        "nodes": 1,
+        "scopes": 0,
+    }
 
 
 def test_annotation_sidecar_rejects_stale_hash_and_unknown_ids(tmp_path: Path) -> None:

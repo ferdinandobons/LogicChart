@@ -77,6 +77,10 @@ shows an enrichment badge and the expanded inspector renders summary, explanatio
 remediation text in a separate enrichment block. This never replaces the normalized
 diagnostic metadata.
 
+Fresh scope annotations are rendered directly on progressive scope nodes as group labels
+with summary/description text in the node title. Scope annotation text is presentation
+only; the scope membership and progressive expansion remain deterministic.
+
 This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
 `INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
 not a confirmed bug.

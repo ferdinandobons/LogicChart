@@ -770,6 +770,8 @@ Before the next release:
 - Done: expose annotation status and matching flow annotations over MCP.
 - Done: expose fresh finding annotations as optional enrichment in CLI explain/navigate,
   MCP finding/review/context tools, and the Logical Errors panel.
+- Done: expose fresh scope annotations as progressive flowchart group labels and matching
+  flow-navigation annotations, with sidecar bucket counts for agent orientation.
 
 ### Phase 4: Real-World Quality Gates
 

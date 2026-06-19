@@ -190,6 +190,7 @@ def authorize(user):
                 assert "language_capabilities" in str(summary.content)
                 assert "Annotated authorization" not in str(summary.content)
                 assert "annotations" in str(summary.content)
+                assert summary.structuredContent["annotations"]["counts"]["flows"] == 1  # type: ignore[index]
 
                 enrichment = await session.call_tool(
                     "preview_enrichment",
