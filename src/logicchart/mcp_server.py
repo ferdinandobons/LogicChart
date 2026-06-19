@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
@@ -121,6 +122,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return [error]
         assert model is not None
+        findings_by_flow = Counter(finding.flow_id for finding in model.findings)
         return _cap(
             [
                 {
@@ -130,7 +132,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                     "entry_kind": flow.entry_kind,
                     "framework": flow.framework,
                     "source": f"{flow.location.path}:{flow.location.start_line}",
-                    "findings": sum(item.flow_id == flow.id for item in model.findings),
+                    "findings": findings_by_flow[flow.id],
                 }
                 for flow in model.flows
                 if flow.is_entrypoint or not entrypoints_only

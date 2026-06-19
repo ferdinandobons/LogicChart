@@ -126,6 +126,12 @@ def authorize(user):
                     "validate_artifacts",
                 } <= names
 
+                listed = await session.call_tool("list_flows", {"entrypoints_only": False})
+                assert not listed.isError
+                listed_rows = listed.structuredContent["result"]  # type: ignore[index]
+                assert listed_rows[0]["id"] == flow.id  # type: ignore[index]
+                assert listed_rows[0]["findings"] == 0  # type: ignore[index]
+
                 # Spec §5.2: every query/list tool exposes a token_budget cap.
                 schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
                 update_properties = schema_by_name["update_logicchart"].get("properties", {})
