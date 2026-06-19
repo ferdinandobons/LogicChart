@@ -11,14 +11,15 @@ LogicChart is in a strong alpha state.
 
 - The viewer is now the most mature surface: the official chart path is the React
   progressive flowchart runtime, with persisted expansion state, node dragging, link
-  focus, aggregate minimap navigation, graph-bounds-aware PNG/JPG export, and layout
-  quality tests. The Details rail now lets Project Quality, Source, and Logical Errors
-  collapse independently during large-codebase inspection with visible, keyboard-accessible
-  section headers plus rail-level expand-all/collapse-all controls, while tablet-width
-  drawer layouts keep the canvas toolbar outside the right rail overlay. Selected tree
-  rows and Details collapse controls use flat solid colors rather than shaded gradients
-  or drop shadows. Flow nodes also expose deterministic accessibility summaries for
-  source, node, decision, call, caller, and finding counts.
+  focus, layout/detail caching, asynchronous chunked expansion with progress feedback,
+  graph-bounds-aware PNG/JPG export, and layout quality tests. The minimap has been removed
+  to keep large-canvas updates lighter. The Details rail now lets Project Quality, Source,
+  and Logical Errors collapse independently during large-codebase inspection with visible,
+  keyboard-accessible section headers plus rail-level expand-all/collapse-all controls,
+  while tablet-width drawer layouts keep the canvas toolbar outside the right rail overlay.
+  Selected tree rows and Details collapse controls use flat solid colors rather than shaded
+  gradients or drop shadows. Flow nodes also expose deterministic accessibility summaries
+  for source, node, decision, call, caller, and finding counts.
 - The static-analysis core is usable across 11 language ids and has a stable model shape:
   `Flow`, `FlowNode`, `FlowEdge`, `Finding`, evidence tiers, scopes, files, and metadata.
 - TypeScript/JavaScript expression-bodied arrow functions now produce real return flow,

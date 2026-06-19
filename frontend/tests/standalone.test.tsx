@@ -770,7 +770,7 @@ describe("standalone viewer bridge", () => {
 
     await act(async () => {
       mounted.selectFlow("load-order");
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await flushAsyncTimers(3);
     });
 
     expect(window.location.hash).toBe("#flow=load-order");
@@ -1001,7 +1001,16 @@ describe("standalone viewer bridge", () => {
 
     await act(async () => {
       mounted.expandAll();
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await flushAsyncTimers(2);
+    });
+
+    const progress = container.querySelector<HTMLElement>(".logicchart-expand-progress");
+    expect(progress).not.toBeNull();
+    expect(progress?.hidden).toBe(false);
+    expect(progress?.textContent).toContain("Expanding canvas");
+
+    await act(async () => {
+      await flushAsyncTimers(8);
     });
 
     expect(window.location.hash).toBe("#scope=backend");
@@ -1015,6 +1024,7 @@ describe("standalone viewer bridge", () => {
     expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="users-route"]')).not.toBeNull();
     expect(container.querySelector(".flow-detail")).not.toBeNull();
+    expect(progress?.hidden).toBe(true);
 
     await act(async () => {
       mounted.resetView();
@@ -1043,6 +1053,7 @@ describe("standalone viewer bridge", () => {
 
     await act(async () => {
       mounted.selectScope("backend");
+      await flushAsyncTimers(3);
     });
 
     expect(window.location.hash).toBe("#scope=backend");
@@ -1275,6 +1286,12 @@ function pointerEvent(
     value: options.pointerId ?? 1,
   });
   return event;
+}
+
+async function flushAsyncTimers(count: number): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+  }
 }
 
 function memoryStorage(): Storage {

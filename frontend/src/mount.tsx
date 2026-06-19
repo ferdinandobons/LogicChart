@@ -5,7 +5,6 @@ import { ViewerApp, type ViewerAppProps } from "./ViewerApp";
 
 export type ExportImageFormat = "png" | "jpg";
 
-const MAX_OVERVIEW_SCROLL_DELTA = 48;
 const EXPORT_PREFERRED_SCALE = 2;
 const EXPORT_MAX_PIXEL_SIDE = 16_384;
 const EXPORT_MAX_PIXEL_AREA = 96_000_000;
@@ -31,9 +30,7 @@ export function mountLogicChartViewer(
   const root = createRoot(frame);
   let baseViewBox: ViewBox | null = null;
   let cleanupPan: (() => void) | null = null;
-  let cleanupOverview: (() => void) | null = null;
   let panSvg: SVGSVGElement | null = null;
-  let refreshOverview: (() => void) | null = null;
   let resetToken = props.resetToken ?? 0;
   let currentProps: ViewerAppProps = { ...props, resetToken };
 
@@ -44,16 +41,11 @@ export function mountLogicChartViewer(
   const bindViewportControls = () => {
     const svg = findViewerSvg(frame);
     if (svg === panSvg) {
-      refreshOverview?.();
       return;
     }
     cleanupPan?.();
-    cleanupOverview?.();
     panSvg = svg;
     cleanupPan = svg ? bindSvgPan(svg) : null;
-    const overview = svg ? bindCanvasOverview(container, svg) : null;
-    cleanupOverview = overview?.cleanup ?? null;
-    refreshOverview = overview?.refresh ?? null;
   };
 
   render(root, currentProps);
@@ -94,11 +86,8 @@ export function mountLogicChartViewer(
     },
     unmount() {
       cleanupPan?.();
-      cleanupOverview?.();
       cleanupPan = null;
-      cleanupOverview = null;
       panSvg = null;
-      refreshOverview = null;
       root.unmount();
       frame.remove();
     },
@@ -472,257 +461,6 @@ function svgContentBounds(svg: SVGSVGElement): ViewBox | null {
 
 function hasBBox(node: Element): node is Element & { getBBox: () => DOMRect } {
   return typeof (node as { getBBox?: unknown }).getBBox === "function";
-}
-
-interface OverviewBinding {
-  cleanup: () => void;
-  refresh: () => void;
-}
-
-function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBinding {
-  const document = container.ownerDocument;
-  const namespace = "http://www.w3.org/2000/svg";
-  container.querySelectorAll(":scope > .logicchart-overview").forEach(node => node.remove());
-
-  const overview = document.createElement("div");
-  overview.className = "logicchart-overview";
-  overview.tabIndex = 0;
-  overview.title = "Drag or scroll to pan the canvas; double-click to fit all";
-  overview.setAttribute(
-    "aria-label",
-    "Canvas overview. Drag or scroll to pan the viewport; double-click to fit all",
-  );
-  overview.setAttribute("role", "region");
-
-  const overviewSvg = document.createElementNS(namespace, "svg");
-  overviewSvg.classList.add("logicchart-overview-map");
-  overviewSvg.setAttribute("aria-hidden", "true");
-  overviewSvg.setAttribute("focusable", "false");
-  overviewSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-
-  const contentRect = document.createElementNS(namespace, "rect");
-  contentRect.classList.add("logicchart-overview-content");
-  const viewportRect = document.createElementNS(namespace, "rect");
-  viewportRect.classList.add("logicchart-overview-viewport");
-
-  overviewSvg.append(contentRect, viewportRect);
-  overview.appendChild(overviewSvg);
-  container.appendChild(overview);
-
-  let contentBounds: ViewBox | null = null;
-  let overviewDrag: {
-    origin: ViewBox;
-    pointerId: number;
-    scale: { x: number; y: number };
-    startX: number;
-    startY: number;
-  } | null = null;
-
-  const sync = () => {
-    const viewBox = readViewBox(svg);
-    if (!viewBox || !contentBounds) {
-      overview.hidden = true;
-      return;
-    }
-    const mapBounds = overviewMapBounds(contentBounds, viewBox);
-    overview.hidden = false;
-    syncCanvasLevelOfDetail(svg, viewBox, contentBounds);
-    overviewSvg.setAttribute(
-      "viewBox",
-      `${mapBounds.x} ${mapBounds.y} ${mapBounds.width} ${mapBounds.height}`,
-    );
-    setRectAttributes(contentRect, contentBounds);
-    setRectAttributes(viewportRect, viewBox);
-  };
-
-  const refresh = () => {
-    contentBounds = svgContentBounds(svg) ?? readViewBox(svg);
-    sync();
-  };
-
-  const panOverview = (event: WheelEvent) => {
-    if (!contentBounds) return;
-    const current = readViewBox(svg);
-    const panScale = current ? overviewPanScale(overviewSvg, current) : null;
-    if (!current || !panScale) return;
-    const deltaX = clampOverviewScrollDelta(event.deltaX || (event.shiftKey ? event.deltaY : 0));
-    const deltaY = event.shiftKey ? 0 : clampOverviewScrollDelta(event.deltaY);
-    writeViewBox(svg, {
-      ...current,
-      x: current.x + deltaX * panScale.x,
-      y: current.y + deltaY * panScale.y,
-    });
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const panOverviewWithKeyboard = (event: KeyboardEvent) => {
-    if (!contentBounds) return;
-    const current = readViewBox(svg);
-    if (!current) return;
-    const stepX = current.width * (event.shiftKey ? 0.32 : 0.14);
-    const stepY = current.height * (event.shiftKey ? 0.32 : 0.14);
-    let next: ViewBox | null = null;
-    if (event.key === "ArrowLeft") next = { ...current, x: current.x - stepX };
-    if (event.key === "ArrowRight") next = { ...current, x: current.x + stepX };
-    if (event.key === "ArrowUp") next = { ...current, y: current.y - stepY };
-    if (event.key === "ArrowDown") next = { ...current, y: current.y + stepY };
-    if (event.key === "Home") next = contentBounds;
-    if (!next) return;
-    writeViewBox(svg, next);
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const fitOverview = (event?: MouseEvent) => {
-    event?.preventDefault();
-    if (contentBounds) writeViewBox(svg, contentBounds);
-  };
-
-  const writeOverviewDrag = (event: PointerEvent): boolean => {
-    if (!overviewDrag || event.pointerId !== overviewDrag.pointerId) return false;
-    const dx = event.clientX - overviewDrag.startX;
-    const dy = event.clientY - overviewDrag.startY;
-    writeViewBox(svg, {
-      ...overviewDrag.origin,
-      x: overviewDrag.origin.x + dx * overviewDrag.scale.x,
-      y: overviewDrag.origin.y + dy * overviewDrag.scale.y,
-    });
-    return true;
-  };
-
-  const finishOverviewDrag = (event?: Event) => {
-    if (!overviewDrag) return;
-    const pointerId = overviewDrag.pointerId;
-    overviewDrag = null;
-    overview.classList.remove("dragging");
-    window.removeEventListener("pointermove", onOverviewPointerMove, true);
-    window.removeEventListener("pointerup", onOverviewPointerEnd, true);
-    window.removeEventListener("pointercancel", onOverviewPointerEnd, true);
-    document.removeEventListener("pointermove", onOverviewPointerMove, true);
-    document.removeEventListener("pointerup", onOverviewPointerEnd, true);
-    document.removeEventListener("pointercancel", onOverviewPointerEnd, true);
-    try {
-      overview.releasePointerCapture(pointerId);
-    } catch {
-      // Embedded renderers and tests may not implement pointer capture.
-    }
-    event?.preventDefault();
-    event?.stopPropagation();
-  };
-
-  const onOverviewPointerDown = (event: PointerEvent) => {
-    if (event.button !== 0 || !contentBounds) return;
-    const current = readViewBox(svg);
-    const scale = current ? overviewPanScale(overviewSvg, current) : null;
-    if (!current || !scale) return;
-    finishOverviewDrag();
-    overviewDrag = {
-      origin: current,
-      pointerId: event.pointerId,
-      scale,
-      startX: event.clientX,
-      startY: event.clientY,
-    };
-    overview.classList.add("dragging");
-    window.addEventListener("pointermove", onOverviewPointerMove, true);
-    window.addEventListener("pointerup", onOverviewPointerEnd, true);
-    window.addEventListener("pointercancel", onOverviewPointerEnd, true);
-    document.addEventListener("pointermove", onOverviewPointerMove, true);
-    document.addEventListener("pointerup", onOverviewPointerEnd, true);
-    document.addEventListener("pointercancel", onOverviewPointerEnd, true);
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      overview.setPointerCapture(event.pointerId);
-    } catch {
-      // See releasePointerCapture fallback above.
-    }
-  };
-
-  function onOverviewPointerMove(event: PointerEvent) {
-    if (!writeOverviewDrag(event)) return;
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  function onOverviewPointerEnd(event: PointerEvent) {
-    if (!overviewDrag || event.pointerId !== overviewDrag.pointerId) return;
-    writeOverviewDrag(event);
-    finishOverviewDrag(event);
-  }
-
-  svg.addEventListener("logicchart:viewboxchange", sync);
-  overview.addEventListener("pointerdown", onOverviewPointerDown);
-  overview.addEventListener("wheel", panOverview, { passive: false });
-  overview.addEventListener("keydown", panOverviewWithKeyboard);
-  overview.addEventListener("dblclick", fitOverview);
-  refresh();
-
-  return {
-    cleanup() {
-      finishOverviewDrag();
-      svg.removeEventListener("logicchart:viewboxchange", sync);
-      overview.removeEventListener("pointerdown", onOverviewPointerDown);
-      overview.removeEventListener("wheel", panOverview);
-      overview.removeEventListener("keydown", panOverviewWithKeyboard);
-      overview.removeEventListener("dblclick", fitOverview);
-      overview.remove();
-    },
-    refresh,
-  };
-}
-
-function setRectAttributes(rect: SVGRectElement, box: ViewBox) {
-  rect.setAttribute("x", String(box.x));
-  rect.setAttribute("y", String(box.y));
-  rect.setAttribute("width", String(box.width));
-  rect.setAttribute("height", String(box.height));
-}
-
-function syncCanvasLevelOfDetail(
-  svg: SVGSVGElement,
-  viewBox: ViewBox,
-  contentBounds: ViewBox,
-) {
-  const widthRatio = viewBox.width / Math.max(1, contentBounds.width);
-  const heightRatio = viewBox.height / Math.max(1, contentBounds.height);
-  const coverage = Math.max(widthRatio, heightRatio);
-  const lod = coverage >= 0.72 ? "overview" : coverage <= 0.34 ? "detail" : "normal";
-  svg.setAttribute("data-lod", lod);
-}
-
-function overviewMapBounds(contentBounds: ViewBox, viewport: ViewBox): ViewBox {
-  const minX = Math.min(contentBounds.x, viewport.x);
-  const minY = Math.min(contentBounds.y, viewport.y);
-  const maxX = Math.max(contentBounds.x + contentBounds.width, viewport.x + viewport.width);
-  const maxY = Math.max(contentBounds.y + contentBounds.height, viewport.y + viewport.height);
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
-  const padding = Math.max(12, Math.min(96, Math.max(width, height) * 0.035));
-  return {
-    x: minX - padding,
-    y: minY - padding,
-    width: width + padding * 2,
-    height: height + padding * 2,
-  };
-}
-
-function overviewPanScale(
-  overviewSvg: SVGSVGElement,
-  viewport: ViewBox,
-): { x: number; y: number } | null {
-  const rect = overviewSvg.getBoundingClientRect();
-  if (!rect.width || !rect.height) return null;
-  const x = viewport.width / Math.max(1, rect.width);
-  const y = viewport.height / Math.max(1, rect.height);
-  if (!Number.isFinite(x) || !Number.isFinite(y) || x <= 0 || y <= 0) return null;
-  return { x, y };
-}
-
-function clampOverviewScrollDelta(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(-MAX_OVERVIEW_SCROLL_DELTA, Math.min(MAX_OVERVIEW_SCROLL_DELTA, value));
 }
 
 function cssVar(name: string, fallback: string): string {

@@ -153,6 +153,8 @@ The project follows Semantic Versioning.
   unsupported analyzer features.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
+- Added React viewer layout/detail caches and asynchronous chunked expansion with a visible
+  loader/progress bar for large-codebase expand operations.
 
 ### Changed
 
@@ -170,6 +172,8 @@ The project follows Semantic Versioning.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic
   inspector with a focused diagnostic subgraph, related-flow and evidence-node links,
   while keeping broad finding lists bounded.
+- Removed the canvas minimap from the generated viewer so large-canvas updates avoid the
+  extra SVG bounds pass and duplicate viewport synchronization work.
 
 ### Fixed
 

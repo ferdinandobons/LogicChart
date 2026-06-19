@@ -19,6 +19,9 @@ import type {
 import type { ManualNodePosition } from "./viewer-layout";
 import type { SelectedConnection } from "./viewer-store";
 
+const EXPAND_FLOW_CHUNK_SIZE = 48;
+const EXPAND_SCOPE_CHUNK_SIZE = 1;
+
 export interface StandaloneViewerOptions {
   initialScope?: string;
   location?: Pick<Location, "hash">;
@@ -45,6 +48,7 @@ export function mountStandaloneLogicChartViewer(
     typeof window !== "undefined" && options.location === undefined;
   const flowById = buildFlowIndex(payload);
   const stateStorageKey = viewerStateStorageKey(payload);
+  const progress = createExpansionProgress(container);
   const persistedState = canSubscribe
     ? readViewerState(stateStorageKey, flowById)
     : emptyViewerState();
@@ -77,6 +81,31 @@ export function mountStandaloneLogicChartViewer(
     if (!canSubscribe) return;
     if (window.location.hash === hash) return;
     window.location.hash = hash;
+  };
+  let expansionJob: ExpansionJob | null = null;
+  const cancelExpansionJob = () => {
+    expansionJob?.cancel();
+    expansionJob = null;
+    progress.finish();
+  };
+  const renderWithProgress = (label: string, render: () => void) => {
+    cancelExpansionJob();
+    const job = createExpansionJob(() => {
+      progress.start(label, 1);
+      job.schedule(() => {
+        if (expansionJob !== job) return;
+        progress.update(0, 1);
+        render();
+        progress.update(1, 1);
+        job.schedule(() => {
+          if (expansionJob !== job) return;
+          progress.finish();
+          expansionJob = null;
+        });
+      });
+    });
+    expansionJob = job;
+    job.start();
   };
   const buildProps = (): ViewerAppProps => {
     const props = propsFromLocation(payload, options);
@@ -165,35 +194,84 @@ export function mountStandaloneLogicChartViewer(
   const initialProps = buildProps();
   let mounted: MountedLogicChartViewer | null = mountLogicChartViewer(container, initialProps);
   publishShellRouteSelection(flowById, initialProps);
-  const update = () => {
+  const updateMounted = () => {
     const props = buildProps();
     mounted?.update(props);
     publishShellRouteSelection(flowById, props);
   };
+  const update = () => {
+    cancelExpansionJob();
+    updateMounted();
+  };
+  const handleHashChange = () => {
+    if (expansionJob) return;
+    update();
+  };
 
   if (canSubscribe) {
-    window.addEventListener("hashchange", update);
+    window.addEventListener("hashchange", handleHashChange);
   }
 
   return {
     expandAll() {
-      scopeSummaries(payload).forEach(scope => openedScopeIds.add(scope.name));
-      payload.flows.forEach(flow => {
-        if (flow.metadata?.test) return;
-        openedFlowIds.add(flow.id);
+      cancelExpansionJob();
+      const scopeNames = scopeSummaries(payload).map(scope => scope.name);
+      const flowIds = payload.flows
+        .filter(flow => !flow.metadata?.test)
+        .map(flow => flow.id);
+      const total = scopeNames.length + flowIds.length;
+      const job = createExpansionJob(() => {
+        let completed = 0;
+        progress.start("Expanding canvas", total);
+        const applyNextChunk = () => {
+          if (expansionJob !== job) return;
+          for (
+            let count = 0;
+            count < EXPAND_SCOPE_CHUNK_SIZE && scopeNames.length;
+            count += 1
+          ) {
+            const nextScope = scopeNames.shift();
+            if (nextScope) openedScopeIds.add(nextScope);
+            completed += 1;
+          }
+          for (
+            let count = 0;
+            count < EXPAND_FLOW_CHUNK_SIZE && !scopeNames.length && flowIds.length;
+            count += 1
+          ) {
+            const nextFlowId = flowIds.shift();
+            if (nextFlowId) openedFlowIds.add(nextFlowId);
+            completed += 1;
+          }
+          persistState();
+          progress.update(completed, total);
+          const hash = currentHash();
+          const isCollapsedRoot = !hash || hash === "#root";
+          if (isCollapsedRoot) {
+            const firstScope = [...openedScopeIds][0];
+            if (firstScope) {
+              navigateToHash(`#scope=${encodeHashValue(firstScope)}`);
+              publishShellScopeSelection(firstScope);
+            }
+          }
+          const props = buildProps();
+          mounted?.update(props);
+          publishShellRouteSelection(flowById, props);
+          if (scopeNames.length || flowIds.length) {
+            job.schedule(applyNextChunk);
+            return;
+          }
+          mounted?.fitView();
+          job.schedule(() => {
+            if (expansionJob !== job) return;
+            progress.finish();
+            expansionJob = null;
+          });
+        };
+        job.schedule(applyNextChunk);
       });
-      persistState();
-      const hash = currentHash();
-      const isCollapsedRoot = !hash || hash === "#root";
-      if (isCollapsedRoot) {
-        const firstScope = [...openedScopeIds][0];
-        if (firstScope) {
-          navigateToHash(`#scope=${encodeHashValue(firstScope)}`);
-          publishShellScopeSelection(firstScope);
-        }
-      }
-      update();
-      mounted?.fitView();
+      expansionJob = job;
+      job.start();
     },
     exportImage(format) {
       mounted?.exportImage(format);
@@ -202,6 +280,7 @@ export function mountStandaloneLogicChartViewer(
       mounted?.fitView();
     },
     resetView() {
+      cancelExpansionJob();
       openedFlowIds.clear();
       openedScopeIds.clear();
       manualNodePositions = new Map();
@@ -212,30 +291,124 @@ export function mountStandaloneLogicChartViewer(
       update();
     },
     selectFlow(flowId) {
-      if (openFlowAndDirectConnectionScopes(flowId)) {
+      const changed = openFlowAndDirectConnectionScopes(flowId);
+      if (changed) {
         persistState();
       }
       publishShellFlowSelection(flowById, flowId);
       navigateToHash(hashForFlow(flowId));
-      update();
+      if (changed) {
+        renderWithProgress("Opening flow", updateMounted);
+      } else {
+        update();
+      }
     },
     selectScope(scope) {
+      const changed = !openedScopeIds.has(scope);
       openedScopeIds.add(scope);
-      persistState();
+      if (changed) persistState();
       publishShellScopeSelection(scope);
       navigateToHash(`#scope=${encodeHashValue(scope)}`);
-      update();
+      if (changed) {
+        renderWithProgress("Opening scope", updateMounted);
+      } else {
+        update();
+      }
     },
     update,
     zoom(factor) {
       mounted?.zoom(factor);
     },
     unmount() {
+      cancelExpansionJob();
       if (canSubscribe) {
-        window.removeEventListener("hashchange", update);
+        window.removeEventListener("hashchange", handleHashChange);
       }
       mounted?.unmount();
       mounted = null;
+      progress.remove();
+    },
+  };
+}
+
+interface ExpansionJob {
+  cancel: () => void;
+  schedule: (callback: () => void) => void;
+  start: () => void;
+}
+
+function createExpansionJob(work: () => void): ExpansionJob {
+  let cancelled = false;
+  const timers = new Set<number>();
+  const clearTimers = () => {
+    timers.forEach(timer => window.clearTimeout(timer));
+    timers.clear();
+  };
+  const schedule = (callback: () => void) => {
+    const timer = window.setTimeout(() => {
+      timers.delete(timer);
+      if (!cancelled) callback();
+    }, 0);
+    timers.add(timer);
+  };
+  return {
+    cancel() {
+      cancelled = true;
+      clearTimers();
+    },
+    schedule,
+    start() {
+      schedule(work);
+    },
+  };
+}
+
+interface ExpansionProgress {
+  finish: () => void;
+  remove: () => void;
+  start: (label: string, total: number) => void;
+  update: (completed: number, total: number) => void;
+}
+
+function createExpansionProgress(container: Element): ExpansionProgress {
+  const ownerDocument = container.ownerDocument;
+  const overlay = ownerDocument.createElement("div");
+  overlay.className = "logicchart-expand-progress";
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-live", "polite");
+  overlay.hidden = true;
+
+  const label = ownerDocument.createElement("span");
+  label.className = "logicchart-expand-progress-label";
+  const bar = ownerDocument.createElement("div");
+  bar.className = "logicchart-expand-progress-track";
+  const value = ownerDocument.createElement("div");
+  value.className = "logicchart-expand-progress-value";
+  bar.appendChild(value);
+  const count = ownerDocument.createElement("span");
+  count.className = "logicchart-expand-progress-count";
+  overlay.append(label, bar, count);
+  container.appendChild(overlay);
+
+  return {
+    finish() {
+      overlay.hidden = true;
+      value.style.width = "0%";
+    },
+    remove() {
+      overlay.remove();
+    },
+    start(nextLabel, total) {
+      label.textContent = nextLabel;
+      count.textContent = `0 / ${Math.max(1, total)}`;
+      value.style.width = "0%";
+      overlay.hidden = false;
+    },
+    update(completed, total) {
+      const boundedTotal = Math.max(1, total);
+      const boundedCompleted = Math.max(0, Math.min(completed, boundedTotal));
+      count.textContent = `${boundedCompleted} / ${boundedTotal}`;
+      value.style.width = `${Math.round((boundedCompleted / boundedTotal) * 100)}%`;
     },
   };
 }

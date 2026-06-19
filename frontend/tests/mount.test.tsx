@@ -276,7 +276,7 @@ describe("mountLogicChartViewer", () => {
     container.remove();
   });
 
-  it("renders a navigable aggregate canvas overview that tracks zoom and fits the whole flowchart", async () => {
+  it("keeps viewport controls on the main canvas without mounting a minimap", async () => {
     const originalGetBBox = Object.getOwnPropertyDescriptor(SVGElement.prototype, "getBBox");
     Object.defineProperty(SVGElement.prototype, "getBBox", {
       configurable: true,
@@ -302,118 +302,43 @@ describe("mountLogicChartViewer", () => {
     });
 
     const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
-    const overview = container.querySelector<HTMLElement>(".logicchart-overview");
-    const overviewMap = container.querySelector<SVGSVGElement>(".logicchart-overview-map");
-    const content = container.querySelector<SVGRectElement>(".logicchart-overview-content");
-    const viewport = container.querySelector<SVGRectElement>(".logicchart-overview-viewport");
-    if (!svg || !overview || !overviewMap || !content || !viewport) {
-      throw new Error("expected viewer overview");
-    }
-    expect(overview.getAttribute("aria-label")).toContain("Drag or scroll to pan the viewport");
+    if (!svg) throw new Error("expected mounted viewer svg");
     expect(container.querySelector(".logicchart-viewer-frame")).not.toBeNull();
-    expect(container.querySelector(".logicchart-overview-node")).toBeNull();
-    expect(content.getAttribute("width")).toBe("600");
-    expect(content.getAttribute("height")).toBe("440");
-    Object.defineProperty(overviewMap, "getBoundingClientRect", {
-      configurable: true,
-      value: () => domRect({ height: 96, width: 150 }),
-    });
+    expect(container.querySelector(".logicchart-overview")).toBeNull();
+    expect(container.querySelector(".logicchart-overview-map")).toBeNull();
 
     await act(async () => {
-      overview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      mounted.fitView();
     });
     expect(svg.getAttribute("viewBox")).toBe("-10 30 600 440");
-    expect(svg.getAttribute("data-lod")).toBe("overview");
-    const initialViewportWidth = viewport.getAttribute("width");
+
+    const fittedViewBox = parseViewBox(svg);
     mounted.zoom(0.5);
-    expect(viewport.getAttribute("width")).not.toBe(initialViewportWidth);
-    expect(svg.getAttribute("data-lod")).toBe("normal");
-    mounted.zoom(0.5);
-    expect(svg.getAttribute("data-lod")).toBe("detail");
     const zoomedViewBox = parseViewBox(svg);
+    expect(zoomedViewBox[2]).toBeLessThan(fittedViewBox[2]);
+    expect(zoomedViewBox[3]).toBeLessThan(fittedViewBox[3]);
+
+    Object.defineProperty(svg, "clientWidth", { configurable: true, value: 1000 });
+    Object.defineProperty(svg, "clientHeight", { configurable: true, value: 700 });
 
     await act(async () => {
-      overview.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          clientX: 150,
-          clientY: 96,
-        }),
-      );
-    });
-    expect(parseViewBox(svg)).toEqual(zoomedViewBox);
-
-    await act(async () => {
-      overview.dispatchEvent(
-        pointerEvent("pointerdown", { clientX: 24, clientY: 24, pointerId: 12 }),
+      svg.dispatchEvent(pointerEvent("pointerdown", { clientX: 240, clientY: 220, pointerId: 12 }));
+      window.dispatchEvent(
+        pointerEvent("pointermove", { clientX: 320, clientY: 260, pointerId: 12 }),
       );
       window.dispatchEvent(
-        pointerEvent("pointermove", { clientX: 54, clientY: 44, pointerId: 12 }),
-      );
-      window.dispatchEvent(
-        pointerEvent("pointerup", { clientX: 54, clientY: 44, pointerId: 12 }),
+        pointerEvent("pointerup", { clientX: 320, clientY: 260, pointerId: 12 }),
       );
     });
     const draggedViewBox = parseViewBox(svg);
-    expect(draggedViewBox[0]).toBeGreaterThan(zoomedViewBox[0]);
-    expect(draggedViewBox[1]).toBeGreaterThan(zoomedViewBox[1]);
+    expect(draggedViewBox[0]).toBeLessThan(zoomedViewBox[0]);
+    expect(draggedViewBox[1]).toBeLessThan(zoomedViewBox[1]);
     expect(draggedViewBox[2]).toBeCloseTo(zoomedViewBox[2]);
     expect(draggedViewBox[3]).toBeCloseTo(zoomedViewBox[3]);
-    expect(overview.classList.contains("dragging")).toBe(false);
-
-    const scrollEvent = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      deltaX: 22,
-      deltaY: 22,
-    });
-    await act(async () => {
-      overview.dispatchEvent(scrollEvent);
-    });
-    const scrolledViewBox = parseViewBox(svg);
-    expect(scrolledViewBox[0]).toBeGreaterThan(draggedViewBox[0]);
-    expect(scrolledViewBox[1]).toBeGreaterThan(draggedViewBox[1]);
-    expect(scrolledViewBox[2]).toBeCloseTo(draggedViewBox[2]);
-    expect(scrolledViewBox[3]).toBeCloseTo(draggedViewBox[3]);
-    expect(scrollEvent.defaultPrevented).toBe(true);
-
-    await act(async () => {
-      for (let index = 0; index < 12; index += 1) {
-        overview.dispatchEvent(
-          new WheelEvent("wheel", {
-            bubbles: true,
-            cancelable: true,
-            deltaX: 3000,
-            deltaY: 2800,
-          }),
-        );
-      }
-    });
-    const farViewBox = parseViewBox(svg);
-    const overviewBounds = parseViewBox(overviewMap);
-    expect(farViewBox[0]).toBeGreaterThan(590);
-    expect(farViewBox[1]).toBeGreaterThan(470);
-    expect(farViewBox[0]).toBeLessThan(5000);
-    expect(farViewBox[1]).toBeLessThan(5000);
-    expect(overviewBounds[0]).toBeLessThanOrEqual(-10);
-    expect(overviewBounds[1]).toBeLessThanOrEqual(30);
-    expect(overviewBounds[0] + overviewBounds[2]).toBeGreaterThanOrEqual(
-      farViewBox[0] + farViewBox[2],
-    );
-    expect(overviewBounds[1] + overviewBounds[3]).toBeGreaterThanOrEqual(
-      farViewBox[1] + farViewBox[3],
-    );
-
-    await act(async () => {
-      overview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    });
-    expect(svg.getAttribute("viewBox")).toBe("-10 30 600 440");
-    expect(svg.getAttribute("data-lod")).toBe("overview");
 
     await act(async () => {
       mounted.unmount();
     });
-    expect(container.querySelector(".logicchart-overview")).toBeNull();
     expect(container.innerHTML).toBe("");
     container.remove();
 

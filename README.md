@@ -137,8 +137,8 @@ large-codebase study, not just one isolated function. It shows:
   keyboard-accessible collapsible Details sections for project quality, source, and
   findings.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
-- Light/dark theme, pan/zoom, an aggregate draggable/scrollable minimap, fit-to-content,
-  drag-to-arrange blocks, collapse-all reset, expand-all, full-screen canvas,
+- Light/dark theme, pan/zoom, fit-to-content, drag-to-arrange blocks,
+  collapse-all reset, chunked expand-all with progress feedback, full-screen canvas,
   graph-bounds-aware PNG/JPG export, and responsive side panels.
 
 Use `--render-only` to write `logic-flow.html` without serving it.
@@ -155,9 +155,10 @@ logic-flow.html#node=codebase
 ```
 
 The React runtime owns the progressive multi-scope canvas, edge selection, flow-detail
-expansion, viewport zoom/pan, root-collapsing reset, and PNG/JPG export path. Raster
-exports size themselves from the graph bounds rather than the current viewport, so large
-codebases do not collapse into a tiny fixed-size image. The
+expansion, viewport zoom/pan, root-collapsing reset, layout caching, chunked expansion
+progress, and PNG/JPG export path. Raster exports size themselves from the graph bounds
+rather than the current viewport, so large codebases do not collapse into a tiny fixed-size
+image. The
 surrounding HTML shell owns the tree, source, findings, theme, fullscreen, side rails,
 and viewer controls. See [docs/viewer.md](docs/viewer.md) for the UI architecture and
 verification loop.

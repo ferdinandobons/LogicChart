@@ -517,57 +517,53 @@
       position: absolute;
       inset: 0;
     }
+    .typed-viewer-host .logicchart-expand-progress {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px 12px;
+      width: min(360px, calc(100% - 32px));
+      padding: 11px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--panel);
+      color: var(--ink);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
+    }
+    .typed-viewer-host .logicchart-expand-progress-label,
+    .typed-viewer-host .logicchart-expand-progress-count {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .typed-viewer-host .logicchart-expand-progress-count {
+      color: var(--muted);
+    }
+    .typed-viewer-host .logicchart-expand-progress-track {
+      grid-column: 1 / -1;
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--chip);
+    }
+    .typed-viewer-host .logicchart-expand-progress-value {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+      transition: width .12s linear;
+    }
     .typed-viewer-host .logicchart-viewer {
       width: 100%;
       height: 100%;
       display: block;
       cursor: grab;
-    }
-    .typed-viewer-host .logicchart-overview {
-      position: absolute;
-      left: 12px;
-      bottom: 12px;
-      z-index: 6;
-      width: 190px;
-      height: 122px;
-      padding: 0;
-      border: 1px solid color-mix(in srgb, var(--line-strong) 54%, transparent);
-      border-radius: 8px;
-      background:
-        linear-gradient(180deg, rgba(17, 20, 28, .82), rgba(8, 10, 15, .78)),
-        var(--panel);
-      box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
-      cursor: all-scroll;
-      opacity: .86;
-      overflow: hidden;
-    }
-    .typed-viewer-host .logicchart-overview:hover,
-    .typed-viewer-host .logicchart-overview:focus-visible {
-      border-color: color-mix(in srgb, var(--blue) 72%, var(--line-strong));
-      outline: none;
-      opacity: 1;
-    }
-    .typed-viewer-host .logicchart-overview.dragging {
-      cursor: grabbing;
-      opacity: 1;
-    }
-    .typed-viewer-host .logicchart-overview-map {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-    .typed-viewer-host .logicchart-overview-content {
-      fill: color-mix(in srgb, var(--panel-2) 74%, transparent);
-      stroke: color-mix(in srgb, var(--line) 70%, transparent);
-      stroke-width: 1.2;
-      vector-effect: non-scaling-stroke;
-    }
-    .typed-viewer-host .logicchart-overview-viewport {
-      fill: color-mix(in srgb, var(--blue) 10%, transparent);
-      stroke: color-mix(in srgb, var(--blue) 68%, var(--cyan));
-      stroke-width: 1.8;
-      opacity: .86;
-      vector-effect: non-scaling-stroke;
     }
     .typed-viewer-host .logicchart-viewer.dragging {
       cursor: grabbing;
@@ -1937,9 +1933,6 @@
         top: 14px;
         right: 10px;
         gap: 5px;
-      }
-      .typed-viewer-host .logicchart-overview {
-        display: none;
       }
       .tool-group { gap: 1px; padding: 2px; }
       .tool {

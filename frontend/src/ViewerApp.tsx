@@ -53,6 +53,7 @@ const DETAIL_EDGE_OBSTACLE_GAP = 18;
 const DETAIL_EDGE_LANE_STEP = 20;
 const DETAIL_EDGE_MAX_LANE_STEPS = 12;
 const DRAG_FRAME_FALLBACK_MS = 16;
+const VIEWER_LAYOUT_CACHE_LIMIT = 8;
 
 export interface DetailNodeSelection {
   flowId: string;
@@ -152,6 +153,8 @@ export function ViewerApp({
   const [selectedRoot, setSelectedRoot] = useState(false);
   const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null);
   const selectedConnectionPropKey = selectionKey(selectedConnectionProp);
+  const detailLayoutCache = useRef(new Map<string, Map<string, FlowDetailLayout>>());
+  const layoutCache = useRef(new Map<string, ReturnType<typeof createViewerLayout>>());
   const findingCountsByFlowId = useMemo(() => {
     const counts = new Map<string, number>();
     (payload?.findings || []).forEach(finding => {
@@ -209,10 +212,26 @@ export function ViewerApp({
       : selectedConnectionProp ??
         selectedConnection ??
         useViewerStore.getState().selectedConnection;
-  const detailLayouts = useMemo(
-    () => flowDetailLayouts(payload, routeFlowIds),
+  const detailLayoutSignature = useMemo(
+    () => [payloadSignature(payload), routeFlowIds.join("\u0000")].join("\u0001"),
     [payload, routeFlowIds],
   );
+  const detailLayouts = useMemo(() => {
+    const cached = detailLayoutCache.current.get(detailLayoutSignature);
+    if (cached) {
+      detailLayoutCache.current.delete(detailLayoutSignature);
+      detailLayoutCache.current.set(detailLayoutSignature, cached);
+      return cached;
+    }
+    const nextLayouts = flowDetailLayouts(payload, routeFlowIds);
+    detailLayoutCache.current.set(detailLayoutSignature, nextLayouts);
+    while (detailLayoutCache.current.size > VIEWER_LAYOUT_CACHE_LIMIT) {
+      const oldestKey = detailLayoutCache.current.keys().next().value;
+      if (oldestKey === undefined) break;
+      detailLayoutCache.current.delete(oldestKey);
+    }
+    return nextLayouts;
+  }, [detailLayoutSignature, payload, routeFlowIds]);
   const effectiveExpandedMeasures = useMemo(() => {
     if (!detailLayouts.size) return expandedMeasuresProp;
     const measures = new Map(expandedMeasuresProp ? [...expandedMeasuresProp] : []);
@@ -221,32 +240,34 @@ export function ViewerApp({
     });
     return measures;
   }, [detailLayouts, expandedMeasuresProp]);
-  const layout = useMemo(
+  const layoutSignature = useMemo(
     () =>
-      createViewerLayout({
-        expandedMeasures: effectiveExpandedMeasures,
-        expandedScopes,
-        layers,
-        manualNodePositions,
-        payload,
-        contextFlowIds,
-        routeFlowIds,
+      [
         scope,
-        scopeNode,
-      }),
+        scopeNode
+          ? `${scopeNode.scope}:${scopeNode.x}:${scopeNode.y}:${scopeNode.width}:${scopeNode.height}`
+          : "",
+        expandedScopes === undefined ? "__auto__" : [...expandedScopes].join("\u0000"),
+        routeFlowIds.join("\u0000"),
+        contextFlowIds.join("\u0000"),
+        layersSignature(layers),
+        payloadSignature(payload),
+        expandedMeasuresSignature(effectiveExpandedMeasures),
+        manualNodePositionsSignature(manualNodePositions),
+      ].join("\u0001"),
     [
+      contextFlowIds,
       effectiveExpandedMeasures,
       expandedScopes,
       layers,
       manualNodePositions,
       payload,
-      contextFlowIds,
       routeFlowIds,
       scope,
       scopeNode,
     ],
   );
-  const viewportSignature = useMemo(
+  const viewportLayoutSignature = useMemo(
     () =>
       [
         scope,
@@ -261,6 +282,7 @@ export function ViewerApp({
         expandedMeasuresSignature(effectiveExpandedMeasures),
       ].join("\u0001"),
     [
+      contextFlowIds,
       effectiveExpandedMeasures,
       expandedScopes,
       layers,
@@ -269,6 +291,50 @@ export function ViewerApp({
       scope,
       scopeNode,
     ],
+  );
+  const layout = useMemo(() => {
+    const cached = layoutCache.current.get(layoutSignature);
+    if (cached) {
+      layoutCache.current.delete(layoutSignature);
+      layoutCache.current.set(layoutSignature, cached);
+      return cached;
+    }
+    const nextLayout = createViewerLayout({
+        expandedMeasures: effectiveExpandedMeasures,
+        expandedScopes,
+        layers,
+        manualNodePositions,
+        payload,
+        contextFlowIds,
+        routeFlowIds,
+        scope,
+        scopeNode,
+      });
+    layoutCache.current.set(layoutSignature, nextLayout);
+    while (layoutCache.current.size > VIEWER_LAYOUT_CACHE_LIMIT) {
+      const oldestKey = layoutCache.current.keys().next().value;
+      if (oldestKey === undefined) break;
+      layoutCache.current.delete(oldestKey);
+    }
+    return nextLayout;
+  }, [
+    contextFlowIds,
+    effectiveExpandedMeasures,
+    expandedScopes,
+    layers,
+    layoutSignature,
+    manualNodePositions,
+    payload,
+    routeFlowIds,
+    scope,
+    scopeNode,
+  ]);
+  const viewportSignature = useMemo(
+    () =>
+      [
+        viewportLayoutSignature,
+      ].join("\u0001"),
+    [viewportLayoutSignature],
   );
   const {
     entryEdges,
@@ -2165,6 +2231,16 @@ function expandedMeasuresSignature(
       ([flowId, measure]) =>
         `${flowId}:${measure.minX}:${measure.minY}:${measure.maxX}:${measure.maxY}:${measure.width}:${measure.height}`,
     )
+    .join("|");
+}
+
+function manualNodePositionsSignature(
+  positions: ReadonlyMap<string, ManualNodePosition>,
+): string {
+  if (!positions.size) return "";
+  return [...positions.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, position]) => `${key}:${position.x}:${position.y}`)
     .join("|");
 }
 

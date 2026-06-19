@@ -276,6 +276,7 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert 'id="expandView"' in html
     assert ">EXPAND</button>" in html
     assert "typed.expandAll" in html
+    assert "logicchart-expand-progress" in html
     assert 'class="tool-group"' in html
     assert 'class="tool reset-tool command-tool"' in html
     assert 'class="tool expand-tool command-tool"' in html
@@ -283,6 +284,7 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert "Export current flowchart as PNG" in html
     assert "Export current flowchart as JPG" in html
     assert "themeToggle" not in html
+    assert "logicchart-overview" not in html
     assert "inline-flow-panel" not in html
     assert "makeFileBox" not in html
     assert "expandedFiles" not in html

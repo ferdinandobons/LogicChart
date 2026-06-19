@@ -130,8 +130,9 @@ The viewer layout should preserve these invariants:
   expanding an arbitrary fallback scope.
 - Reset clears opened scopes, opened flows, manual positions, and viewport state, then
   returns to `#root`, the collapsed codebase map.
-- Expand all opens every non-test scope and flow from the generated payload; it must be
-  payload-driven rather than tuned to demo scope names or file paths.
+- Expand all opens every non-test scope and flow from the generated payload in asynchronous
+  chunks with a visible progress indicator; it must be payload-driven rather than tuned to
+  demo scope names or file paths.
 - Expanded scope sections follow the root-map rows, so large codebases pack into readable
   vertical bands instead of one unbounded horizontal strip.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
@@ -146,9 +147,9 @@ The viewer layout should preserve these invariants:
 - Viewport operations must remain finite and recoverable: invalid zoom inputs are ignored,
   free pan is unbounded, and Reset returns to the collapsed baseline view.
 - Wheel and trackpad zoom must stay anchored to the cursor in the active runtime.
-- The minimap is an aggregate navigator, not a second tiny node renderer: it shows the
-  graph bounds and current viewport, scrolls to pan the canvas, double-clicks to fit, and
-  keeps the viewport visible even when free pan moves outside the graph bounds.
+- Layout and detail measurements are cached by deterministic input signatures so repeated
+  navigation, hash sync, and panel refreshes do not recompute identical large-canvas
+  layouts.
 - The left tree may normalize display labels for scanning, such as HTTP-method routes or
   camelCase symbols, but tooltips and source panels must preserve the original symbol and
   source location.
@@ -215,8 +216,8 @@ High-value browser checks:
 - Direct `#flow=<flow-id>` and `#path=<source-path>` URLs open Details with the matching
   source context selected.
 - The source panel shows the selected flow's file and line range.
-- Wheel zoom, canvas pan, minimap drag/scroll pan, fit, reset, PNG export, and JPG export
-  route through the active runtime.
+- Wheel zoom, canvas pan, fit, reset, chunked expand, PNG export, and JPG export route
+  through the active runtime.
 - PNG/JPG export resolution follows the graph bounds rather than the current viewport, with
   browser-safe caps for very large charts.
 - SVG hit paths remain invisible in screenshots and exports.
