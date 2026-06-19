@@ -1051,6 +1051,37 @@ describe("standalone viewer bridge", () => {
     container.remove();
   });
 
+  it("chunks expand-all preparation before the heavy canvas update", async () => {
+    window.history.replaceState(null, "", "/#root");
+    const largePayload = largeExpansionPayload(600);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    const mounted = mountStandaloneLogicChartViewer(container, largePayload);
+
+    await act(async () => {
+      mounted.expandAll();
+      await flushAsyncTimers(2);
+    });
+
+    const progress = container.querySelector<HTMLElement>(".logicchart-expand-progress");
+    expect(progress).not.toBeNull();
+    expect(progress?.hidden).toBe(false);
+    expect(progress?.textContent).toContain("Expanding canvas");
+    const finalProgressText = `${largePayload.flows.length + 4} / ${largePayload.flows.length + 4}`;
+    expect(progress?.textContent).not.toContain(finalProgressText);
+    expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
+
+    await act(async () => {
+      await flushAsyncTimers(6);
+    });
+
+    expect(container.querySelectorAll(".flow-node").length).toBeGreaterThan(500);
+
+    mounted.unmount();
+    container.remove();
+  });
+
   it("keeps previously opened scopes visible while expanding another scope", async () => {
     window.history.replaceState(null, "", "/#scope=frontend");
     const container = document.createElement("div");
@@ -1299,6 +1330,25 @@ function pointerEvent(
     value: options.pointerId ?? 1,
   });
   return event;
+}
+
+function largeExpansionPayload(flowCount: number): LogicChartPayload {
+  return {
+    flows: Array.from({ length: flowCount }, (_, index) => {
+      const scope = index % 2 === 0 ? "backend" : "frontend";
+      return {
+        id: `${scope}-${index}`,
+        name: `${scope} ${index}`,
+        language: "typescript",
+        entry_kind: "function",
+        is_entrypoint: index < 2,
+        location: { path: `${scope}/file-${index}.ts`, start_line: index + 1 },
+        calls: [],
+        called_by: [],
+        metadata: { scope: [scope] },
+      };
+    }),
+  };
 }
 
 async function flushAsyncTimers(count: number): Promise<void> {

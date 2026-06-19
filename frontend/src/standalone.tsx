@@ -19,6 +19,8 @@ import type {
 import type { ManualNodePosition } from "./viewer-layout";
 import type { SelectedConnection } from "./viewer-store";
 
+const EXPANSION_BATCH_SIZE = 250;
+
 export interface StandaloneViewerOptions {
   initialScope?: string;
   location?: Pick<Location, "hash">;
@@ -227,17 +229,29 @@ export function mountStandaloneLogicChartViewer(
       const flowIds = payload.flows
         .filter(flow => !flow.metadata?.test)
         .map(flow => flow.id);
+      const expansionTargets = [
+        ...scopeNames.map(scope => ({ kind: "scope" as const, id: scope })),
+        ...flowIds.map(flowId => ({ kind: "flow" as const, id: flowId })),
+      ];
       const total = Math.max(1, scopeNames.length + flowIds.length + 2);
       const job = createExpansionJob(() => {
         progress.start("Expanding canvas", total);
         progress.update(0, total);
-        job.schedule(() => {
+        let targetIndex = 0;
+        const openNextBatch = () => {
           if (expansionJob !== job) return;
-          expandedOverviewMode = true;
-          scopeNames.forEach(scope => openedScopeIds.add(scope));
-          flowIds.forEach(flowId => openedFlowIds.add(flowId));
+          const end = Math.min(targetIndex + EXPANSION_BATCH_SIZE, expansionTargets.length);
+          for (; targetIndex < end; targetIndex += 1) {
+            const target = expansionTargets[targetIndex];
+            if (target.kind === "scope") openedScopeIds.add(target.id);
+            else openedFlowIds.add(target.id);
+          }
+          progress.update(targetIndex, total);
+          if (targetIndex < expansionTargets.length) {
+            job.schedule(openNextBatch);
+            return;
+          }
           persistState();
-          progress.update(scopeNames.length + flowIds.length, total);
           const hash = currentHash();
           const isCollapsedRoot = !hash || hash === "#root";
           if (isCollapsedRoot) {
@@ -264,6 +278,10 @@ export function mountStandaloneLogicChartViewer(
               });
             });
           });
+        };
+        job.schedule(() => {
+          expandedOverviewMode = true;
+          openNextBatch();
         });
       });
       expansionJob = job;
