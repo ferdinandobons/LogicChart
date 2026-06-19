@@ -23,10 +23,10 @@ When helping a user set up or learn LogicChart:
    command you plan to run or recommend.
 2. Use `logicchart doctor` when install, dependency, or parser capability issues are
    unclear.
-3. For optional LLM setup, use `logicchart llm providers`, `logicchart llm setup --help`,
-   `logicchart llm show`, and `logicchart enrich --help`; prefer `--api-key-stdin`,
-   review `logicchart enrich --dry-run --json` or `logicchart enrich --preview --json`
-   output before `--send`, and never print or commit keys.
+3. For optional LLM setup, start with `logicchart llm providers`, `logicchart llm setup`,
+   `logicchart llm show`, and `logicchart enrich`; use `logicchart llm setup --help` or
+   `logicchart enrich --help` before advanced flags, prefer `--api-key-stdin` in scripts,
+   review the local preview output before `--send`, and never print or commit keys.
 
 After a substantial code change:
 

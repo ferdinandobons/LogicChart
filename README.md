@@ -43,11 +43,12 @@ uv tool install .
 From the codebase you want to analyze:
 
 ```bash
-logicchart analyze --full
+logicchart analyze
 logicchart view
 ```
 
-No `init` step is required. LogicChart analyzes `.` by default and writes:
+No flags or `init` step are required for the first run. LogicChart analyzes `.` by default
+and writes:
 
 | File | Purpose |
 |---|---|
@@ -210,7 +211,7 @@ The default project path is `.`.
 Build the model and write JSON, Markdown, and HTML:
 
 ```bash
-logicchart analyze . --full
+logicchart analyze
 ```
 
 Useful flags:
@@ -298,8 +299,7 @@ Configure optional enrichment credentials without making any provider call:
 
 ```bash
 logicchart llm providers
-printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
-printf '%s' "$DASHSCOPE_API_KEY" | logicchart llm setup --provider qwen --model qwen3-coder-plus --base-url https://dashscope-us.aliyuncs.com/compatible-mode/v1 --api-key-stdin
+logicchart llm setup
 logicchart llm show
 ```
 
@@ -309,6 +309,13 @@ available as the fast/cost-oriented DeepSeek v4 preset. `setup` writes
 `LOGICCHART_LLM_BASE_URL`, `LOGICCHART_LLM_API_FORMAT`, and
 `LOGICCHART_LLM_API_KEY`, and masks the key in all command output. The file is ignored by
 git and chmodded to owner-only permissions when the platform supports it.
+
+For non-interactive scripts or region-specific endpoints:
+
+```bash
+printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
+printf '%s' "$DASHSCOPE_API_KEY" | logicchart llm setup --provider qwen --model qwen3-coder-plus --base-url https://dashscope-us.aliyuncs.com/compatible-mode/v1 --api-key-stdin
+```
 
 Provider/model presets cover DeepSeek, OpenAI, Anthropic, Google Gemini, xAI, Alibaba
 Qwen, Z.AI, Kimi/Moonshot, and Mistral. Model catalogs change frequently, so `--model`
@@ -322,9 +329,8 @@ provider snapshot.
 Preview or run optional LLM annotation enrichment:
 
 ```bash
-logicchart enrich --json
-logicchart enrich --dry-run --json
-logicchart enrich --scope backend --json
+logicchart enrich
+logicchart enrich --scope backend
 logicchart enrich --flow flow-id --finding finding-id --json
 logicchart enrich --scope frontend --send
 ```
@@ -628,8 +634,9 @@ The `get_subgraph_snapshot` tool and `logicchart snapshot subgraph` CLI command 
 bridge from query/impact/context results into one bounded SVG: pass returned
 `subgraph_flow_ids` and `subgraph_finding_ids` directly to render the focused model slice.
 Use MCP `preview_enrichment` to inspect the same bounded local payload as
-`logicchart enrich --json` before any optional provider send; provider calls remain an
-explicit CLI action through `logicchart enrich --send`.
+`logicchart enrich` before any optional provider send; use `logicchart enrich --json` when
+an agent or script needs the machine-readable payload. Provider calls remain an explicit
+CLI action through `logicchart enrich --send`.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid

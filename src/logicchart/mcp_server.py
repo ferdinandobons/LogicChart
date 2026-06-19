@@ -317,7 +317,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     ) -> dict[str, Any]:
         """Preview the optional LLM enrichment payload without calling a provider.
 
-        The result mirrors ``logicchart enrich --json`` and always reports
+        The result mirrors ``logicchart enrich`` and always reports
         ``provider_call_made: false``. Provider sends remain an explicit CLI action with
         ``logicchart enrich --send`` after the preview has been reviewed.
         """

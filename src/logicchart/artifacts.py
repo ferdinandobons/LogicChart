@@ -45,6 +45,6 @@ def load_model(root: Path, config: LogicChartConfig | None = None) -> ProjectMod
     json_path, _, _ = output_paths(root, config)
     if not json_path.exists():
         raise FileNotFoundError(
-            f"No LogicChart model found at {json_path}. Run `logicchart analyze --full` first."
+            f"No LogicChart model found at {json_path}. Run `logicchart analyze` first."
         )
     return ProjectModel.from_dict(read_json(json_path))

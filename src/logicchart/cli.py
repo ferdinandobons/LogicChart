@@ -9,6 +9,8 @@ from collections.abc import Sequence
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from textwrap import dedent
+from typing import Any
 
 from logicchart import __version__
 from logicchart.analysis import ProjectAnalyzer
@@ -57,16 +59,68 @@ from logicchart.render.snapshot import (
 from logicchart.validation import validate_logicchart
 
 
+class LogicChartHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    pass
+
+
+class LogicChartArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("formatter_class", LogicChartHelpFormatter)
+        super().__init__(*args, **kwargs)
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = LogicChartArgumentParser(
         prog="logicchart",
         description="Turn a polyglot codebase into navigable decision flowcharts.",
+        epilog=dedent(
+            """\
+            Quick start:
+              logicchart analyze
+              logicchart view
+              logicchart query "where is auth checked?"
+              logicchart impact src/file.py
+              logicchart validate
+
+            Optional setup:
+              logicchart install
+              logicchart llm providers
+              logicchart llm setup
+              logicchart enrich
+
+            Add --help after any command for focused examples and advanced options.
+            """
+        ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
+        parser_class=LogicChartArgumentParser,
+    )
 
-    analyze = subparsers.add_parser("analyze", help="Analyze a source folder.")
-    analyze.add_argument("path", nargs="?", default=".")
+    analyze = subparsers.add_parser(
+        "analyze",
+        help="Analyze a source folder.",
+        description="Analyze the current project and write JSON, Markdown, and HTML artifacts.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart analyze
+              logicchart analyze ../my-app
+              logicchart analyze --full
+
+            The simple command is enough for first use. Use --full when you intentionally
+            want to bypass the incremental cache.
+            """
+        ),
+    )
+    analyze.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder to analyze. Defaults to the current directory.",
+    )
     analyze.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
     analyze.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
     _add_profile_argument(analyze)
@@ -76,16 +130,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="Expand the review-only (POTENTIAL_GAP) findings section in the Markdown report.",
     )
 
-    update = subparsers.add_parser("update", help="Incrementally refresh changed source files.")
-    update.add_argument("path", nargs="?", default=".")
+    update = subparsers.add_parser(
+        "update",
+        help="Incrementally refresh changed source files.",
+        description="Refresh existing LogicChart artifacts after source changes.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart update
+              logicchart update ../my-app
+              logicchart update --full
+
+            Use update during normal development. Use --full after analyzer upgrades or
+            when cached file models should be ignored.
+            """
+        ),
+    )
+    update.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder to refresh. Defaults to the current directory.",
+    )
     update.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
-    update.add_argument("--no-html", action="store_true")
-    update.add_argument("--include-gaps", action="store_true")
+    update.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
+    update.add_argument(
+        "--include-gaps",
+        action="store_true",
+        help="Expand review-only (POTENTIAL_GAP) findings in Markdown.",
+    )
     _add_profile_argument(update)
 
     impact = subparsers.add_parser("impact", help="Show flows affected by changed files.")
-    impact.add_argument("files", nargs="*")
-    impact.add_argument("--path", default=".")
+    impact.add_argument("files", nargs="*", help="Changed source files to seed impact from.")
+    impact.add_argument(
+        "--path", default=".", help="Project folder. Defaults to current directory."
+    )
     impact.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
     impact.add_argument("--flow", action="append", default=[], help="Seed impact from a flow id.")
     impact.add_argument(
@@ -109,9 +189,21 @@ def build_parser() -> argparse.ArgumentParser:
     _add_profile_argument(impact)
     impact.add_argument("--json", action="store_true", dest="json_output")
 
-    query = subparsers.add_parser("query", help="Search the logical model.")
-    query.add_argument("question")
-    query.add_argument("--path", default=".")
+    query = subparsers.add_parser(
+        "query",
+        help="Search the logical model.",
+        description="Ask deterministic questions about flows, decisions, calls, and findings.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart query "where is auth checked?"
+              logicchart query "payment status" --scope backend
+              logicchart query "missing branches" --finding-kind missing_branch
+            """
+        ),
+    )
+    query.add_argument("question", help="Natural-language query. Use an empty string with filters.")
+    query.add_argument("--path", default=".", help="Project folder. Defaults to current directory.")
     query.add_argument("--limit", type=int, default=10)
     query.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
     query.add_argument("--language", default=None, help="Restrict to one language id.")
@@ -141,33 +233,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Restrict to flows with findings at this evidence tier.",
     )
     _add_profile_argument(query)
-    query.add_argument("--json", action="store_true", dest="json_output")
+    query.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
 
     explain = subparsers.add_parser("explain", help="Explain one logical finding.")
-    explain.add_argument("finding_id")
-    explain.add_argument("--path", default=".")
+    explain.add_argument("finding_id", help="Finding id from logic-flow.md or query output.")
+    explain.add_argument(
+        "--path", default=".", help="Project folder. Defaults to current directory."
+    )
     _add_profile_argument(explain)
-    explain.add_argument("--json", action="store_true", dest="json_output")
+    explain.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON output."
+    )
 
     navigate = subparsers.add_parser("navigate", help="Show an agent navigation pack for one flow.")
-    navigate.add_argument("flow")
-    navigate.add_argument("--path", default=".")
-    navigate.add_argument("--token-budget", type=int, default=0)
+    navigate.add_argument("flow", help="Flow id, symbol, or flow name.")
+    navigate.add_argument(
+        "--path", default=".", help="Project folder. Defaults to current directory."
+    )
+    navigate.add_argument("--token-budget", type=int, default=0, help="Approximate output budget.")
     _add_profile_argument(navigate)
-    navigate.add_argument("--json", action="store_true", dest="json_output")
+    navigate.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON output."
+    )
 
     snapshot = subparsers.add_parser(
         "snapshot", help="Render deterministic SVG snapshots for agents."
     )
     snapshot_subparsers = snapshot.add_subparsers(dest="snapshot_kind", required=True)
     snapshot_flow = snapshot_subparsers.add_parser("flow", help="Render one flow snapshot.")
-    snapshot_flow.add_argument("flow_id")
+    snapshot_flow.add_argument("flow_id", help="Flow id, symbol, or flow name to render.")
     _add_snapshot_arguments(snapshot_flow)
 
     snapshot_finding = snapshot_subparsers.add_parser(
         "finding", help="Render one finding snapshot."
     )
-    snapshot_finding.add_argument("finding_id")
+    snapshot_finding.add_argument("finding_id", help="Finding id to render.")
     _add_snapshot_arguments(snapshot_finding)
 
     snapshot_impact = snapshot_subparsers.add_parser(
@@ -188,21 +288,63 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot_subgraph.add_argument("--finding", action="append", default=[])
     _add_snapshot_arguments(snapshot_subgraph)
 
-    view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
-    view.add_argument("path", nargs="?", default=".")
-    view.add_argument("--port", type=int, default=8765)
-    view.add_argument("--no-open", action="store_true")
-    view.add_argument("--render-only", action="store_true")
+    view = subparsers.add_parser(
+        "view",
+        help="Generate and serve the interactive flowchart.",
+        description="Open the local interactive decision-flowchart viewer.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart view
+              logicchart view ../my-app
+              logicchart view --port 8771
+
+            The viewer is local-only. Use --render-only for CI or artifact generation.
+            """
+        ),
+    )
+    view.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder to view. Defaults to the current directory.",
+    )
+    view.add_argument("--port", type=int, default=8765, help="Local server port.")
+    view.add_argument("--no-open", action="store_true", help="Serve without opening a browser.")
+    view.add_argument(
+        "--render-only",
+        action="store_true",
+        help="Write logic-flow.html without starting a server.",
+    )
     _add_profile_argument(view)
 
     install = subparsers.add_parser(
-        "install", help="Install persistent LogicChart instructions for coding agents."
+        "install",
+        help="Install persistent LogicChart instructions for coding agents.",
+        description="Write agent instructions that teach coding agents how to use LogicChart.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart install
+              logicchart install --platform codex
+              logicchart install --mcp-config codex
+
+            The simple command installs instruction blocks only. Add --mcp-config when
+            you also want project-scoped MCP configuration.
+            """
+        ),
     )
-    install.add_argument("path", nargs="?", default=".")
+    install.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder to update. Defaults to the current directory.",
+    )
     install.add_argument(
         "--platform",
         choices=["all", "codex", "claude", "cursor", "gemini"],
         default="all",
+        help="Instruction target to update.",
     )
     install.add_argument(
         "--mcp-config",
@@ -213,17 +355,55 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also install project-scoped MCP config for Codex, Claude Code, or Cursor.",
     )
 
-    llm = subparsers.add_parser("llm", help="Configure optional local LLM enrichment settings.")
-    llm_subparsers = llm.add_subparsers(dest="llm_command", required=True)
+    llm = subparsers.add_parser(
+        "llm",
+        help="Configure optional local LLM enrichment settings.",
+        description="Configure optional local credentials for annotation enrichment.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart llm providers
+              logicchart llm setup
+              logicchart llm show
+
+            Setup only writes .env.logicchart. It never calls a provider.
+            """
+        ),
+    )
+    llm_subparsers = llm.add_subparsers(
+        dest="llm_command",
+        required=True,
+        parser_class=LogicChartArgumentParser,
+    )
     llm_providers = llm_subparsers.add_parser(
         "providers", help="List curated provider/model presets."
     )
-    llm_providers.add_argument("--json", action="store_true", dest="json_output")
+    llm_providers.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON output."
+    )
 
     llm_setup = llm_subparsers.add_parser(
-        "setup", help="Write a local .env.logicchart provider configuration."
+        "setup",
+        help="Write a local .env.logicchart provider configuration.",
+        description="Choose a provider/model and store the API key in .env.logicchart.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart llm setup
+              logicchart llm setup --provider qwen --model qwen3-coder-plus
+              printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
+
+            The default provider is DeepSeek v4. Interactive setup is the simplest path;
+            --api-key-stdin is safer for scripts and shared shell history.
+            """
+        ),
     )
-    llm_setup.add_argument("path", nargs="?", default=".")
+    llm_setup.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder that will receive .env.logicchart.",
+    )
     llm_setup.add_argument(
         "--provider",
         choices=[provider.id for provider in PROVIDERS],
@@ -255,24 +435,49 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to the dedicated env file. Defaults to .env.logicchart under PATH.",
     )
-    llm_setup.add_argument("--json", action="store_true", dest="json_output")
+    llm_setup.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON output."
+    )
 
     llm_show = llm_subparsers.add_parser(
         "show", help="Show the current local LLM configuration with secrets masked."
     )
-    llm_show.add_argument("path", nargs="?", default=".")
+    llm_show.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder containing .env.logicchart.",
+    )
     llm_show.add_argument(
         "--env-file",
         default=None,
         help="Path to the dedicated env file. Defaults to .env.logicchart under PATH.",
     )
-    llm_show.add_argument("--json", action="store_true", dest="json_output")
+    llm_show.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON output."
+    )
 
     enrich = subparsers.add_parser(
         "enrich",
         help="Preview or run optional LLM annotation enrichment.",
+        description="Preview the bounded enrichment payload locally, or explicitly send it.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart enrich
+              logicchart enrich --scope backend
+              logicchart enrich --send
+
+            Without --send this is a local preview and no provider call is made.
+            """
+        ),
     )
-    enrich.add_argument("path", nargs="?", default=".")
+    enrich.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder containing logicchart-out/logic-flow.json.",
+    )
     enrich.add_argument("--scope", default=None, help="Restrict enrichment to one scope.")
     enrich.add_argument(
         "--flow",
@@ -331,19 +536,43 @@ def build_parser() -> argparse.ArgumentParser:
         help="Provider request timeout in seconds when --send is used.",
     )
     _add_profile_argument(enrich)
-    enrich.add_argument("--json", action="store_true", dest="json_output")
+    enrich.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
 
     init = subparsers.add_parser("init", help="Create a starter LogicChart configuration.")
-    init.add_argument("path", nargs="?", default=".")
+    init.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder where logicchart.toml should be created.",
+    )
 
-    validate = subparsers.add_parser("validate", help="Validate the generated LogicChart model.")
-    validate.add_argument("path", nargs="?", default=".")
+    validate = subparsers.add_parser(
+        "validate",
+        help="Validate the generated LogicChart model.",
+        description="Validate generated artifacts and optional quality/annotation checks.",
+        epilog=dedent(
+            """\
+            Examples:
+              logicchart validate
+              logicchart validate --check-sync
+              logicchart validate --quality
+            """
+        ),
+    )
+    validate.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder containing generated LogicChart artifacts.",
+    )
     validate.add_argument(
         "--check-sync",
         action="store_true",
         help="Re-analyze sources and fail if logic-flow.json is stale.",
     )
-    validate.add_argument("--json", action="store_true", dest="json_output")
+    validate.add_argument(
+        "--json", action="store_true", dest="json_output", help="Emit JSON output."
+    )
     validate.add_argument(
         "--quality",
         action="store_true",
@@ -377,11 +606,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_profile_argument(validate)
 
     doctor = subparsers.add_parser("doctor", help="Check the active LogicChart installation.")
-    doctor.add_argument("path", nargs="?", default=".")
-    doctor.add_argument("--json", action="store_true", dest="json_output")
+    doctor.add_argument("path", nargs="?", default=".", help="Project folder to inspect.")
+    doctor.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
 
     mcp = subparsers.add_parser("mcp", help="Start the LogicChart MCP server over stdio.")
-    mcp.add_argument("path", nargs="?", default=".")
+    mcp.add_argument("path", nargs="?", default=".", help="Project folder served over MCP.")
     _add_profile_argument(mcp)
     return parser
 
@@ -399,12 +628,14 @@ def _add_profile_argument(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--path", default=".")
-    parser.add_argument("--format", default="svg")
-    parser.add_argument("--token-budget", type=int, default=0)
+    parser.add_argument(
+        "--path", default=".", help="Project folder. Defaults to current directory."
+    )
+    parser.add_argument("--format", default="svg", help="Snapshot format. Currently only svg.")
+    parser.add_argument("--token-budget", type=int, default=0, help="Approximate output budget.")
     parser.add_argument("--output", default=None, help="Write SVG output to this path.")
     _add_profile_argument(parser)
-    parser.add_argument("--json", action="store_true", dest="json_output")
+    parser.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

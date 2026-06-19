@@ -169,6 +169,9 @@ The project follows Semantic Versioning.
   helping users set up or learn LogicChart.
 - Updated generated agent instructions to point users at `logicchart enrich --help` and
   to review enrichment previews before running provider calls with `--send`.
+- Updated quickstart and command help to prioritize simple no-flag first-run commands,
+  including `logicchart analyze`, `logicchart view`, `logicchart llm setup`, and
+  `logicchart enrich`, while keeping advanced flags documented for automation.
 - Updated the optional LLM provider preset list to keep the documented Qwen coder model
   aligned with `logicchart llm providers`, while keeping free-form model overrides for
   fast-moving provider catalogs.

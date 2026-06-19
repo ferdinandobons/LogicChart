@@ -5,8 +5,28 @@ import pytest
 
 from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model
-from logicchart.cli import main
+from logicchart.cli import build_parser, main
 from logicchart.config import LogicChartConfig
+
+
+def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
+    help_text = build_parser().format_help()
+
+    assert "Quick start:" in help_text
+    assert "logicchart analyze\n  logicchart view" in help_text
+    assert "logicchart llm setup" in help_text
+    assert "Add --help after any command" in help_text
+
+
+def test_command_help_documents_simple_examples(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        build_parser().parse_args(["analyze", "--help"])
+
+    assert exc_info.value.code == 0
+    analyze_help = capsys.readouterr().out
+    assert "Examples:" in analyze_help
+    assert "logicchart analyze\n  logicchart analyze ../my-app" in analyze_help
+    assert "Use --full when you intentionally" in analyze_help
 
 
 def test_analyze_nonexistent_path_errors_clearly(
@@ -373,13 +393,13 @@ def test_cli_install_can_write_mcp_config(
     assert "logicchart snapshot flow <flow-id>" in (tmp_path / "AGENTS.md").read_text(
         encoding="utf-8"
     )
-    assert "logicchart <command> --help" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "logicchart llm setup --help" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "logicchart enrich --help" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "logicchart enrich --dry-run --json" in (tmp_path / "AGENTS.md").read_text(
-        encoding="utf-8"
-    )
-    assert "--api-key-stdin" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    agents_text = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "logicchart <command> --help" in agents_text
+    assert "logicchart llm setup" in agents_text
+    assert "logicchart llm setup --help" in agents_text
+    assert "logicchart enrich" in agents_text
+    assert "logicchart enrich --help" in agents_text
+    assert "--api-key-stdin" in agents_text
     assert "Updated" in capsys.readouterr().out
 
     assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0

@@ -9,7 +9,7 @@ correctness.
 Use the CLI to create a dedicated local env file:
 
 ```bash
-printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
+logicchart llm setup
 logicchart llm show
 ```
 
@@ -24,16 +24,20 @@ LOGICCHART_LLM_API_KEY=...
 ```
 
 `.env.logicchart` is ignored by git. `logicchart llm show` masks the key, and `setup`
-does not make a provider request.
+does not make a provider request. For scripts or shared shell-history safety, read the key
+from stdin instead:
+
+```bash
+printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
+```
 
 ## Enrichment Preview
 
 Use `logicchart enrich` before sending anything to a provider:
 
 ```bash
-logicchart enrich --json
-logicchart enrich --dry-run --json
-logicchart enrich --preview --scope backend --json
+logicchart enrich
+logicchart enrich --scope backend
 logicchart enrich --flow flow-id --finding finding-id --json
 ```
 
@@ -83,7 +87,7 @@ adapters are added.
 ## MCP Agent Preview
 
 Agents connected through MCP can call `preview_enrichment` to inspect the same bounded
-payload as `logicchart enrich --json`. The tool is local-only, returns
+payload as `logicchart enrich`. The tool is local-only, returns
 `provider_call_made: false`, includes next-tool pointers for finding review and subgraph
 snapshots, and returns next CLI commands for setup or explicit send.
 

@@ -49,6 +49,10 @@ LogicChart is in a strong alpha state.
 - The CLI update workflow can now bypass the incremental cache with
   `logicchart update --full`, which keeps agent instructions concise while allowing safe
   regeneration after analyzer upgrades or LogicChart itself changes.
+- The quickstart path and CLI help now prioritize no-flag first-run commands:
+  `logicchart analyze`, `logicchart view`, `logicchart llm setup`, and `logicchart enrich`.
+  Advanced flags remain available and documented for cache bypass, automation, JSON output,
+  CI render-only workflows, and explicit provider sends.
 - Source discovery now prunes known VCS, dependency, cache, temporary, and generated
   directories before traversal, including `.git`, `node_modules`, venv folders, build
   outputs, coverage, `vendor`, and `logicchart-out`. Projects can add their own whole-tree
@@ -301,9 +305,9 @@ Add optional setup and enrichment commands:
 
 ```bash
 logicchart llm providers
-logicchart llm setup --provider deepseek --model deepseek-v4-pro --api-key-stdin
-logicchart enrich --scope frontend --json
-logicchart enrich --scope frontend --send
+logicchart llm setup
+logicchart enrich
+logicchart enrich --send
 ```
 
 `logicchart llm setup` writes local credentials and provider/model selection to the
@@ -345,7 +349,7 @@ Current checkpoint:
 - MCP summaries expose sidecar status, and flow-navigation packs include matching
   annotations for the selected flow.
 - MCP `preview_enrichment` exposes the same bounded local preview payload as
-  `logicchart enrich --json`, with `provider_call_made: false`, selected target ids,
+  `logicchart enrich`, with `provider_call_made: false`, selected target ids,
   next-tool pointers for review/snapshots, and next CLI commands for setup or explicit
   provider send.
 
