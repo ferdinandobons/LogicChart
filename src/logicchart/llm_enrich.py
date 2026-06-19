@@ -12,6 +12,7 @@ from logicchart.annotations import ANNOTATIONS_SCHEMA_VERSION, annotations_path,
 from logicchart.config import LogicChartConfig
 from logicchart.llm_config import get_provider, logicchart_env_path, read_logicchart_env
 from logicchart.model import Finding, Flow, FlowNode, ProjectModel
+from logicchart.util import metadata_scope_names
 
 _DEFAULT_MAX_FLOWS = 12
 _DEFAULT_MAX_NODES_PER_FLOW = 18
@@ -362,8 +363,7 @@ def _source_payload(location: Any) -> dict[str, Any]:
 
 
 def _flow_scopes(flow: Flow) -> list[str]:
-    raw = flow.metadata.get("scopes") or []
-    return sorted(item for item in raw if isinstance(item, str))
+    return sorted(metadata_scope_names(flow.metadata))
 
 
 def _call_openai_chat(

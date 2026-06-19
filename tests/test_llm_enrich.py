@@ -92,6 +92,29 @@ def test_enrichment_preview_prioritizes_flows_with_findings(tmp_path: Path) -> N
     assert targeted_preview["targets"]["finding_ids"] == [finding.id]
 
 
+def test_enrichment_preview_scope_filter_uses_flow_scope_metadata(tmp_path: Path) -> None:
+    frontend = tmp_path / "frontend"
+    backend = tmp_path / "backend"
+    frontend.mkdir()
+    backend.mkdir()
+    (frontend / "app.py").write_text("def render():\n    return 'ok'\n", encoding="utf-8")
+    (backend / "api.py").write_text("def handle():\n    return 'ok'\n", encoding="utf-8")
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    config = LogicChartConfig.load(tmp_path)
+
+    preview = build_enrichment_preview(
+        tmp_path,
+        model,
+        config,
+        EnrichmentOptions(scope="frontend", max_flows=10),
+    )
+
+    flow_payloads = preview["request"]["flows"]
+    assert [flow["name"] for flow in flow_payloads] == ["render"]
+    assert flow_payloads[0]["scopes"] == ["frontend"]
+    assert set(preview["request"]["scopes"]) == {"frontend"}
+
+
 def test_provider_managed_enrichment_send_requires_local_llm_config(tmp_path: Path) -> None:
     model = _analyzed_project(tmp_path)
     config = LogicChartConfig.load(tmp_path)
