@@ -127,6 +127,9 @@ The project follows Semantic Versioning.
 - Added MCP `preview_annotation_targets`, `write_annotations`, `validate_annotations`,
   `annotation_status`, and `clear_annotations` for agent-authored annotation sidecars
   without provider-key setup.
+- Added MCP `domain_map` and `agent_context` domain/value filters so agents can inspect
+  handled values, missing values, related decisions, findings, and subgraph ids for
+  state-like domains such as statuses and roles.
 - Added internal provider-managed enrichment helpers behind the deterministic annotation
   sidecar, while keeping the public product path agent-authored and provider-key-free.
 - Added directory-level discovery pruning for known VCS, dependency, cache, temporary, and

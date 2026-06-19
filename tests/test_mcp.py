@@ -117,6 +117,7 @@ def authorize(user):
                     "validate_annotations",
                     "write_annotations",
                     "clear_annotations",
+                    "domain_map",
                     "where_state_handled",
                     "find_decision_nodes",
                     "review_queue",
@@ -145,6 +146,7 @@ def authorize(user):
                     "analyze_impact",
                     "preview_enrichment",
                     "preview_annotation_targets",
+                    "domain_map",
                     "review_queue",
                     "context_pack",
                     "agent_context",
@@ -161,6 +163,8 @@ def authorize(user):
                     "symbol",
                     "finding_id",
                     "dependency_path",
+                    "domain",
+                    "value",
                     "include_visual",
                 } <= set(agent_context_properties)
                 context_properties = schema_by_name["context_pack"].get("properties", {})
@@ -609,6 +613,33 @@ def authorize(user):
                 )
                 assert not validation_threshold.isError
                 assert "quality" in str(validation_threshold.content)
+                role_domain = await session.call_tool(
+                    "domain_map",
+                    {"domain": "role", "value": "admin", "token_budget": 360},
+                )
+                assert not role_domain.isError
+                role_domain_payload = role_domain.structuredContent  # type: ignore[assignment]
+                assert role_domain_payload["tool"] == "domain_map"  # type: ignore[index]
+                role_concept = role_domain_payload["concepts"][0]  # type: ignore[index]
+                assert role_concept["domain"] == "role"
+                assert role_concept["handled_values"] == ["admin"]
+                assert role_concept["subgraph_flow_ids"] == [flow.id]
+                assert (  # type: ignore[index]
+                    role_concept["next_tools"]["subgraph_snapshot"]["tool"]
+                    == "get_subgraph_snapshot"
+                )
+                role_context = await session.call_tool(
+                    "agent_context",
+                    {
+                        "question": "where is admin role handled?",
+                        "domain": "role",
+                        "value": "admin",
+                        "token_budget": 360,
+                    },
+                )
+                assert not role_context.isError
+                role_context_payload = role_context.structuredContent  # type: ignore[assignment]
+                assert role_context_payload["domain_map"]["concepts"][0]["domain"] == "role"  # type: ignore[index]
                 clear_without_confirm = await session.call_tool("clear_annotations", {})
                 assert not clear_without_confirm.isError
                 assert (  # type: ignore[index]

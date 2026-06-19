@@ -618,6 +618,11 @@ Current checkpoint:
 - MCP `agent_context` wraps the common query, impact, navigation, finding, and optional
   visual-context path so coding agents do not need to assemble the ordinary workflow from
   low-level tools.
+- MCP `domain_map` aggregates decision metadata into domain-level concepts with handled
+  values, missing values, related decisions, findings, subgraph ids, and next tools.
+- MCP `agent_context` accepts `domain` and `value`, passes them through deterministic
+  query/context filters, and embeds the matching `domain_map` for ordinary state/role
+  questions.
 - MCP recovery and validation hints now point agents to `update_logicchart(full=true)` and
   `logicchart update --full` when artifacts are missing, stale, or cache bypass is safer.
 - Generated `files[]` records now include first-party `dependencies` for Python,

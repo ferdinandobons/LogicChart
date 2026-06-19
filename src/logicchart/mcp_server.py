@@ -18,7 +18,7 @@ from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
 from logicchart.llm_enrich import EnrichmentOptions, build_enrichment_preview
-from logicchart.model import ProjectModel
+from logicchart.model import NodeKind, ProjectModel
 from logicchart.quality import model_quality
 from logicchart.query import (
     explain_finding,
@@ -52,7 +52,9 @@ _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
 
 MCP_INSTRUCTIONS = """Use LogicChart as an agent-first code-logic understanding layer.
 Prefer agent_context for ordinary user questions before broad file-by-file search. Use
-get_finding_context and get_finding_snapshot before treating a logical error as actionable.
+domain_map when the user asks about statuses, roles, permissions, or other state-like
+logic. Use get_finding_context and get_finding_snapshot before treating a logical error as
+actionable.
 After substantial code edits, call update_logicchart and validate_artifacts, then commit
 the synchronized logic-flow.json and logic-flow.md artifacts when they changed. Use
 update_logicchart(full=true) when artifacts are missing, stale, or analyzer behavior
@@ -577,6 +579,26 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return _cap(decisions, token_budget)
 
     @server.tool()
+    def domain_map(
+        domain: str | None = None,
+        value: str | None = None,
+        scope: str | None = None,
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Aggregate domain/state handling across decisions, flows, and findings."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        return _domain_logic_map(
+            model,
+            domain=domain,
+            value=value,
+            scope=scope,
+            token_budget=token_budget,
+        )
+
+    @server.tool()
     def analyze_impact(
         changed_files: list[str] | None = None,
         scope: str | None = None,
@@ -877,6 +899,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         symbol: str | None = None,
         finding_id: str | None = None,
         dependency_path: str | None = None,
+        domain: str | None = None,
+        value: str | None = None,
         scope: str | None = None,
         include_visual: bool = False,
         token_budget: int = 900,
@@ -901,6 +925,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 finding_ids=_single_item_list(finding_id),
                 dependency_paths=_single_item_list(dependency_path),
                 source_path=source_path,
+                domain=domain,
+                value=value,
                 include_visual=include_visual,
                 token_budget=token_budget,
             ),
@@ -923,11 +949,21 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 "symbol": symbol,
                 "finding_id": finding_id,
                 "dependency_path": dependency_path,
+                "domain": domain,
+                "value": value,
                 "scope": scope,
                 "include_visual": include_visual,
                 "token_budget": token_budget,
             },
             "context": pack,
+            "domain_map": _agent_context_domain_map(
+                project_root,
+                active_config,
+                domain=domain,
+                value=value,
+                scope=scope,
+                token_budget=token_budget,
+            ),
             "recommended_next_tools": _agent_context_next_tools(pack, token_budget),
             "recommended_human_review": _agent_context_review_points(pack),
         }
@@ -1278,6 +1314,232 @@ def _agent_context_review_points(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return points
+
+
+def _agent_context_domain_map(
+    root: Path,
+    config: LogicChartConfig,
+    *,
+    domain: str | None,
+    value: str | None,
+    scope: str | None,
+    token_budget: int,
+) -> dict[str, Any]:
+    model, error = _try_load(root, config)
+    if error is not None:
+        return error
+    assert model is not None
+    return _domain_logic_map(
+        model,
+        domain=domain,
+        value=value,
+        scope=scope,
+        token_budget=token_budget,
+    )
+
+
+def _domain_logic_map(
+    model: ProjectModel,
+    *,
+    domain: str | None,
+    value: str | None,
+    scope: str | None,
+    token_budget: int,
+) -> dict[str, Any]:
+    normalized_domain = domain.strip() if domain and domain.strip() else None
+    normalized_value = value.strip() if value and value.strip() else None
+    concepts: dict[str, dict[str, Any]] = {}
+
+    for flow in model.flows:
+        if not flow_in_agent_scope(flow, scope):
+            continue
+        for node in flow.nodes:
+            if node.kind is not NodeKind.DECISION:
+                continue
+            keys = _domain_keys(node.metadata)
+            if normalized_domain is not None:
+                keys = [key for key in keys if key == normalized_domain]
+            if not keys:
+                continue
+            values = _metadata_string_values(node.metadata.get("values"))
+            if normalized_value is not None and normalized_value not in values:
+                continue
+            for key in keys:
+                concept = concepts.setdefault(key, _empty_domain_concept(key))
+                concept["subjects"].update(_metadata_string_values(node.metadata.get("subject")))
+                concept["value_namespaces"].update(
+                    _metadata_string_values(node.metadata.get("value_namespace"))
+                )
+                concept["handled_values"].update(values)
+                concept["flow_ids"].add(flow.id)
+                concept["node_ids"].add(node.id)
+                concept["decision_nodes"].append(
+                    {
+                        "flow_id": flow.id,
+                        "flow": flow.name,
+                        "node_id": node.id,
+                        "subject": node.metadata.get("subject"),
+                        "value_namespace": node.metadata.get("value_namespace"),
+                        "values": values,
+                        "source": f"{node.location.path}:{node.location.start_line}",
+                    }
+                )
+
+    _attach_domain_findings(model, concepts, normalized_value, scope)
+    concept_rows = [_domain_concept_payload(item, token_budget) for item in concepts.values()]
+    concept_rows.sort(
+        key=lambda item: (
+            -item["finding_count"],
+            -item["decision_count"],
+            item["domain"],
+        )
+    )
+    if token_budget > 0:
+        concept_limit = max(1, token_budget // 300)
+        omitted = max(0, len(concept_rows) - concept_limit)
+        concept_rows = concept_rows[:concept_limit]
+    else:
+        omitted = 0
+    return {
+        "tool": "domain_map",
+        "guardrail": (
+            "Domain maps are deterministic summaries of decision metadata and related "
+            "findings. INFERRED and POTENTIAL_GAP findings remain review candidates."
+        ),
+        "filters": {
+            "domain": normalized_domain,
+            "value": normalized_value,
+            "scope": scope,
+            "token_budget": token_budget,
+        },
+        "concepts": concept_rows,
+        "omitted_concept_count": omitted,
+        "next_tools": {
+            "agent_context": {
+                "tool": "agent_context",
+                "arguments": {
+                    "domain": normalized_domain,
+                    "value": normalized_value,
+                    "scope": scope,
+                    "token_budget": token_budget,
+                },
+            },
+            "find_decision_nodes": {
+                "tool": "find_decision_nodes",
+                "arguments": {"domain": normalized_domain, "token_budget": token_budget},
+            },
+        },
+    }
+
+
+def _empty_domain_concept(domain: str) -> dict[str, Any]:
+    return {
+        "domain": domain,
+        "subjects": set(),
+        "value_namespaces": set(),
+        "handled_values": set(),
+        "missing_values": set(),
+        "flow_ids": set(),
+        "node_ids": set(),
+        "decision_nodes": [],
+        "findings": [],
+    }
+
+
+def _attach_domain_findings(
+    model: ProjectModel,
+    concepts: dict[str, dict[str, Any]],
+    value: str | None,
+    scope: str | None,
+) -> None:
+    flows_by_id = {flow.id: flow for flow in model.flows}
+    for finding in model.findings:
+        flow = flows_by_id.get(finding.flow_id)
+        if flow is None or not flow_in_agent_scope(flow, scope):
+            continue
+        metadata = finding.metadata
+        missing_values = _metadata_string_values(metadata.get("missing"))
+        if value is not None and value not in missing_values:
+            continue
+        finding_keys = set(_domain_keys(metadata))
+        subject = metadata.get("subject")
+        for concept in concepts.values():
+            concept_subjects = concept["subjects"]
+            matches_key = concept["domain"] in finding_keys
+            matches_subject = isinstance(subject, str) and subject in concept_subjects
+            matches_flow = finding.flow_id in concept["flow_ids"]
+            matches_node = bool(finding.node_id and finding.node_id in concept["node_ids"])
+            if not (matches_key or matches_subject or matches_flow or matches_node):
+                continue
+            concept["missing_values"].update(missing_values)
+            concept["findings"].append(
+                {
+                    "finding_id": finding.id,
+                    "kind": finding.kind,
+                    "severity": finding.severity.value,
+                    "evidence": finding.evidence.value,
+                    "message": finding.message,
+                    "missing_values": missing_values,
+                    "flow_id": finding.flow_id,
+                    "source": f"{finding.location.path}:{finding.location.start_line}",
+                }
+            )
+
+
+def _domain_concept_payload(concept: dict[str, Any], token_budget: int) -> dict[str, Any]:
+    per_section_limit = max(1, token_budget // 240) if token_budget > 0 else 20
+    flow_ids = sorted(concept["flow_ids"])
+    finding_ids = [item["finding_id"] for item in concept["findings"]]
+    finding_ids = finding_ids[:per_section_limit]
+    return {
+        "domain": concept["domain"],
+        "subjects": sorted(concept["subjects"]),
+        "value_namespaces": sorted(concept["value_namespaces"]),
+        "handled_values": sorted(concept["handled_values"]),
+        "missing_values": sorted(concept["missing_values"]),
+        "decision_count": len(concept["decision_nodes"]),
+        "flow_count": len(concept["flow_ids"]),
+        "finding_count": len(concept["findings"]),
+        "decision_nodes": concept["decision_nodes"][:per_section_limit],
+        "findings": concept["findings"][:per_section_limit],
+        "omitted_decision_count": max(0, len(concept["decision_nodes"]) - per_section_limit),
+        "omitted_finding_count": max(0, len(concept["findings"]) - per_section_limit),
+        "subgraph_flow_ids": flow_ids,
+        "subgraph_finding_ids": finding_ids,
+        "next_tools": {
+            "context_pack": {
+                "tool": "context_pack",
+                "arguments": {"domain": concept["domain"]},
+            },
+            "subgraph_snapshot": {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {
+                    "flow_ids": flow_ids,
+                    "finding_ids": finding_ids,
+                    "format": "svg",
+                },
+            },
+        },
+    }
+
+
+def _domain_keys(metadata: dict[str, Any]) -> list[str]:
+    keys = [
+        *_metadata_string_values(metadata.get("domain")),
+        *_metadata_string_values(metadata.get("value_namespace")),
+    ]
+    return list(dict.fromkeys(key for key in keys if key))
+
+
+def _metadata_string_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        stripped = value.strip()
+        return [stripped] if stripped else []
+    if isinstance(value, list | tuple | set):
+        return [str(item) for item in value if str(item).strip()]
+    return [str(value)]
 
 
 def _context_navigation_pack(
