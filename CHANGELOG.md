@@ -175,6 +175,8 @@ The project follows Semantic Versioning.
   selected finding or source-line selection.
 - Fixed tablet-width Details drawer overlap so canvas toolbar controls wrap into the
   remaining canvas space instead of sitting underneath the right rail.
+- Fixed selected tree rows and Details collapse controls to use flat solid colors instead
+  of gradients, translucent mixes, or drop shadows.
 
 ## 0.8.0 - 2026-06-17
 

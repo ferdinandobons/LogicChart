@@ -284,7 +284,7 @@
       align-items: center;
       gap: 8px;
       text-align: left;
-      border: 0;
+      border: 1px solid transparent;
       border-radius: var(--radius-sm);
       background: transparent;
       color: var(--ink);
@@ -311,23 +311,19 @@
     }
     .tree-dir .tree-label { font-weight: 680; }
     .tree-dir.active-folder, .tree-file.active-file {
-      background: color-mix(in srgb, var(--blue) 10%, transparent);
+      background: var(--active);
+      border-color: var(--blue);
     }
-    .tree-dir.active-folder .tree-label, .tree-file.active-file .tree-label { color: var(--blue); }
+    .tree-dir.active-folder .tree-label, .tree-file.active-file .tree-label { color: var(--ink); }
     .tree-file.active-parent {
       color: var(--ink);
-      background:
-        linear-gradient(90deg, color-mix(in srgb, var(--blue) 18%, transparent), transparent 78%),
-        color-mix(in srgb, var(--panel) 82%, transparent);
-      border: 1px solid color-mix(in srgb, var(--blue) 34%, var(--line));
-      box-shadow:
-        inset 4px 0 0 var(--blue),
-        0 6px 16px color-mix(in srgb, var(--paper) 80%, transparent);
+      background: var(--active);
+      border-color: var(--blue);
     }
     .tree-file.active-parent .tree-label { color: var(--ink); font-weight: 750; }
     .tree-file.active-parent .tree-count {
-      background: color-mix(in srgb, var(--blue) 18%, var(--chip));
-      color: var(--ink);
+      background: var(--blue);
+      color: var(--on-accent);
     }
     .tree-caret {
       flex: none;
@@ -377,17 +373,11 @@
       min-height: 39px;
     }
     .tree-flow.active::before {
-      background: linear-gradient(180deg, var(--blue), var(--violet));
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 38%, transparent);
+      background: var(--blue);
     }
     .tree-flow.active {
-      background:
-        linear-gradient(90deg, color-mix(in srgb, var(--blue) 16%, transparent), transparent 92%),
-        color-mix(in srgb, var(--panel) 88%, transparent);
-      border-color: color-mix(in srgb, var(--blue) 48%, var(--line));
-      box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--blue) 18%, transparent),
-        0 10px 24px color-mix(in srgb, var(--paper) 82%, transparent);
+      background: var(--active);
+      border-color: var(--blue);
     }
     .tree-flow-title {
       grid-column: 2;
@@ -1261,10 +1251,10 @@
       place-items: center;
       width: 28px;
       height: 28px;
-      border: 0;
+      border: 1px solid transparent;
       border-radius: var(--radius-sm);
-      background: transparent;
-      color: var(--muted);
+      background: var(--panel);
+      color: var(--ink);
       cursor: pointer;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 15px;
@@ -1273,8 +1263,9 @@
     }
     .panel-stack-control:hover,
     .panel-stack-control:focus-visible {
-      background: var(--hover);
-      color: var(--blue);
+      background: var(--active);
+      border-color: var(--blue);
+      color: var(--ink);
       outline: none;
     }
     .panel-close {
@@ -1324,7 +1315,7 @@
       position: relative;
     }
     .panel-head[data-panel-heading]:hover {
-      background: color-mix(in srgb, var(--chip) 36%, transparent);
+      background: var(--hover);
     }
     .panel-head[data-panel-heading]:focus-visible {
       outline: 2px solid var(--blue);
@@ -1332,7 +1323,7 @@
     }
     .panel[data-collapsed] .panel-head { border-bottom: 0; }
     .panel[data-collapsed] .panel-head[data-panel-heading] {
-      background: color-mix(in srgb, var(--chip) 22%, transparent);
+      background: var(--panel);
     }
     .panel-head .rail-title { margin: 0; }
     .panel-collapse-toggle {
@@ -1341,22 +1332,16 @@
       place-items: center;
       width: 30px;
       height: 30px;
-      border: 1px solid color-mix(in srgb, var(--blue) 48%, var(--line-strong));
+      border: 1px solid var(--blue);
       border-radius: 8px;
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--blue) 16%, transparent), transparent),
-        var(--chip);
+      background: var(--active);
       color: var(--blue);
       cursor: pointer;
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--panel) 70%, transparent) inset,
-        0 8px 24px rgba(0, 0, 0, .18);
     }
     .panel-head[data-panel-heading]:hover .panel-collapse-toggle {
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--blue) 24%, transparent), transparent),
-        var(--chip);
-      border-color: color-mix(in srgb, var(--blue) 78%, var(--line-strong));
+      background: var(--blue);
+      border-color: var(--blue);
+      color: var(--on-accent);
     }
     .panel-collapse-toggle:hover,
     .panel-collapse-toggle:focus-visible {

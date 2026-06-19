@@ -467,6 +467,14 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert ".panel-stack-control" in html
     assert ".panel[data-collapsed]" in html
     assert ".panel-head[data-panel-heading]:focus-visible" in html
+    assert (
+        ".tree-dir.active-folder, .tree-file.active-file {\n      background: var(--active);"
+        in html
+    )
+    assert ".tree-flow.active::before {\n      background: var(--blue);" in html
+    assert ".panel-stack-control {\n      display: grid;" in html
+    assert "background: var(--panel);\n      color: var(--ink);" in html
+    assert "background: var(--active);\n      color: var(--blue);" in html
     assert "resizeRailFromKeyboard" in html
     assert "scheduleCanvasLayoutRefresh" in html
     assert "data-nav-closed" in html
