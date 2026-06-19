@@ -121,9 +121,10 @@ def render_finding_snapshot(
     rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
     diagnostic = _diagnostic_for_snapshot(model, finding, flow, node)
     title = f"{finding.kind}: {finding.message}"
+    flow_findings = [item for item in model.findings if item.flow_id == flow.id]
     layout = _flow_layout(
         flow,
-        [item for item in model.findings if item.flow_id == flow.id],
+        flow_findings,
         highlighted,
         rendered_nodes=rendered_nodes,
         finding=finding,
@@ -131,7 +132,7 @@ def render_finding_snapshot(
     )
     svg = _flow_svg(
         flow,
-        [item for item in model.findings if item.flow_id == flow.id],
+        flow_findings,
         highlighted,
         rendered_nodes=rendered_nodes,
         title=title,
@@ -200,6 +201,14 @@ def _unique(items: list[str]) -> list[str]:
         result.append(item)
         seen.add(item)
     return result
+
+
+def _node_finding_counts(findings: list[Finding]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for finding in findings:
+        if finding.node_id:
+            counts[finding.node_id] = counts.get(finding.node_id, 0) + 1
+    return counts
 
 
 def render_impact_snapshot(
@@ -328,31 +337,25 @@ def render_subgraph_snapshot(
     ]
     flow_limit = _effective_limit(max_flows, MAX_SUBGRAPH_FLOWS)
     rendered_flows = selected_flows[:flow_limit]
-    rendered = [
-        _RenderedSubgraphFlow(
-            flow=flow,
-            findings=[finding for finding in model.findings if finding.flow_id == flow.id],
-            highlighted={
-                finding.node_id
-                for finding in model.findings
-                if finding.id in selected_finding_ids
-                and finding.flow_id == flow.id
-                and finding.node_id
-            },
-            nodes=_select_flow_nodes(
-                flow,
-                {
-                    finding.node_id
-                    for finding in model.findings
-                    if finding.id in selected_finding_ids
-                    and finding.flow_id == flow.id
-                    and finding.node_id
-                },
-                max_nodes,
-            ),
+    findings_by_flow: dict[str, list[Finding]] = {}
+    highlighted_by_flow: dict[str, set[str]] = {}
+    selected_finding_id_set = set(selected_finding_ids)
+    for finding in model.findings:
+        findings_by_flow.setdefault(finding.flow_id, []).append(finding)
+        if finding.id in selected_finding_id_set and finding.node_id:
+            highlighted_by_flow.setdefault(finding.flow_id, set()).add(finding.node_id)
+
+    rendered: list[_RenderedSubgraphFlow] = []
+    for flow in rendered_flows:
+        highlighted = highlighted_by_flow.get(flow.id, set())
+        rendered.append(
+            _RenderedSubgraphFlow(
+                flow=flow,
+                findings=findings_by_flow.get(flow.id, []),
+                highlighted=highlighted,
+                nodes=_select_flow_nodes(flow, highlighted, max_nodes),
+            )
         )
-        for flow in rendered_flows
-    ]
     layout = _subgraph_layout(rendered, unresolved_targets)
     svg = _subgraph_svg(
         rendered,
@@ -426,6 +429,7 @@ def _flow_svg(
             "meta",
         ),
     ]
+    node_finding_counts = _node_finding_counts(findings)
     for edge in flow.edges:
         if edge.source not in positions or edge.target not in positions:
             continue
@@ -433,7 +437,6 @@ def _flow_svg(
             _edge(edge.source, edge.target, positions, node_width, node_height, edge.label)
         )
     for node in nodes:
-        node_findings = [finding for finding in findings if finding.node_id == node.id]
         parts.append(
             _flow_node(
                 node,
@@ -441,7 +444,7 @@ def _flow_svg(
                 node_width,
                 node_height,
                 highlighted=node.id in highlight_node_ids,
-                finding_count=len(node_findings),
+                finding_count=node_finding_counts.get(node.id, 0),
             )
         )
     if omitted:
@@ -518,6 +521,7 @@ def _subgraph_svg(
             ]
         )
         flow_positions = {node.id: positions[node.id] for node in nodes if node.id in positions}
+        node_finding_counts = _node_finding_counts(findings)
         for edge in flow.edges:
             if edge.source not in flow_positions or edge.target not in flow_positions:
                 continue
@@ -525,7 +529,6 @@ def _subgraph_svg(
                 _edge(edge.source, edge.target, flow_positions, node_width, node_height, edge.label)
             )
         for node in nodes:
-            node_findings = [finding for finding in findings if finding.node_id == node.id]
             parts.append(
                 _flow_node(
                     node,
@@ -533,7 +536,7 @@ def _subgraph_svg(
                     node_width,
                     node_height,
                     highlighted=node.id in highlighted,
-                    finding_count=len(node_findings),
+                    finding_count=node_finding_counts.get(node.id, 0),
                 )
             )
         omitted = max(0, len(flow.nodes) - len(nodes))
