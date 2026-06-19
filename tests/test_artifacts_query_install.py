@@ -11,7 +11,7 @@ from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.install import END, START, install_agent_instructions, install_mcp_config
 from logicchart.query import impact_model, query_model
-from logicchart.util import read_json
+from logicchart.util import read_json, write_json
 from logicchart.validation import (
     schema_file_language_ids,
     schema_language_ids,
@@ -117,6 +117,51 @@ def test_schema_pins_optional_diagnostic_metadata_contract(tmp_path: Path) -> No
     errors = list(validator.iter_errors(malformed))
     assert any("is not of type" in error.message for error in errors)
     assert finding["metadata"]["diagnostic"]["rule_id"] == finding["kind"]
+
+
+def test_validate_checks_finding_rule_metadata_contract(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    finding = artifact["findings"][0]
+    rules = artifact["metadata"]["finding_rules"]
+
+    rules[finding["kind"]]["metadata_fields"].append("missing_contract_field")
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert not report.ok
+    assert any("missing_contract_field" in error for error in report.errors)
+
+
+def test_validate_checks_diagnostic_rule_id_matches_finding_kind(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    artifact["findings"][0]["metadata"]["diagnostic"]["rule_id"] = "dead_code"
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert not report.ok
+    assert any("does not match finding kind" in error for error in report.errors)
 
 
 def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:

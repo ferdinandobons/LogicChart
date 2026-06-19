@@ -147,6 +147,8 @@ Current checkpoint:
 - Single-flow diagnostics include detector-specific evidence-chain entries for implicit
   fallbacks, constant guards, handler outcomes, empty branches, and asymmetric dispatch
   returns.
+- `logicchart validate` now checks present finding-rule contracts against emitted findings,
+  so rule-declared metadata fields and diagnostic rule ids cannot drift silently.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
   state, rule purpose, review prompt, next actions, a compact focused diagnostic subgraph,
   related flows, and evidence nodes.
@@ -235,8 +237,7 @@ Current checkpoint:
 
 Still open:
 
-- Keep metadata-field guarantees synchronized when adding new detectors or detector
-  evidence.
+- Keep expanding detector-specific examples and evidence only where they add review value.
 
 ## Finding 3: Schema 1.1 Is Too Flexible for a Mature Product
 
@@ -251,6 +252,9 @@ Current checkpoint:
 - Schema 1.1 now validates optional generated metadata contracts for finding diagnostics,
   finding-rule registry entries, quality metrics, language capability records, and skipped
   files while still allowing custom metadata for forward compatibility.
+- Artifact validation now enforces present finding-rule metadata contracts against emitted
+  findings without requiring a schema bump or rejecting legacy artifacts that omit the
+  registry.
 - The schema still intentionally avoids enumerating `finding.kind` or bumping to 1.2 until
   the migration and consumer story is ready.
 

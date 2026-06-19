@@ -112,6 +112,8 @@ The project follows Semantic Versioning.
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,
   preconditions, caveats, metadata fields, review prompt, and next-action shape.
+- Added artifact validation for present finding-rule metadata contracts, including
+  rule-declared finding metadata fields and diagnostic rule-id alignment.
 - Added JSON Schema coverage for optional generated diagnostic, finding-rule, quality,
   language-capability, and skipped-file metadata while keeping artifact schema 1.1
   forward-compatible for custom metadata.
