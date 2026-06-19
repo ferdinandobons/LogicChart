@@ -1597,9 +1597,7 @@ def _context_navigation_pack(
 
 
 def _context_navigation_item_budget(token_budget: int) -> int:
-    if token_budget <= 0:
-        return 2
-    return max(1, min(3, token_budget // 300))
+    return _context_item_budget(token_budget)
 
 
 def _context_navigation_token_budget(token_budget: int, flow_limit: int) -> int:
@@ -1609,6 +1607,10 @@ def _context_navigation_token_budget(token_budget: int, flow_limit: int) -> int:
 
 
 def _context_visual_item_budget(token_budget: int) -> int:
+    return _context_item_budget(token_budget)
+
+
+def _context_item_budget(token_budget: int) -> int:
     if token_budget <= 0:
         return 2
     return max(1, min(3, token_budget // 300))
