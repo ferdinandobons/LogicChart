@@ -357,13 +357,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         )
         return _enrichment_preview_payload(
             preview,
-            scope=scope,
-            flow_ids=flow_ids or [],
-            finding_ids=finding_ids or [],
-            max_flows=options.max_flows,
-            max_nodes_per_flow=options.max_nodes_per_flow,
-            max_findings=options.max_findings,
-            env_file=env_file,
             token_budget=token_budget,
         )
 
@@ -1640,13 +1633,6 @@ def _enrichment_options(
 def _enrichment_preview_payload(
     preview: dict[str, Any],
     *,
-    scope: str | None,
-    flow_ids: list[str],
-    finding_ids: list[str],
-    max_flows: int,
-    max_nodes_per_flow: int,
-    max_findings: int,
-    env_file: str | None,
     token_budget: int,
 ) -> dict[str, Any]:
     targets = preview.get("targets", {})

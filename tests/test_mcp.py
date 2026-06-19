@@ -1086,13 +1086,6 @@ def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
 
     payload = _enrichment_preview_payload(
         preview,
-        scope=None,
-        flow_ids=[],
-        finding_ids=[finding.id],
-        max_flows=options.max_flows,
-        max_nodes_per_flow=options.max_nodes_per_flow,
-        max_findings=options.max_findings,
-        env_file=None,
         token_budget=240,
     )
 
