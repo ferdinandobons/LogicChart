@@ -210,7 +210,7 @@ def _directory_name_or_path_matches(path: str, name: str, pattern: str) -> bool:
     if not normalized:
         return False
     if "/" not in normalized:
-        return fnmatch.fnmatch(name, normalized)
+        return any(fnmatch.fnmatch(part, normalized) for part in path.split("/") if part)
     return fnmatch.fnmatch(path, normalized) or _directory_pattern_matches(
         path, normalized.rstrip("/") + "/**"
     )

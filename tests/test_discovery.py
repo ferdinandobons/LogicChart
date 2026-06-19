@@ -121,3 +121,27 @@ def test_default_exclude_dirs_apply_to_source_roots(tmp_path: Path) -> None:
     files = discover_source_files(project, config)
 
     assert files == []
+
+
+def test_default_exclude_dirs_apply_inside_source_roots(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "logicchart.toml").write_text(
+        '[logicchart]\nsource_roots = ["src", "node_modules/package", "apps/web/dist/bundle.js"]\n',
+        encoding="utf-8",
+    )
+    (project / "src").mkdir()
+    (project / "src" / "real.py").write_text("def handler(x):\n    return x\n", encoding="utf-8")
+    dependency = project / "node_modules" / "package"
+    dependency.mkdir(parents=True)
+    (dependency / "index.ts").write_text("export function installed() { return 1; }\n")
+    bundled = project / "apps" / "web" / "dist"
+    bundled.mkdir(parents=True)
+    (bundled / "bundle.js").write_text("export function bundled() { return 1; }\n")
+
+    config = LogicChartConfig.load(project)
+    files = {
+        path.relative_to(project).as_posix() for path in discover_source_files(project, config)
+    }
+
+    assert files == {"src/real.py"}

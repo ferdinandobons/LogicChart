@@ -36,7 +36,7 @@ def discover_source_files(root: Path, config: LogicChartConfig) -> list[Path]:
             if not resolved.is_relative_to(root_resolved):
                 continue
             relative = _resolved_relpath(resolved, root_resolved)
-            if not config.is_excluded(relative):
+            if not config.is_excluded(relative) and not config.is_excluded_dir(relative):
                 files.add(candidate)
     return sorted(files, key=lambda item: _resolved_relpath(item.resolve(), root_resolved))
 
