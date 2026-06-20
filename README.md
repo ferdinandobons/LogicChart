@@ -163,10 +163,11 @@ synthesize alternate Mermaid diagrams or add limits, error codes, or branches th
 present in the `workflow_slice` payload. The agent may choose a shallower or deeper view
 by asking LogicChart for a narrower slice, `expand_slice`, or `workflow_path`, but every
 displayed block must come from deterministic slice fields or a focused explain tool. A
-human-friendly rewrite is allowed only as a separate translation layer, preserving ids or
-source anchors and not adding facts. In practice, SVG snapshots are the best inline visual
-when the client supports images, canonical top-to-bottom Mermaid is the portable text
-fallback, and `logicchart view` remains the interactive manual viewer.
+language-friendly rewrite is allowed only as a separate translation layer in the language
+used by the user, preserving ids or source anchors and not adding facts. In practice, SVG
+snapshots are the best inline visual when the client supports images, canonical
+top-to-bottom Mermaid is the portable text fallback, and `logicchart view` remains the
+interactive manual viewer.
 
 High-value MCP tools include:
 

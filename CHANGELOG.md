@@ -122,6 +122,9 @@ The project follows Semantic Versioning.
   come from the selected payload; SVG snapshots remain the preferred inline visual,
   canonical top-to-bottom Mermaid is the universal fallback, and `logicchart view` stays
   the interactive manual viewer.
+- Clarified that language-friendly workflow diagrams may rewrite technical block labels
+  only as a separate translation layer in the user's language, without adding facts beyond
+  the selected `workflow_slice`.
 - Added `viewer_targets` to workflow-slice and `snapshot_slice` MCP payloads so agents can
   hand humans stable `logicchart view` hash fragments for manual inspection.
 - Added MCP `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,

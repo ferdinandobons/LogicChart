@@ -45,11 +45,12 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "top-to-bottom" in content
     assert "bounded summary" in content
     assert "can be expanded" in content
-    assert "human-friendly" in content
+    assert "language-friendly" in content
+    assert "language of the user's request" in content
     assert "synthesize a new Mermaid" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content
-    assert "Show raw JSON or" in content
+    assert "raw JSON" in content
     assert "YAML only when explicitly" in content
     assert "requested" in content
     assert "logicchart view ..." in content
@@ -75,6 +76,8 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "stable concise `token_budget`" in content
     assert "bounded summary" in content
     assert "human-friendly" in content
+    assert "language-friendly" in content
+    assert "language of the user's request" in content
     assert "synthesize a new Mermaid" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content

@@ -83,8 +83,8 @@ LogicChart is in a strong alpha state.
   requests instead of synthesizing diagrams from prose.
 - The presentation contract now separates depth selection from factual content. Agents can
   ask LogicChart for a narrower or expanded slice, but displayed blocks must be derived
-  from returned node, edge, decision, and source fields. Human-friendly wording is allowed
-  only as a separate translation layer.
+  from returned node, edge, decision, and source fields. Language-friendly wording is
+  allowed only as a separate translation layer in the language used by the user.
 - MCP is now a default runtime dependency. `uv tool install .` installs the central MCP
   surface without requiring the legacy `.[mcp]` extra.
 - `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration

@@ -1528,8 +1528,8 @@ def _workflow_presentation_contract(
             "this payload.",
             "Tell the user the shown diagram is a bounded summary of the selected "
             "logic and can be expanded.",
-            "A separate human-friendly translation may rewrite labels only from "
-            "returned node, edge, source, and decision fields.",
+            "A separate human-friendly translation may rewrite labels in the user's "
+            "language only from returned node, edge, source, and decision fields.",
             "Use ordered_steps as the canonical walkthrough and keep source anchors visible.",
             "Keep flow_id and finding_id values visible so the slice can be expanded.",
             "Do not invent steps, constants, limits, error codes, or branches outside "
@@ -1555,9 +1555,9 @@ def _workflow_presentation_contract(
             ),
             "human_friendly": (
                 "A human-friendly translation may replace technical labels with "
-                "clearer wording only as a separate presentation layer. Preserve ids "
-                "or source anchors and do not add facts absent from the workflow_slice "
-                "payload."
+                "clearer wording in the language used by the user, only as a separate "
+                "presentation layer. Preserve ids or source anchors and do not add "
+                "facts absent from the workflow_slice payload."
             ),
         },
         "media_policy": {
@@ -1700,7 +1700,8 @@ def _workflow_canonical_visual(
             "derived from deterministic graph nodes and edges; do not add inferred "
             "limits, error codes, branches, or service steps that are absent from the "
             "workflow_slice payload. Invisible Mermaid links are layout constraints only. "
-            "Use a separate human-friendly view if labels need translation."
+            "Use a separate human-friendly view in the user's language if labels need "
+            "translation."
         ),
     }
 

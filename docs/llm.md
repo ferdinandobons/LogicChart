@@ -24,7 +24,8 @@ inline, it should render `workflow_slice.presentation.canonical_visual.diagram` 
 the top-to-bottom Mermaid fallback instead of synthesizing a new Mermaid diagram or compact
 linear workflow summary. The agent can vary depth by requesting a narrower or expanded
 slice, but node and edge content must stay grounded in returned workflow-slice fields.
-Human-friendly wording is a separate translation layer, not a new source of facts.
+Language-friendly wording uses the language of the user's request and is a separate
+translation layer, not a new source of facts.
 
 ## MCP Annotation Workflow
 

@@ -244,6 +244,10 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     assert "label_policy" in workflow_slice["presentation"]
     assert "media_policy" in workflow_slice["presentation"]
     assert "human-friendly" in workflow_slice["presentation"]["label_policy"]["human_friendly"]
+    assert (
+        "language used by the user"
+        in workflow_slice["presentation"]["label_policy"]["human_friendly"]
+    )
     assert "snapshot_slice" in workflow_slice["presentation"]["media_policy"]["svg_snapshot"]
     assert "logicchart view" in workflow_slice["presentation"]["media_policy"]["manual_viewer"]
     canonical_visual = workflow_slice["presentation"]["canonical_visual"]

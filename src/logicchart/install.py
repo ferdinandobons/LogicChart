@@ -76,8 +76,10 @@ flusso, or similar code path:
    synthesize a new Mermaid diagram and do not add limits, error codes, branches, or
    service steps that are absent from the `workflow_slice` payload.
 6. Say that the displayed diagram is a bounded summary of the selected logic and can be
-   expanded. If a more readable version is useful, present it as a human-friendly
-   translation derived only from returned node, edge, decision, and source fields.
+   expanded. If the user asks for a more language-friendly version, rewrite the technical
+   block labels in simple wording using the language of the user's request. Present that
+   as a human-friendly translation derived only from returned node, edge, decision, and
+   source fields.
 7. Also provide the `viewer_targets` command and hash
    target so the user can open the same visual in `logicchart view`.
 8. Treat `workflow_slice.presentation` as supporting context for this request, not as the
@@ -117,10 +119,11 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    Choose depth by using the returned slice handles, `expand_slice`, or `workflow_path`;
    say that the displayed diagram is a bounded summary and can be expanded.
    Do not synthesize a new Mermaid diagram and do not add limits, error codes, branches,
-   or service steps that are absent from the `workflow_slice` payload. A human-friendly
-   translation is allowed only as a separate presentation layer derived from returned
-   node, edge, decision, and source fields. Show raw JSON or YAML only when explicitly
-   requested.
+   or service steps that are absent from the `workflow_slice` payload. If the user asks
+   for a more language-friendly version, rewrite the technical block labels in simple
+   wording using the language of the user's request. This is allowed only as a separate
+   presentation layer derived from returned node, edge, decision, and source fields. Show
+   raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
 5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
