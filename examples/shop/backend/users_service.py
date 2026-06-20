@@ -7,8 +7,8 @@ from backend.domain import Account, AccountStatus, ApiError
 def authenticate(account: Account | None) -> Account:
     """Reference handler: every AccountStatus is handled explicitly, with an else.
 
-    This is the complete-coverage sibling the cross-flow detector compares the
-    route handlers against. It must NOT be flagged.
+    This is the complete-coverage sibling route handlers can be compared with when
+    exploring account-status workflows.
     """
     account = ensure_authenticated(account)
     if account.status == AccountStatus.SUSPENDED:

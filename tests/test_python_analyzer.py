@@ -41,7 +41,6 @@ async def get_user(user_id: str):
     assert flow.entry_kind == "route"
     assert any(node.kind is NodeKind.DECISION for node in flow.nodes)
     assert any(node.kind is NodeKind.ERROR for node in flow.nodes)
-    assert not any(item.kind == "missing_branch" for item in analysis.findings)
 
 
 def test_import_map_uses_module_index_without_filesystem_probe(

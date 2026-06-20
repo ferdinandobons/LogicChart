@@ -32,7 +32,6 @@ export async function POST(request: Request) {
     assert flow.framework == "nextjs"
     assert flow.entry_kind == "route"
     assert any(node.kind is NodeKind.DECISION for node in flow.nodes)
-    assert any(item.kind == "missing_branch" for item in analysis.findings)
 
 
 def _reaches(flow, start_id: str) -> set[str]:

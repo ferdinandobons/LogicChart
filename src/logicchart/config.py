@@ -86,7 +86,6 @@ class LogicChartConfig:
     max_call_depth: int = 4
     output_dir: str = "logicchart-out"
     self_exclude: bool = True
-    gated_detectors: bool = False
     entrypoint_include: list[str] = field(default_factory=list)
     entrypoint_exclude: list[str] = field(default_factory=list)
     # Named macro-parts of the codebase, e.g. {"backend": ["backend/**"], "edge": ["edge/**"]}.
@@ -108,7 +107,6 @@ class LogicChartConfig:
             config.max_call_depth = int(section.get("max_call_depth", config.max_call_depth))
             config.output_dir = str(section.get("output_dir", config.output_dir))
             config.self_exclude = bool(section.get("self_exclude", config.self_exclude))
-            config.gated_detectors = bool(section.get("gated_detectors", config.gated_detectors))
             entrypoints = section.get("entrypoints", {})
             config.entrypoint_include = list(entrypoints.get("include", []))
             config.entrypoint_exclude = list(entrypoints.get("exclude", []))

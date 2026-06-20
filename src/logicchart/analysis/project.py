@@ -38,7 +38,7 @@ from logicchart.util import (
     write_json,
 )
 
-CACHE_VERSION = "6"
+CACHE_VERSION = "7"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never
@@ -267,15 +267,15 @@ class ProjectAnalyzer:
     def _link_calls(self, flows: list[Flow]) -> None:
         # Import-aware first (`qualified_calls` from the analyzers), short name as a
         # fallback. Ambiguous candidates are recorded, not dropped, and each link
-        # carries a `link_confidence` so interprocedural detectors can weigh it.
+        # carries a `link_confidence` so agents can explain whether an edge is direct,
+        # inferred from imports, or only a short-name fallback.
         # Key on the flow symbol as-is (``module:qualified``) so a module-path boundary
         # never collides with an attribute boundary; a default-export flow also answers
         # to the module's default marker.
         #
         # Both tables are partitioned by language: module/symbol namespaces never span
         # languages, so a TS `charge(request)` whose qualified target is missing must
-        # not fall back onto a same-named PYTHON `charge`. (Every cross-flow detector and
-        # the enum table already bucket by language for the same reason.)
+        # not fall back onto a same-named PYTHON `charge`.
         by_qualified: dict[str, dict[str, list[Flow]]] = {}
         by_name: dict[str, dict[str, list[Flow]]] = {}
         for flow in flows:

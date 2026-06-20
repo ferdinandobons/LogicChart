@@ -28,30 +28,6 @@ class Severity(str, Enum):
     ERROR = "error"
 
 
-class FindingKind(str, Enum):
-    """Single source for the finding-kind vocabulary.
-
-    Producers set ``kind`` and suppression/query joins compare against these, so this
-    central enum keeps the cross-module string contract from silently desyncing on a
-    rename. Values are the wire form, so JSON and existing comparisons are unchanged.
-    """
-
-    # Single-flow, emitted by detectors.py.
-    MISSING_BRANCH = "missing_branch"
-    DEAD_CODE = "dead_code"
-    BROAD_EXCEPT_SWALLOW = "broad_except_swallow"
-    NO_OP_BRANCH = "no_op_branch"
-    ASYMMETRIC_RETURN = "asymmetric_return"
-    # Project-level, emitted by cross_flow.py. dead_guard is category single_flow but
-    # needs the project-level constant table; the rest compare sibling flows.
-    DEAD_GUARD = "dead_guard"
-    INCONSISTENT_CASE_HANDLING = "inconsistent_case_handling"
-    ENUM_EXHAUSTIVENESS = "enum_exhaustiveness"
-    OUTCOME_INCONSISTENCY = "outcome_inconsistency"
-    LOGGING_ASYMMETRY = "logging_asymmetry"
-    AUTH_DIVERGENCE = "auth_divergence"
-
-
 @dataclass(slots=True)
 class SourceLocation:
     path: str
@@ -126,7 +102,6 @@ class FileAnalysis:
     language: str
     sha256: str
     flows: list[Flow] = field(default_factory=list)
-    findings: list[Finding] = field(default_factory=list)
     enums: dict[str, list[str]] = field(default_factory=dict)
     constants: dict[str, bool] = field(default_factory=dict)
     dependencies: list[str] = field(default_factory=list)
@@ -141,7 +116,6 @@ class FileAnalysis:
             language=data["language"],
             sha256=data["sha256"],
             flows=[_flow_from_dict(item) for item in data.get("flows", [])],
-            findings=[_finding_from_dict(item) for item in data.get("findings", [])],
             enums=data.get("enums", {}),
             constants=data.get("constants", {}),
             dependencies=data.get("dependencies", []),

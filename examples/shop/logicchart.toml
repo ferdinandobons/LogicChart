@@ -4,8 +4,6 @@ exclude = []
 include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
-# Opt in to the gated, higher-FP detectors (e.g. authorization divergence).
-gated_detectors = true
 
 [logicchart.entrypoints]
 include = []

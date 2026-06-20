@@ -30,13 +30,11 @@ from logicchart.analysis.common import (
     tag_call_effects,
     value_namespace,
 )
-from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
 from logicchart.analysis.discovery import discover_source_files
 from logicchart.config import LogicChartConfig
 from logicchart.model import (
     Evidence,
     FileAnalysis,
-    Finding,
     Flow,
     NodeKind,
     SourceLocation,
@@ -98,8 +96,6 @@ class PythonAnalyzer:
         constants = _harvest_constants(tree)
         constant_names = set(constants)
         flows: list[Flow] = []
-        findings: list[Finding] = []
-
         for definition, owner in _definitions(tree):
             flow = self._analyze_definition(
                 definition=definition,
@@ -107,7 +103,6 @@ class PythonAnalyzer:
                 source=source,
                 relative=relative,
                 module_name=module_name,
-                findings=findings,
             )
             # A constant shadowed locally is runtime-dependent, so dead_guard must not
             # claim its guard is always true/false.
@@ -140,7 +135,6 @@ class PythonAnalyzer:
             constants=constants,
             dependencies=dependencies,
             flows=flows,
-            findings=findings,
         )
 
     def _python_module_paths(self) -> dict[str, str]:
@@ -162,7 +156,6 @@ class PythonAnalyzer:
         source: _SourceText,
         relative: str,
         module_name: str,
-        findings: list[Finding],
     ) -> Flow:
         qualified_name = f"{owner}.{definition.name}" if owner else definition.name
         symbol = f"{module_name}:{qualified_name}"
@@ -202,7 +195,6 @@ class PythonAnalyzer:
             definition.body,
             [PendingEdge(entry.id)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -215,10 +207,8 @@ class PythonAnalyzer:
                 evidence=Evidence.INFERRED,
             )
         annotate_reachability(flow)
-        # Tag effects before single-flow detection so detectors that reason about
-        # call effects (e.g. a log-only exception handler) see them.
+        # Tag call effects for downstream navigation and explanation metadata.
         tag_call_effects(flow)
-        findings.extend(single_flow_findings(flow))
         return flow
 
     def _walk_statements(
@@ -226,35 +216,21 @@ class PythonAnalyzer:
         statements: list[ast.stmt],
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
         for statement in statements:
             if not endpoints:
-                findings.append(
-                    dead_code_finding(
-                        builder.flow,
-                        _location(relative, statement),
-                        _source_segment(source, statement),
-                    )
-                )
                 break
             if isinstance(statement, ast.If):
-                endpoints = self._walk_if(statement, endpoints, builder, findings, source, relative)
+                endpoints = self._walk_if(statement, endpoints, builder, source, relative)
             elif isinstance(statement, ast.Match):
-                endpoints = self._walk_match(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_match(statement, endpoints, builder, source, relative)
             elif isinstance(statement, ast.Try):
-                endpoints = self._walk_try(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_try(statement, endpoints, builder, source, relative)
             elif isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
-                endpoints = self._walk_loop(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_loop(statement, endpoints, builder, source, relative)
             elif isinstance(statement, ast.Return):
                 value = _safe_unparse(statement.value) if statement.value else ""
                 calls = _call_names(statement)
@@ -324,7 +300,6 @@ class PythonAnalyzer:
         statement: ast.For | ast.AsyncFor | ast.While,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
@@ -348,7 +323,6 @@ class PythonAnalyzer:
             statement.body,
             [PendingEdge(node.id, "Iteration")],
             builder,
-            findings,
             source,
             relative,
         )
@@ -358,7 +332,6 @@ class PythonAnalyzer:
                 statement.orelse,
                 done_endpoints + body_endpoints,
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -369,7 +342,6 @@ class PythonAnalyzer:
         statement: ast.If,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
@@ -407,7 +379,6 @@ class PythonAnalyzer:
             statement.body,
             [PendingEdge(node.id, YES)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -416,7 +387,6 @@ class PythonAnalyzer:
                 statement.orelse,
                 [PendingEdge(node.id, NO)],
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -429,7 +399,6 @@ class PythonAnalyzer:
         statement: ast.Match,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
@@ -469,7 +438,6 @@ class PythonAnalyzer:
                     case.body,
                     [PendingEdge(node.id, label)],
                     builder,
-                    findings,
                     source,
                     relative,
                 )
@@ -488,7 +456,6 @@ class PythonAnalyzer:
         statement: ast.Try,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
@@ -515,7 +482,6 @@ class PythonAnalyzer:
             statement.body,
             [PendingEdge(node.id, SUCCESS)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -524,7 +490,6 @@ class PythonAnalyzer:
                 statement.orelse,
                 body_endpoints,
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -537,7 +502,6 @@ class PythonAnalyzer:
                     handler.body,
                     [PendingEdge(node.id, error_name)],
                     builder,
-                    findings,
                     source,
                     relative,
                 )
@@ -548,7 +512,7 @@ class PythonAnalyzer:
             body_terminated = not endpoints
             finally_incoming = endpoints or [PendingEdge(node.id, "finally")]
             endpoints = self._walk_statements(
-                statement.finalbody, finally_incoming, builder, findings, source, relative
+                statement.finalbody, finally_incoming, builder, source, relative
             )
             if body_terminated:
                 # The try/handlers already returned/raised; the terminator resumes after

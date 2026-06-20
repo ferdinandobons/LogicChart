@@ -580,7 +580,6 @@ include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
 self_exclude = true
-gated_detectors = false
 
 [logicchart.entrypoints]
 include = []

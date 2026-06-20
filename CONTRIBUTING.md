@@ -24,10 +24,10 @@ npm run viewer:build
 demo HTML before browser checks and open it with `?runtime=react` when testing the typed
 canvas path.
 
-Viewer changes should preserve the invariants in [docs/viewer.md](docs/viewer.md):
-scope nodes use the same node styling family as other blocks, each scope connects to all
-visible entrypoints, expanded details reserve layout space before rendering, selected links
-dim unrelated blocks, and invisible hit paths never become visible bounding boxes.
+Viewer changes should preserve the manual exploration invariants: scope nodes use the same
+node styling family as other blocks, each scope connects to all visible entrypoints,
+expanded details reserve layout space before rendering, selected links dim unrelated
+blocks, and invisible hit paths never become visible bounding boxes.
 
 The recommended viewer loop is:
 
@@ -66,7 +66,7 @@ Every analyzer change should include a minimal source fixture and assertions for
 - decision nodes and branch labels;
 - source locations;
 - evidence level;
-- expected findings without overstating heuristics.
+- call metadata and domain metadata when the fixture exercises them.
 
 Keep language-specific extraction separate from the shared logical IR. Framework knowledge
 belongs in a focused adapter or classifier, not in the renderer.

@@ -23,21 +23,12 @@ model.
 | `frontend` | `frontend/app/users/page.tsx`      | TypeScript  | User dashboard page                   |
 | `frontend` | `frontend/lib/status.js`           | JavaScript  | Status labels and visual tones        |
 
-## Intentional findings
+## What the demo proves
 
-Across the whole codebase LogicChart surfaces exactly **two** findings, both in the
-frontend API layer:
-
-- `frontend/app/api/orders/route.ts` switches on `order.state` and omits
-  `OrderState.RETURNED`, `OrderState.CHARGEBACK`, and `OrderState.BACKORDERED`.
-- `frontend/app/api/users/route.ts` switches on `user.status` and omits
-  `UserStatus.DELETED`, `UserStatus.ARCHIVED`, and `UserStatus.LOCKED`.
-
-Both findings are `enum_exhaustiveness` with `INFERRED` evidence. The JavaScript helper in
-`frontend/lib/status.js` handles every user status, so it stays clean: the contrast is the
-point. Every backend service (including the Rust `match`, which the compiler already proves
-exhaustive) is reported clean, so the demo stays precise while still giving the review panel
-multiple realistic problems to show.
+Across the whole codebase LogicChart builds deterministic workflow models without adding a
+review queue. Enum and state-machine decisions are still captured as domain metadata on
+nodes and flows, so agents can explain what each workflow does without treating inferred
+gaps as defects.
 
 ## Explore it
 
@@ -47,11 +38,10 @@ logicchart validate examples/demo --check-sync
 logicchart view examples/demo                # interactive manual viewer
 ```
 
-For query or impact questions, configure an agent with `logicchart setup-agent <target>`
-in the project you want to inspect, then ask the agent ordinary questions such as
-"where is suspended user status handled?" or "what is impacted by backend/users.py?".
-Those capabilities now live behind MCP workflow slices rather than public demo CLI
-commands.
+For codebase questions, configure an agent with `logicchart setup-agent <target>` in the
+project you want to inspect, then ask ordinary questions such as "where is suspended user
+status handled?" or "show the order fulfillment workflow." Those capabilities live behind
+MCP workflow slices rather than public demo CLI commands.
 
 The generated model lives in [`logicchart-out/`](logicchart-out/): `logic-flow.json`
 (the IR), `logic-flow.md` (Markdown + Mermaid), and `logic-flow.html` (the viewer).

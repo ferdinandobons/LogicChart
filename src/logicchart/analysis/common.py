@@ -177,8 +177,7 @@ def is_functional_condition(condition: str, branch_text: str = "") -> bool:
 
 
 # Canonical per-branch terminal behavior, recorded on a decision node's `branches`
-# metadata and validated by branch(). Single-sourced here so the detectors that
-# compare against these names stay aligned with the producers.
+# metadata and validated by branch().
 RETURNS = "returns"
 RAISES = "raises"
 FALLS_THROUGH = "falls_through"
@@ -186,8 +185,7 @@ EMPTY = "empty"
 CONTINUES = "continues"
 BRANCH_OUTCOMES = frozenset({RETURNS, RAISES, FALLS_THROUGH, EMPTY, CONTINUES})
 
-# Structural branch *labels* the walkers emit on decision edges. A producer/consumer
-# contract: they travel on the same edges the detectors read, so single-sourced here.
+# Structural branch *labels* the walkers emit on decision edges.
 YES = "Yes"
 NO = "No"
 SUCCESS = "Success"
@@ -434,8 +432,7 @@ def annotate_reachability(flow: Flow) -> None:
     """Record `reachable_from_entry` / `reaches_terminal` on every node.
 
     Deterministic graph reachability: a forward walk from entry nodes and a
-    reverse walk from terminal/error nodes. Used by single-flow detectors (dead
-    code, dead joins) and surfaced for navigation.
+    reverse walk from terminal/error nodes. Surfaced for navigation and explanation.
     """
     outgoing: dict[str, list[str]] = {node.id: [] for node in flow.nodes}
     incoming: dict[str, list[str]] = {node.id: [] for node in flow.nodes}
@@ -470,8 +467,8 @@ def call_is_boundary(name: str) -> bool:
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
 
 
-# Side-effect categories inferred from a call's leaf name. Read by the logging-asymmetry,
-# auth-divergence, and default-semantic-inconsistency detectors.
+# Side-effect categories inferred from a call's leaf name. Used as explanatory metadata
+# for calls and branch behavior.
 EFFECT_LEXICON: dict[str, tuple[str, ...]] = {
     "auth_check": (
         "require_role",

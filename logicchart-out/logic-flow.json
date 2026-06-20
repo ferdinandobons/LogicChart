@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-20T14:53:28.447590+00:00",
+  "generated_at": "2026-06-20T15:39:04.506930+00:00",
   "root": ".",
   "flows": [
     {
@@ -13330,7 +13330,7 @@
             "end_line": 12
           },
           "evidence": "VERIFIED",
-          "detail": "\"\"\"Reference handler: every AccountStatus is handled explicitly, with an else. This is the complete-coverage sibling the cross-flow detector compares the route handlers against. It must NOT be flagged. \"\"\"",
+          "detail": "\"\"\"Reference handler: every AccountStatus is handled explicitly, with an else. This is the complete-coverage sibling route handlers can be compared with when exploring account-status workflows. \"\"\"",
           "metadata": {
             "reachable_from_entry": true,
             "reaches_terminal": true
@@ -20144,7 +20144,7 @@
     {
       "path": "examples/shop/backend/users_service.py",
       "language": "python",
-      "sha256": "cbd1c4ad5b4507001ea5979c49ce80ab938e676a17de40d89300be36f6a46292",
+      "sha256": "a88d06d427f177d41f7e643b8636aa7a87bcc9c4c621a1acdb7f33fe712ae5a4",
       "flow_ids": [
         "flow-c00fda52066729a3",
         "flow-68e9ed308389b179"

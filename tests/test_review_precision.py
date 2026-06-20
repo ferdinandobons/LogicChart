@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.common import decision_metadata
-from logicchart.analysis.cross_flow import _outcomes_compatible, _raise_signature
 from logicchart.analysis.project import ProjectAnalyzer
 
 
@@ -42,22 +41,6 @@ def test_set_membership_predicate_models_decision_without_findings(tmp_path: Pat
 
     assert {"Status.A", "Status.B", "Status.C"} <= set(decision.metadata["values"])
     assert model.findings == []
-
-
-def test_raise_signature_normalizes_symbolic_status() -> None:
-    assert _raise_signature("Raise HTTPException(status_code=403, detail='x')") == (
-        "raise:HTTPException:403"
-    )
-    assert _raise_signature("Raise HTTPException(status.HTTP_403_FORBIDDEN)") == (
-        "raise:HTTPException:403"
-    )
-
-
-def test_outcomes_compatible_treats_codeless_as_match() -> None:
-    assert _outcomes_compatible("raise:HTTPException", "raise:HTTPException:403")
-    assert _outcomes_compatible("raise:HTTPException:403", "raise:HTTPException:403")
-    assert not _outcomes_compatible("raise:HTTPException:404", "raise:HTTPException:403")
-    assert not _outcomes_compatible("return", "raise:HTTPException:403")
 
 
 def test_constant_guard_remains_modeled_without_findings(tmp_path: Path) -> None:

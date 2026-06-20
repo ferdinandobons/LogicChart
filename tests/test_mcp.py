@@ -8,10 +8,10 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from logicchart.analysis.project import ProjectAnalyzer
+from logicchart.annotation_preview import build_annotation_preview
 from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.config import LogicChartConfig
-from logicchart.llm_enrich import build_enrichment_preview
 from logicchart.mcp_server import (
     MCP_INSTRUCTIONS,
     _agent_action_terms,
@@ -635,12 +635,11 @@ def authorize(user):
                 assert not enrichment.isError
                 enrichment_payload = enrichment.structuredContent  # type: ignore[assignment]
                 assert enrichment_payload["provider_call_made"] is False  # type: ignore[index]
-                assert enrichment_payload["send_required"] is True  # type: ignore[index]
+                assert enrichment_payload["send_required"] is False  # type: ignore[index]
                 assert enrichment_payload["targets"]["flow_ids"] == [flow.id]  # type: ignore[index]
                 assert "finding_ids" not in enrichment_payload["targets"]  # type: ignore[index]
                 assert enrichment_payload["request"]["flows"][0]["id"] == flow.id  # type: ignore[index]
                 assert "findings" not in enrichment_payload["request"]  # type: ignore[index]
-                assert "LOGICCHART_LLM_API_KEY" not in str(enrichment.content)
                 assert "agent-authored annotations" in enrichment_payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     enrichment_payload["next_tools"]["subgraph_snapshot"]["tool"]
@@ -1437,7 +1436,7 @@ def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
         max_nodes_per_flow=12,
         token_budget=240,
     )
-    preview = build_enrichment_preview(tmp_path, result.model, config, options)
+    preview = build_annotation_preview(tmp_path, result.model, config, options)
 
     payload = _enrichment_preview_payload(
         preview,

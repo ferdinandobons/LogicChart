@@ -38,9 +38,8 @@ from logicchart.analysis.common import (
     tree_sitter_parse_error,
     value_namespace,
 )
-from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
 from logicchart.config import LogicChartConfig
-from logicchart.model import Evidence, FileAnalysis, Finding, Flow, NodeKind, SourceLocation
+from logicchart.model import Evidence, FileAnalysis, Flow, NodeKind, SourceLocation
 from logicchart.util import compact_text, file_sha256, relpath, stable_id
 
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
@@ -95,9 +94,8 @@ class TypeScriptAnalyzer:
         definitions = list(_definitions(tree.root_node, source_bytes, relative))
         if parse_error is not None and not definitions:
             require_tree_sitter_parse_ok(tree.root_node, relative, ir_language)
-        findings: list[Finding] = []
         flows = [
-            self._analyze_definition(item, source_bytes, source, relative, ir_language, findings)
+            self._analyze_definition(item, source_bytes, source, relative, ir_language)
             for item in definitions
         ]
         if parse_error is not None:
@@ -131,7 +129,6 @@ class TypeScriptAnalyzer:
             enums=_harvest_enums(tree.root_node, source_bytes),
             dependencies=dependencies,
             flows=flows,
-            findings=findings,
         )
 
     def _analyze_definition(
@@ -141,7 +138,6 @@ class TypeScriptAnalyzer:
         source: str,
         relative: str,
         ir_language: str,
-        findings: list[Finding],
     ) -> Flow:
         qualified_name = (
             f"{definition.owner}.{definition.name}" if definition.owner else definition.name
@@ -184,7 +180,6 @@ class TypeScriptAnalyzer:
                 list(_named_children(definition.body)),
                 [PendingEdge(entry.id)],
                 builder,
-                findings,
                 source_bytes,
                 relative,
             )
@@ -205,10 +200,8 @@ class TypeScriptAnalyzer:
                 evidence=Evidence.INFERRED,
             )
         annotate_reachability(flow)
-        # Tag effects before single-flow detection so detectors that reason about
-        # call effects (e.g. a log-only exception handler) see them.
+        # Tag call effects for downstream navigation and explanation metadata.
         tag_call_effects(flow)
-        findings.extend(single_flow_findings(flow))
         return flow
 
     def _walk_statements(
@@ -216,36 +209,22 @@ class TypeScriptAnalyzer:
         statements: list[Any],
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
         for statement in statements:
             if not endpoints:
-                findings.append(
-                    dead_code_finding(
-                        builder.flow,
-                        _location(relative, statement),
-                        _text(statement, source),
-                    )
-                )
                 break
             node_type = statement.type
             if node_type == "if_statement":
-                endpoints = self._walk_if(statement, endpoints, builder, findings, source, relative)
+                endpoints = self._walk_if(statement, endpoints, builder, source, relative)
             elif node_type == "switch_statement":
-                endpoints = self._walk_switch(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_switch(statement, endpoints, builder, source, relative)
             elif node_type == "try_statement":
-                endpoints = self._walk_try(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_try(statement, endpoints, builder, source, relative)
             elif node_type in LOOP_TYPES:
-                endpoints = self._walk_loop(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_loop(statement, endpoints, builder, source, relative)
             elif node_type == "return_statement":
                 value = _text(statement, source).removeprefix("return").rstrip(";").strip()
                 calls = [
@@ -322,7 +301,6 @@ class TypeScriptAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -344,7 +322,6 @@ class TypeScriptAnalyzer:
             _statement_children(body),
             [PendingEdge(node.id, "Iteration")],
             builder,
-            findings,
             source,
             relative,
         )
@@ -433,7 +410,6 @@ class TypeScriptAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -478,7 +454,6 @@ class TypeScriptAnalyzer:
             _statement_children(consequence),
             [PendingEdge(node.id, YES)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -487,7 +462,6 @@ class TypeScriptAnalyzer:
                 _statement_children(alternative),
                 [PendingEdge(node.id, NO)],
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -500,7 +474,6 @@ class TypeScriptAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -551,7 +524,6 @@ class TypeScriptAnalyzer:
                 children,
                 [PendingEdge(node.id, label), *carried],
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -574,7 +546,6 @@ class TypeScriptAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -603,7 +574,6 @@ class TypeScriptAnalyzer:
             _statement_children(body),
             [PendingEdge(node.id, SUCCESS)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -614,7 +584,6 @@ class TypeScriptAnalyzer:
                     _statement_children(handler),
                     [PendingEdge(node.id, "Error")],
                     builder,
-                    findings,
                     source,
                     relative,
                 )
@@ -628,7 +597,6 @@ class TypeScriptAnalyzer:
                 _statement_children(finalizer),
                 finally_incoming,
                 builder,
-                findings,
                 source,
                 relative,
             )

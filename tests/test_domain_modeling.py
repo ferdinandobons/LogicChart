@@ -1,4 +1,4 @@
-"""Cross-flow domain modeling without public review findings."""
+"""Domain metadata remains navigable without a public review queue."""
 
 from __future__ import annotations
 
@@ -28,24 +28,6 @@ def test_enum_dispatch_keeps_domain_metadata_without_findings(tmp_path: Path) ->
     values = {value for node in decisions for value in node.metadata["values"]}
 
     assert {"Result.A", "Result.B", "Result.C"} <= values
-    assert model.findings == []
-
-
-def test_gated_detector_config_still_loads_but_does_not_emit_findings(tmp_path: Path) -> None:
-    (tmp_path / "logicchart.toml").write_text(
-        '[logicchart]\nsource_roots = ["."]\ngated_detectors = true\n',
-        encoding="utf-8",
-    )
-    (tmp_path / "routes.py").write_text(
-        "def delete_user(admin, target):\n"
-        "    require_role(admin, 'admin')\n    do_delete(target)\n\n\n"
-        "def purge_user(admin, target):\n    do_purge(target)\n",
-        encoding="utf-8",
-    )
-
-    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
-
-    assert {flow.name for flow in model.flows} == {"delete_user", "purge_user"}
     assert model.findings == []
 
 

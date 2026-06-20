@@ -7,8 +7,8 @@ grammar node types and supplies small per-language extractors. A new control-flo
 language becomes a profile (see ``analysis/languages/``), not a bespoke analyzer.
 
 It produces the same IR (flows, nodes, edges, ``branches``, decision identity, effects,
-qualified calls) as the dedicated Python/TypeScript analyzers, so detectors, linking, and
-rendering are unchanged.
+qualified calls) as the dedicated Python/TypeScript analyzers, so linking, rendering, and
+agent navigation stay consistent.
 """
 
 from __future__ import annotations
@@ -47,9 +47,8 @@ from logicchart.analysis.common import (
 )
 from logicchart.analysis.common import DEFAULT as DEFAULT_LABEL
 from logicchart.analysis.common import NO as NO_LABEL
-from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
 from logicchart.config import LogicChartConfig
-from logicchart.model import Evidence, FileAnalysis, Finding, Flow, NodeKind, SourceLocation
+from logicchart.model import Evidence, FileAnalysis, Flow, NodeKind, SourceLocation
 from logicchart.util import compact_text, file_sha256, relpath, stable_id
 
 
@@ -166,8 +165,7 @@ class TreeSitterAnalyzer:
         definitions = list(self.profile.definitions(tree.root_node, source, relative, self.profile))
         if parse_error is not None and not definitions:
             require_tree_sitter_parse_ok(tree.root_node, relative, self.profile.language)
-        findings: list[Finding] = []
-        flows = [self._analyze_definition(item, source, relative, findings) for item in definitions]
+        flows = [self._analyze_definition(item, source, relative) for item in definitions]
         if parse_error is not None:
             for flow in flows:
                 flow.metadata["parse_error"] = parse_error
@@ -197,12 +195,9 @@ class TreeSitterAnalyzer:
             enums=enums,
             dependencies=dependencies,
             flows=flows,
-            findings=findings,
         )
 
-    def _analyze_definition(
-        self, definition: TSDefinition, source: bytes, relative: str, findings: list[Finding]
-    ) -> Flow:
+    def _analyze_definition(self, definition: TSDefinition, source: bytes, relative: str) -> Flow:
         owner_prefix = f"{definition.owner}." if definition.owner else ""
         qualified_name = f"{owner_prefix}{definition.name}"
         symbol = f"{self.profile.module_name(relative)}:{qualified_name}"
@@ -234,7 +229,6 @@ class TreeSitterAnalyzer:
             self._statement_children(definition.body),
             [PendingEdge(entry.id)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -244,7 +238,6 @@ class TreeSitterAnalyzer:
             )
         annotate_reachability(flow)
         tag_call_effects(flow)
-        findings.extend(single_flow_findings(flow))
         return flow
 
     def _entry_label(self, flow: Flow) -> str:
@@ -257,7 +250,6 @@ class TreeSitterAnalyzer:
         statements: list[Any],
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -265,9 +257,6 @@ class TreeSitterAnalyzer:
         endpoints = incoming
         for raw in statements:
             if not endpoints:
-                findings.append(
-                    dead_code_finding(builder.flow, _location(relative, raw), _text(raw, source))
-                )
                 break
             statement = raw
             if statement.type in profile.unwrap_types:
@@ -276,19 +265,13 @@ class TreeSitterAnalyzer:
                     statement = inner
             node_type = statement.type
             if node_type == profile.if_type:
-                endpoints = self._walk_if(statement, endpoints, builder, findings, source, relative)
+                endpoints = self._walk_if(statement, endpoints, builder, source, relative)
             elif node_type in profile.switch_types:
-                endpoints = self._walk_switch(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_switch(statement, endpoints, builder, source, relative)
             elif profile.try_type is not None and node_type == profile.try_type:
-                endpoints = self._walk_try(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_try(statement, endpoints, builder, source, relative)
             elif node_type in profile.loop_types:
-                endpoints = self._walk_loop(
-                    statement, endpoints, builder, findings, source, relative
-                )
+                endpoints = self._walk_loop(statement, endpoints, builder, source, relative)
             elif node_type == profile.return_type:
                 endpoints = self._walk_return(statement, endpoints, builder, source, relative)
             elif node_type in profile.throw_types:
@@ -371,7 +354,6 @@ class TreeSitterAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -394,7 +376,6 @@ class TreeSitterAnalyzer:
             body_statements,
             [PendingEdge(node.id, "Iteration")],
             builder,
-            findings,
             source,
             relative,
         )
@@ -405,7 +386,6 @@ class TreeSitterAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -454,7 +434,6 @@ class TreeSitterAnalyzer:
             self._statement_children(consequence),
             [PendingEdge(node.id, YES)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -463,7 +442,6 @@ class TreeSitterAnalyzer:
                 self._statement_children(alternative),
                 [PendingEdge(node.id, NO_LABEL)],
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -476,7 +454,6 @@ class TreeSitterAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -522,7 +499,6 @@ class TreeSitterAnalyzer:
                 case.body,
                 [PendingEdge(node.id, label), *carried],
                 builder,
-                findings,
                 source,
                 relative,
             )
@@ -590,7 +566,6 @@ class TreeSitterAnalyzer:
         statement: Any,
         incoming: list[PendingEdge],
         builder: FlowBuilder,
-        findings: list[Finding],
         source: bytes,
         relative: str,
     ) -> list[PendingEdge]:
@@ -618,7 +593,6 @@ class TreeSitterAnalyzer:
             self._statement_children(body),
             [PendingEdge(node.id, SUCCESS)],
             builder,
-            findings,
             source,
             relative,
         )
@@ -627,7 +601,7 @@ class TreeSitterAnalyzer:
             branches.append(branch("Error", self._branch_outcome(catch_body)))
             endpoints.extend(
                 self._walk_statements(
-                    catch_body, [PendingEdge(node.id, "Error")], builder, findings, source, relative
+                    catch_body, [PendingEdge(node.id, "Error")], builder, source, relative
                 )
             )
         node.metadata["branches"] = branches
@@ -637,7 +611,7 @@ class TreeSitterAnalyzer:
             body_terminated = not endpoints
             finally_incoming = endpoints or [PendingEdge(node.id, "finally")]
             endpoints = self._walk_statements(
-                final_body, finally_incoming, builder, findings, source, relative
+                final_body, finally_incoming, builder, source, relative
             )
             if body_terminated:
                 endpoints = []

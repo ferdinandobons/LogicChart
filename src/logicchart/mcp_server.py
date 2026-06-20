@@ -15,6 +15,7 @@ from typing import Any, cast
 from urllib.parse import quote
 
 from logicchart.analysis import ProjectAnalyzer
+from logicchart.annotation_preview import AnnotationPreviewOptions, build_annotation_preview
 from logicchart.annotations import (
     ANNOTATIONS_SCHEMA_VERSION,
     AnnotationLoadResult,
@@ -25,7 +26,6 @@ from logicchart.annotations import (
 )
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
-from logicchart.llm_enrich import EnrichmentOptions, build_enrichment_preview
 from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel
 from logicchart.quality import model_quality
 from logicchart.query import (
@@ -261,10 +261,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         flow_ids: list[str] | None = None,
         max_flows: int = 8,
         max_nodes_per_flow: int = 12,
-        env_file: str | None = None,
         token_budget: int = 0,
     ) -> dict[str, Any]:
-        """Preview the optional LLM enrichment payload without calling a provider.
+        """Preview local annotation targets without calling a provider.
 
         The result is local-only and always reports ``provider_call_made: false``. The
         agent-first workflow should use this to inspect candidate annotation targets, then
@@ -281,12 +280,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             max_nodes_per_flow=max_nodes_per_flow,
             token_budget=token_budget,
         )
-        preview = build_enrichment_preview(
+        preview = build_annotation_preview(
             project_root,
             model,
             active_config,
             options,
-            env_file=env_file,
         )
         return _enrichment_preview_payload(
             preview,
@@ -309,7 +307,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 flow_ids=flow_ids,
                 max_flows=max_flows,
                 max_nodes_per_flow=max_nodes_per_flow,
-                env_file=None,
                 token_budget=token_budget,
             ),
         )
@@ -3072,13 +3069,13 @@ def _enrichment_options(
     max_flows: int,
     max_nodes_per_flow: int,
     token_budget: int,
-) -> EnrichmentOptions:
+) -> AnnotationPreviewOptions:
     flow_limit = max(0, max_flows)
     node_limit = max(0, max_nodes_per_flow)
     if token_budget > 0:
         flow_limit = min(flow_limit, max(1, token_budget // 240))
         node_limit = min(node_limit, max(4, token_budget // 100))
-    return EnrichmentOptions(
+    return AnnotationPreviewOptions(
         scope=scope,
         flow_ids=tuple(flow_ids or ()),
         max_flows=flow_limit,
