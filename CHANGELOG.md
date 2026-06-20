@@ -120,8 +120,8 @@ The project follows Semantic Versioning.
 - Added workflow-slice presentation policies for visual depth, deterministic labels, and
   media choice: agents can request narrower or expanded slices, but displayed blocks must
   come from the selected payload; SVG snapshots remain the preferred inline visual,
-  canonical Mermaid is the universal fallback, and `logicchart view` stays the interactive
-  manual viewer.
+  canonical top-to-bottom Mermaid is the universal fallback, and `logicchart view` stays
+  the interactive manual viewer.
 - Added `viewer_targets` to workflow-slice and `snapshot_slice` MCP payloads so agents can
   hand humans stable `logicchart view` hash fragments for manual inspection.
 - Added MCP `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,

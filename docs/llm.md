@@ -20,11 +20,11 @@ but it must not replace source-backed flow data, diagnostic evidence, or review-
 provider-native skills route implicit code-logic questions to MCP `agent_context` and route
 visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the manual UI
 fallback when inline SVG rendering is unavailable. When the agent cannot show the SVG
-inline, it should render `workflow_slice.presentation.canonical_visual.diagram` exactly
-instead of synthesizing a new Mermaid diagram or compact linear workflow summary. The
-agent can vary depth by requesting a narrower or expanded slice, but node and edge content
-must stay grounded in returned workflow-slice fields. Human-friendly wording is a separate
-translation layer, not a new source of facts.
+inline, it should render `workflow_slice.presentation.canonical_visual.diagram` exactly as
+the top-to-bottom Mermaid fallback instead of synthesizing a new Mermaid diagram or compact
+linear workflow summary. The agent can vary depth by requesting a narrower or expanded
+slice, but node and edge content must stay grounded in returned workflow-slice fields.
+Human-friendly wording is a separate translation layer, not a new source of facts.
 
 ## MCP Annotation Workflow
 

@@ -250,12 +250,18 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     assert canonical_visual["schema_version"] == "workflow_slice.canonical_visual.v1"
     assert canonical_visual["format"] == "mermaid"
     assert canonical_visual["diagram"].startswith("flowchart TD\n")
+    assert "direction TB" in canonical_visual["diagram"]
     assert "OCRService.create_upload_urls" in canonical_visual["diagram"]
     assert "Create pending OCR upload job" in canonical_visual["diagram"]
     assert "DeadlineType is valid" in canonical_visual["diagram"]
     assert '-->|"Next"|' in canonical_visual["diagram"]
     assert "calls OCRService.start_processing" in canonical_visual["diagram"]
+    assert "~~~" in canonical_visual["diagram"]
     assert canonical_visual["diagram_hash"]
+    assert canonical_visual["layout"]["direction"] == "top_to_bottom"
+    assert canonical_visual["layout"]["flow_direction"] == "top_to_bottom"
+    assert canonical_visual["layout"]["constraint_edge"] == "invisible_mermaid_link"
+    assert canonical_visual["layout"]["constraint_count"] == 1
     assert "human-friendly view" in canonical_visual["guardrail"]
     assert (
         canonical_visual
@@ -535,7 +541,9 @@ def authorize(user):
                 canonical_visual = workflow_slice["presentation"]["canonical_visual"]  # type: ignore[index]
                 assert canonical_visual["format"] == "mermaid"
                 assert canonical_visual["diagram"].startswith("flowchart TD\n")
+                assert "direction TB" in canonical_visual["diagram"]
                 assert canonical_visual["diagram_hash"]
+                assert canonical_visual["layout"]["direction"] == "top_to_bottom"
                 assert "Render this diagram as-is" in canonical_visual["guardrail"]
                 assert workflow_slice["primary_flows"][0]["id"] == flow.id
                 assert workflow_slice["ordered_steps"]

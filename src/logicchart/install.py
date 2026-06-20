@@ -71,10 +71,10 @@ flusso, or similar code path:
    `workflow_slice.handle.finding_ids`.
 4. Show the SVG snapshot or rendered visual first when the client supports it.
 5. If inline SVG rendering is not possible, render
-   `workflow_slice.presentation.canonical_visual.diagram` exactly as the Mermaid fallback.
-   Keep the returned `diagram_hash` visible when useful. Do not synthesize a new Mermaid
-   diagram and do not add limits, error codes, branches, or service steps that are absent
-   from the `workflow_slice` payload.
+   `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
+   Mermaid fallback. Keep the returned `diagram_hash` visible when useful. Do not
+   synthesize a new Mermaid diagram and do not add limits, error codes, branches, or
+   service steps that are absent from the `workflow_slice` payload.
 6. Say that the displayed diagram is a bounded summary of the selected logic and can be
    expanded. If a more readable version is useful, present it as a human-friendly
    translation derived only from returned node, edge, decision, and source fields.
@@ -112,7 +112,8 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
    `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available; if the
    client cannot render the SVG inline, render
-   `workflow_slice.presentation.canonical_visual.diagram` exactly as the Mermaid fallback.
+   `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
+   Mermaid fallback.
    Choose depth by using the returned slice handles, `expand_slice`, or `workflow_path`;
    say that the displayed diagram is a bounded summary and can be expanded.
    Do not synthesize a new Mermaid diagram and do not add limits, error codes, branches,

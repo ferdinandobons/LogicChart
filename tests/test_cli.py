@@ -22,6 +22,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "returned `workflow_slice`" in content
     assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
+    assert "top-to-bottom" in content
     assert "bounded summary" in content
     assert "can be expanded" in content
     assert "human-friendly" in content
@@ -48,6 +49,7 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
+    assert "top-to-bottom" in content
     assert "`diagram_hash`" in content
     assert "stable concise `token_budget`" in content
     assert "bounded summary" in content

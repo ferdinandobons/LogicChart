@@ -1566,8 +1566,8 @@ def _workflow_presentation_contract(
                 "artifacts; it is the closest static visual to the modeled graph."
             ),
             "mermaid_fallback": (
-                "Use canonical_visual.diagram as the universal text fallback when "
-                "images are unavailable or the user wants copyable output."
+                "Use canonical_visual.diagram as the top-to-bottom universal text "
+                "fallback when images are unavailable or the user wants copyable output."
             ),
             "manual_viewer": (
                 "Keep logicchart view as the interactive manual UI; do not replace it "
@@ -1605,6 +1605,7 @@ def _workflow_canonical_visual(
     omitted_nodes = 0
     omitted_edges = 0
     edge_count = 0
+    layout_constraint_count = 0
 
     if not flows:
         lines.append('  empty["No modeled flows selected for this workflow_slice"]')
@@ -1619,6 +1620,7 @@ def _workflow_canonical_visual(
             f"  subgraph {_workflow_mermaid_id(f'flow:{flow.id}')}"
             f'["{_workflow_mermaid_label(flow.name)}"]'
         )
+        lines.append("    direction TB")
         if not flow.nodes:
             summary_id = _workflow_mermaid_id(f"{flow.id}:summary")
             lines.append(f'    {summary_id}["{_workflow_mermaid_label(flow.name)}"]')
@@ -1656,6 +1658,14 @@ def _workflow_canonical_visual(
             )
             edge_count += 1
 
+    for previous_flow_id, next_flow_id in pairwise(rendered_flow_ids):
+        previous_nodes = flow_node_ids.get(previous_flow_id, [])
+        next_nodes = flow_node_ids.get(next_flow_id, [])
+        if not previous_nodes or not next_nodes:
+            continue
+        lines.append(f"  {previous_nodes[-1]} ~~~ {next_nodes[0]}")
+        layout_constraint_count += 1
+
     diagram = "\n".join(lines)
     return {
         "schema_version": "workflow_slice.canonical_visual.v1",
@@ -1674,6 +1684,12 @@ def _workflow_canonical_visual(
         "finding_ids": finding_ids,
         "node_count": len(rendered_nodes),
         "edge_count": edge_count,
+        "layout": {
+            "direction": "top_to_bottom",
+            "flow_direction": "top_to_bottom",
+            "constraint_count": layout_constraint_count,
+            "constraint_edge": "invisible_mermaid_link",
+        },
         "omissions": {
             "node_budget": node_budget,
             "omitted_node_count": omitted_nodes,
@@ -1683,8 +1699,8 @@ def _workflow_canonical_visual(
             "Render this diagram as-is when a text Mermaid fallback is needed. It is "
             "derived from deterministic graph nodes and edges; do not add inferred "
             "limits, error codes, branches, or service steps that are absent from the "
-            "workflow_slice payload. Use a separate human-friendly view if labels need "
-            "translation."
+            "workflow_slice payload. Invisible Mermaid links are layout constraints only. "
+            "Use a separate human-friendly view if labels need translation."
         ),
     }
 

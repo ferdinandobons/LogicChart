@@ -78,9 +78,9 @@ LogicChart is in a strong alpha state.
   slices anchor to one primary flow and keep related matches as supporting flows, so agents
   can show stable ordered steps instead of raw YAML dumps.
 - `workflow_slice.presentation` now includes `canonical_visual.diagram`, a deterministic
-  Mermaid fallback built from graph nodes and edges plus a stable `diagram_hash`. Agents
-  should render that field exactly for repeated visual workflow requests instead of
-  synthesizing diagrams from prose.
+  top-to-bottom Mermaid fallback built from graph nodes and edges plus a stable
+  `diagram_hash`. Agents should render that field exactly for repeated visual workflow
+  requests instead of synthesizing diagrams from prose.
 - The presentation contract now separates depth selection from factual content. Agents can
   ask LogicChart for a narrower or expanded slice, but displayed blocks must be derived
   from returned node, edge, decision, and source fields. Human-friendly wording is allowed
