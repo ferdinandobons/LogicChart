@@ -489,17 +489,25 @@ The primary MCP tool is `agent_context`. Agents should call it for ordinary ques
 about how code works, what a change touches, where a state is handled, or which review signal
 needs review. It accepts a user question, changed files, selected code, current file,
 flow id, symbol, finding id, dependency path, domain/value filters, scope, token budget,
-and visual preference, then returns one bounded context pack with query matches, impact,
-navigation, review signals, domain maps, guardrails, recommended next tools, and optional visual
-context.
+and visual preference, then returns a deterministic `workflow_slice` plus the compatible
+context pack. The slice is the product unit agents should answer from: it includes the
+normalized intent, selected primary/supporting flows, ordered steps, decisions, calls,
+domain logic, review signals, source ranges, visual handles, omissions, guardrails, and
+follow-up tool calls.
+
+Workflow slices are progressively navigable. Use `expand_slice` to widen a slice from its
+stable flow/finding handle, `workflow_path` to trace between two flows, symbols, or
+concepts, `snapshot_slice` to render the selected slice as deterministic SVG context, and
+`explain_flow`, `explain_node`, or `explain_edge` for focused fallback inspection.
 
 Lower-level MCP tools remain available for expert follow-up: summary, analysis-quality
 reports, flow listing, flow retrieval, flow-navigation packs, query, review signals,
 finding-rule contracts, review-signal-chain explanation, review-signal context subgraphs,
 state-handling lookup, domain maps, decision-node search, impact analysis, token-bounded
 deterministic SVG snapshots for flows, review signals, impact sets, and explicit flow/finding
-subgraphs, annotation-target preview/write/status/validation/clear tools, review queue,
-context pack, artifact validation, and artifact update. Artifact validation and update
+subgraphs, workflow-slice expansion/path/snapshot/explanation tools, annotation-target
+preview/write/status/validation/clear tools, review queue, context pack, artifact validation,
+and artifact update. Artifact validation and update
 responses include guardrails plus `next_tools` and maintenance CLI hints for the
 update -> validate -> review sequence, so agents can recover from stale generated models
 without guessing the workflow. Recovery hints use `update_logicchart(full=true)` and

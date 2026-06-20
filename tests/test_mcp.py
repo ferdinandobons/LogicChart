@@ -232,6 +232,12 @@ def authorize(user):
                     "review_queue",
                     "context_pack",
                     "validate_artifacts",
+                    "expand_slice",
+                    "workflow_path",
+                    "snapshot_slice",
+                    "explain_flow",
+                    "explain_node",
+                    "explain_edge",
                 } <= names
 
                 listed = await session.call_tool("list_flows", {"entrypoints_only": False})
@@ -265,6 +271,12 @@ def authorize(user):
                     "review_queue",
                     "context_pack",
                     "agent_context",
+                    "expand_slice",
+                    "workflow_path",
+                    "snapshot_slice",
+                    "explain_flow",
+                    "explain_node",
+                    "explain_edge",
                 ):
                     properties = schema_by_name[budget_tool].get("properties", {})
                     assert "token_budget" in properties, budget_tool
@@ -350,6 +362,65 @@ def authorize(user):
                     agent_context_payload["recommended_next_tools"]["validate_artifacts"]["tool"]
                     == "validate_artifacts"
                 )
+                workflow_slice = agent_context_payload["workflow_slice"]  # type: ignore[index]
+                assert workflow_slice["schema_version"] == "workflow_slice.v1"
+                assert workflow_slice["id"].startswith("slice-")
+                assert workflow_slice["handle"]["flow_ids"] == [flow.id]
+                assert workflow_slice["primary_flows"][0]["id"] == flow.id
+                assert workflow_slice["ordered_steps"]
+                assert workflow_slice["source_ranges"]
+                assert workflow_slice["next_tools"]["expand_slice"]["tool"] == "expand_slice"
+                expanded_slice = await session.call_tool(
+                    "expand_slice",
+                    {
+                        "slice_id": workflow_slice["id"],
+                        "flow_ids": workflow_slice["handle"]["flow_ids"],
+                        "finding_ids": workflow_slice["handle"]["finding_ids"],
+                        "direction": "neighbors",
+                        "token_budget": 480,
+                    },
+                )
+                assert not expanded_slice.isError
+                expanded_payload = expanded_slice.structuredContent  # type: ignore[assignment]
+                assert expanded_payload["tool"] == "expand_slice"  # type: ignore[index]
+                assert expanded_payload["workflow_slice"]["handle"]["flow_ids"]  # type: ignore[index]
+                slice_snapshot = await session.call_tool(
+                    "snapshot_slice",
+                    {
+                        "slice_id": workflow_slice["id"],
+                        "flow_ids": workflow_slice["handle"]["flow_ids"],
+                        "finding_ids": workflow_slice["handle"]["finding_ids"],
+                        "token_budget": 480,
+                    },
+                )
+                assert not slice_snapshot.isError
+                assert slice_snapshot.structuredContent["snapshot"]["format"] == "svg"  # type: ignore[index]
+                path_response = await session.call_tool(
+                    "workflow_path",
+                    {"source": flow.id, "target": flow.id, "token_budget": 480},
+                )
+                assert not path_response.isError
+                path_payload = path_response.structuredContent  # type: ignore[assignment]
+                assert path_payload["path"]["found"] is True  # type: ignore[index]
+                assert path_payload["workflow_slice"]["primary_flows"][0]["id"] == flow.id  # type: ignore[index]
+                flow_explanation = await session.call_tool(
+                    "explain_flow",
+                    {"flow_id": flow.id, "token_budget": 480},
+                )
+                assert not flow_explanation.isError
+                assert flow_explanation.structuredContent["flow"]["id"] == flow.id  # type: ignore[index]
+                node_explanation = await session.call_tool(
+                    "explain_node",
+                    {"flow_id": flow.id, "node_id": flow.nodes[0].id, "token_budget": 480},
+                )
+                assert not node_explanation.isError
+                assert node_explanation.structuredContent["node"]["id"] == flow.nodes[0].id  # type: ignore[index]
+                edge_explanation = await session.call_tool(
+                    "explain_edge",
+                    {"flow_id": flow.id, "edge_id": flow.edges[0].id, "token_budget": 480},
+                )
+                assert not edge_explanation.isError
+                assert edge_explanation.structuredContent["edge"]["id"] == flow.edges[0].id  # type: ignore[index]
                 filtered_response = await session.call_tool(
                     "query_logic",
                     {"question": "", "symbol": flow.symbol, "source_path": "app.py"},

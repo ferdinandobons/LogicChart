@@ -19,6 +19,8 @@ REMOVED_AGENT_COMMAND_SNIPPETS = (
 
 def _assert_current_agent_instructions(content: str) -> None:
     assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "returned `workflow_slice`" in content
+    assert "`expand_slice`, `workflow_path`, `snapshot_slice`" in content
     assert "logicchart view ..." in content
     assert "logicchart <command> --help" in content
     assert "provider keys" in content

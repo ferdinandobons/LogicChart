@@ -4,7 +4,7 @@ LogicChart is deterministic, local-first, and does not require provider keys. Th
 enrichment workflow is handled by the coding agent that is already working with the user:
 
 1. The user asks the coding agent for clearer labels, summaries, or explanations.
-2. The agent calls MCP `agent_context` for deterministic context.
+2. The agent calls MCP `agent_context` for a deterministic `workflow_slice`.
 3. The agent writes generated text as validated annotations.
 4. LogicChart keeps those annotations separate from deterministic facts.
 

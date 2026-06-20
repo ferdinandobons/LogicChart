@@ -34,9 +34,12 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 
 1. Prefer the LogicChart MCP `agent_context` tool before broad file-by-file searches.
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
-   current file, flow id, symbol, finding id, or dependency path when available.
-3. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
-4. Use `logicchart view ...` only when a human wants the manual UI flowchart.
+   current file, flow id, symbol, finding id, or dependency path when available; inspect
+   its returned `workflow_slice` before answering.
+3. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
+   or `explain_edge` only when the first slice needs more precise context.
+4. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
+5. Use `logicchart view ...` only when a human wants the manual UI flowchart.
 
 When helping a user set up or learn LogicChart:
 
@@ -53,9 +56,11 @@ When helping a user set up or learn LogicChart:
 After a substantial code change:
 
 1. Use LogicChart MCP `agent_context` to review affected entry points and callers.
-2. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
+2. Ground the review in the returned `workflow_slice`; expand it through MCP only when
+   the initial slice omits relevant callers, callees, domain states, or findings.
+3. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
    when cached file models should be ignored.
-3. Commit synchronized changes to:
+4. Commit synchronized changes to:
    - `logicchart-out/logic-flow.json`
    - `logicchart-out/logic-flow.md`
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Mapping
 from dataclasses import asdict
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
@@ -816,8 +818,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
         Accepts the context a coding agent naturally has: user question, changed files,
         selected code/current file, or focused flow/symbol/finding/dependency targets.
-        Returns one bounded pack with query matches, impact, navigation, findings, source
-        ranges, guardrails, and optional visual snapshot context.
+        Returns one bounded workflow_slice plus compatible query, impact, navigation,
+        finding, source-range, guardrail, and optional visual snapshot context.
         """
         effective_question = _agent_context_question(question, selected_code)
         source_path = current_file.strip() if current_file and current_file.strip() else None
@@ -843,6 +845,36 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             include_visual=include_visual,
             token_budget=token_budget,
         )
+        domain_payload = _domain_logic_map(
+            model,
+            domain=domain,
+            value=value,
+            scope=domain_scope,
+            token_budget=token_budget,
+        )
+        workflow_slice = _workflow_slice_payload(
+            model,
+            pack,
+            question=effective_question,
+            inputs={
+                "question": question,
+                "changed_files": changed_files or [],
+                "current_file": source_path,
+                "flow_id": flow_id,
+                "symbol": symbol,
+                "finding_id": finding_id,
+                "dependency_path": dependency_path,
+                "domain": domain,
+                "value": value,
+                "scope": scope,
+                "include_visual": include_visual,
+                "token_budget": token_budget,
+            },
+            domain_map_payload=domain_payload,
+            token_budget=token_budget,
+        )
+        recommended_next_tools = _agent_context_next_tools(pack, token_budget)
+        recommended_next_tools["workflow_slice"] = workflow_slice["next_tools"]
         return {
             "tool": "agent_context",
             "guardrail": (
@@ -865,17 +897,242 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 "include_visual": include_visual,
                 "token_budget": token_budget,
             },
+            "workflow_slice": workflow_slice,
             "context": pack,
-            "domain_map": _domain_logic_map(
-                model,
-                domain=domain,
-                value=value,
-                scope=domain_scope,
-                token_budget=token_budget,
-            ),
-            "recommended_next_tools": _agent_context_next_tools(pack, token_budget),
+            "domain_map": domain_payload,
+            "recommended_next_tools": recommended_next_tools,
             "recommended_human_review": _agent_context_review_points(pack),
         }
+
+    @server.tool()
+    def expand_slice(
+        slice_id: str | None = None,
+        flow_ids: list[str] | None = None,
+        finding_ids: list[str] | None = None,
+        direction: str = "neighbors",
+        depth: int = 1,
+        include_visual: bool = False,
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Widen or deepen a workflow slice from stable flow/finding handles."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        expansion = _expand_workflow_slice_targets(
+            model,
+            flow_ids=flow_ids,
+            finding_ids=finding_ids,
+            direction=direction,
+            depth=depth,
+            token_budget=token_budget,
+        )
+        if expansion["error_code"]:
+            return _slice_target_error(
+                "expand_slice",
+                expansion["error_code"],
+                expansion["message"],
+                slice_id=slice_id,
+                flow_ids=flow_ids,
+                finding_ids=finding_ids,
+            )
+        pack = _context_pack_payload(
+            project_root,
+            active_config,
+            model,
+            question=f"expand workflow slice {direction}",
+            flow_ids=expansion["flow_ids"],
+            finding_ids=expansion["finding_ids"],
+            include_visual=include_visual,
+            token_budget=token_budget,
+        )
+        domain_payload = _domain_logic_map(
+            model,
+            domain=None,
+            value=None,
+            scope=None,
+            token_budget=token_budget,
+        )
+        workflow_slice = _workflow_slice_payload(
+            model,
+            pack,
+            question=f"expand workflow slice {direction}",
+            inputs={
+                "slice_id": slice_id,
+                "flow_ids": flow_ids or [],
+                "finding_ids": finding_ids or [],
+                "direction": direction,
+                "depth": depth,
+                "include_visual": include_visual,
+                "token_budget": token_budget,
+            },
+            domain_map_payload=domain_payload,
+            token_budget=token_budget,
+        )
+        return {
+            "tool": "expand_slice",
+            "base_slice_id": slice_id,
+            "direction": expansion["direction"],
+            "depth": expansion["depth"],
+            "expansion": expansion,
+            "workflow_slice": workflow_slice,
+        }
+
+    @server.tool()
+    def workflow_path(
+        source: str,
+        target: str,
+        scope: str | None = None,
+        include_visual: bool = False,
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Trace a deterministic workflow path between two flows, symbols, or concepts."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        source_seed = _resolve_workflow_path_seed(model, source, scope, token_budget)
+        target_seed = _resolve_workflow_path_seed(model, target, scope, token_budget)
+        if not source_seed["flow_ids"] or not target_seed["flow_ids"]:
+            return _workflow_path_error(source, target, source_seed, target_seed, token_budget)
+        path = _find_workflow_path(model, source_seed["flow_ids"], target_seed["flow_ids"])
+        selected_flow_ids = path["flow_ids"] or _unique_preserve_order(
+            [*source_seed["flow_ids"][:2], *target_seed["flow_ids"][:2]]
+        )
+        pack = _context_pack_payload(
+            project_root,
+            active_config,
+            model,
+            question=f"{source} -> {target}",
+            scope=scope,
+            flow_ids=selected_flow_ids,
+            include_visual=include_visual,
+            token_budget=token_budget,
+        )
+        domain_payload = _domain_logic_map(
+            model,
+            domain=None,
+            value=None,
+            scope=scope,
+            token_budget=token_budget,
+        )
+        workflow_slice = _workflow_slice_payload(
+            model,
+            pack,
+            question=f"{source} -> {target}",
+            inputs={
+                "source": source,
+                "target": target,
+                "scope": scope,
+                "include_visual": include_visual,
+                "token_budget": token_budget,
+            },
+            domain_map_payload=domain_payload,
+            token_budget=token_budget,
+        )
+        return {
+            "tool": "workflow_path",
+            "source": source_seed,
+            "target": target_seed,
+            "path": path,
+            "workflow_slice": workflow_slice,
+            "guardrail": (
+                "A missing path means no static call path was modeled in the current "
+                "artifact; it does not prove runtime disconnection."
+            ),
+        }
+
+    @server.tool()
+    def snapshot_slice(
+        slice_id: str | None = None,
+        flow_ids: list[str] | None = None,
+        finding_ids: list[str] | None = None,
+        format: str = "svg",
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Render a deterministic visual snapshot for a workflow slice."""
+        if format not in SNAPSHOT_FORMATS:
+            return unsupported_snapshot_format(format)
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        normalized_flow_ids = _known_flow_ids(model, flow_ids)
+        normalized_finding_ids = _known_finding_ids(model, finding_ids)
+        if not normalized_flow_ids and not normalized_finding_ids:
+            return _slice_target_error(
+                "snapshot_slice",
+                "slice_targets_missing",
+                "snapshot_slice requires at least one known flow_id or finding_id.",
+                slice_id=slice_id,
+                flow_ids=flow_ids,
+                finding_ids=finding_ids,
+            )
+        snapshot = render_subgraph_snapshot(
+            model,
+            flow_ids=normalized_flow_ids,
+            finding_ids=normalized_finding_ids,
+            max_flows=_snapshot_flow_budget(token_budget),
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
+        return {
+            "tool": "snapshot_slice",
+            "slice_id": slice_id,
+            "format": format,
+            "flow_ids": normalized_flow_ids,
+            "finding_ids": normalized_finding_ids,
+            "snapshot": snapshot,
+            "guardrail": (
+                "Snapshots are deterministic visual context for the selected slice. "
+                "Omission counts must be preserved when explaining large slices."
+            ),
+        }
+
+    @server.tool()
+    def explain_flow(flow_id: str, token_budget: int = 900) -> dict[str, Any]:
+        """Explain one flow with source anchors, decisions, calls, findings, and next tools."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        flow = _flow_by_id(model, flow_id)
+        if flow is None:
+            return _unknown_target_error("flow", flow_id)
+        return _focused_flow_explanation(model, flow, token_budget)
+
+    @server.tool()
+    def explain_node(
+        node_id: str,
+        flow_id: str | None = None,
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Explain one flowchart node with local edge and source context."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        resolved = _resolve_node(model, node_id, flow_id)
+        if resolved is None:
+            return _unknown_target_error("node", node_id)
+        flow, node = resolved
+        return _focused_node_explanation(model, flow, node, token_budget)
+
+    @server.tool()
+    def explain_edge(
+        edge_id: str,
+        flow_id: str | None = None,
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Explain one flowchart edge or modeled call edge with source context."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        resolved = _resolve_edge(model, edge_id, flow_id)
+        if resolved is None:
+            return _unknown_target_error("edge", edge_id)
+        flow, edge = resolved
+        return _focused_edge_explanation(model, flow, edge, token_budget)
 
     @server.tool()
     def validate_artifacts(
@@ -1111,6 +1368,1062 @@ def _context_pack_payload(
             visual_byte_budget=visual_byte_budget,
         ),
     }
+
+
+def _workflow_slice_payload(
+    model: ProjectModel,
+    pack: dict[str, Any],
+    *,
+    question: str | None,
+    inputs: dict[str, Any],
+    domain_map_payload: dict[str, Any],
+    token_budget: int,
+) -> dict[str, Any]:
+    primary_flow_ids = _workflow_primary_flow_ids(pack)
+    selected_flow_ids = _workflow_selected_flow_ids(pack)
+    if not primary_flow_ids:
+        primary_flow_ids = selected_flow_ids[: _slice_primary_budget(token_budget)]
+    supporting_flow_ids = [
+        flow_id for flow_id in selected_flow_ids if flow_id not in set(primary_flow_ids)
+    ][: _slice_supporting_budget(token_budget)]
+    visible_flow_ids = _unique_preserve_order([*primary_flow_ids, *supporting_flow_ids])
+    finding_ids = _workflow_finding_ids(pack)
+    slice_id = _workflow_slice_id(model, inputs, visible_flow_ids, finding_ids)
+    return {
+        "schema_version": "workflow_slice.v1",
+        "id": slice_id,
+        "model_hash": model_hash(model),
+        "intent": {
+            "question": question,
+            "task_type": _workflow_task_type(question, inputs),
+            "include_visual": bool(inputs.get("include_visual")),
+            "token_budget": token_budget,
+        },
+        "handle": {
+            "slice_id": slice_id,
+            "model_hash": model_hash(model),
+            "flow_ids": visible_flow_ids,
+            "finding_ids": finding_ids,
+            "scope": inputs.get("scope"),
+            "question": question,
+        },
+        "selection": _workflow_selection(pack, inputs, primary_flow_ids, supporting_flow_ids),
+        "primary_flows": _workflow_flow_rows(model, primary_flow_ids),
+        "supporting_flows": _workflow_flow_rows(model, supporting_flow_ids),
+        "ordered_steps": _workflow_ordered_steps(model, primary_flow_ids, token_budget),
+        "decisions": _workflow_decisions(model, visible_flow_ids, token_budget),
+        "calls": _workflow_calls(model, visible_flow_ids, token_budget),
+        "domain_logic": _workflow_domain_logic(domain_map_payload, visible_flow_ids, token_budget),
+        "review_signals": _workflow_review_signals(pack, token_budget),
+        "source_ranges": _workflow_source_ranges(model, visible_flow_ids, pack, token_budget),
+        "visuals": _workflow_visuals(pack),
+        "omissions": _workflow_omissions(pack, selected_flow_ids, visible_flow_ids, token_budget),
+        "next_actions": _workflow_next_actions(primary_flow_ids, supporting_flow_ids, finding_ids),
+        "next_tools": _workflow_slice_next_tools(
+            primary_flow_ids,
+            supporting_flow_ids,
+            finding_ids,
+            token_budget,
+        ),
+        "guardrail": (
+            "workflow_slice is deterministic, local, and source-grounded. INFERRED and "
+            "POTENTIAL_GAP review signals are candidates, not confirmed defects; "
+            "agent-generated annotations must remain separate from deterministic facts."
+        ),
+    }
+
+
+def _workflow_slice_id(
+    model: ProjectModel,
+    inputs: dict[str, Any],
+    flow_ids: list[str],
+    finding_ids: list[str],
+) -> str:
+    payload = {
+        "model_hash": model_hash(model),
+        "inputs": inputs,
+        "flow_ids": flow_ids,
+        "finding_ids": finding_ids,
+    }
+    raw = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
+    return f"slice-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _workflow_primary_flow_ids(pack: dict[str, Any]) -> list[str]:
+    impact = pack.get("impact")
+    direct = _list_dicts(impact.get("direct")) if isinstance(impact, dict) else []
+    if direct:
+        return _unique_preserve_order(str(item["id"]) for item in direct if item.get("id"))
+    query = _list_dicts(pack.get("query"))
+    return _unique_preserve_order(str(item["flow_id"]) for item in query if item.get("flow_id"))[:3]
+
+
+def _workflow_selected_flow_ids(pack: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    impact = pack.get("impact")
+    if isinstance(impact, dict):
+        for key in ("direct", "transitive"):
+            ids.extend(str(item["id"]) for item in _list_dicts(impact.get(key)) if item.get("id"))
+        ids.extend(_string_list(impact.get("subgraph_flow_ids")))
+    ids.extend(
+        str(item["flow_id"]) for item in _list_dicts(pack.get("query")) if item.get("flow_id")
+    )
+    navigation = pack.get("navigation")
+    if isinstance(navigation, dict):
+        for item in _list_dicts(navigation.get("flows")):
+            flow = item.get("flow")
+            if isinstance(flow, dict) and flow.get("id"):
+                ids.append(str(flow["id"]))
+    return _unique_preserve_order(ids)
+
+
+def _workflow_finding_ids(pack: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    impact = pack.get("impact")
+    if isinstance(impact, dict):
+        ids.extend(_string_list(impact.get("subgraph_finding_ids")))
+    for item in _list_dicts(pack.get("review")):
+        if item.get("id"):
+            ids.append(str(item["id"]))
+    for item in _list_dicts(pack.get("query")):
+        ids.extend(_string_list(item.get("finding_ids")))
+        ids.extend(_string_list(item.get("subgraph_finding_ids")))
+    return _unique_preserve_order(ids)
+
+
+def _workflow_selection(
+    pack: dict[str, Any],
+    inputs: dict[str, Any],
+    primary_flow_ids: list[str],
+    supporting_flow_ids: list[str],
+) -> dict[str, Any]:
+    query = _list_dicts(pack.get("query"))
+    reasons = []
+    for item in query[:5]:
+        reasons.append(
+            {
+                "flow_id": item.get("flow_id"),
+                "score": item.get("score"),
+                "reasons": item.get("reasons", []),
+            }
+        )
+    return {
+        "inputs": inputs,
+        "query_filters": pack.get("query_filters", {}),
+        "primary_flow_ids": primary_flow_ids,
+        "supporting_flow_ids": supporting_flow_ids,
+        "finding_ids": _workflow_finding_ids(pack),
+        "selection_reasons": reasons,
+        "impact_reasons": (pack.get("impact") or {}).get("impact_reasons", {})
+        if isinstance(pack.get("impact"), dict)
+        else {},
+    }
+
+
+def _workflow_flow_rows(model: ProjectModel, flow_ids: list[str]) -> list[dict[str, Any]]:
+    flows = {flow.id: flow for flow in model.flows}
+    rows = []
+    for flow_id in flow_ids:
+        flow = flows.get(flow_id)
+        if flow is None:
+            continue
+        rows.append(
+            {
+                **flow_summary(flow),
+                "symbol": flow.symbol,
+                "is_entrypoint": flow.is_entrypoint,
+                "nodes": len(flow.nodes),
+                "edges": len(flow.edges),
+                "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
+                "calls": len(flow.calls),
+                "callers": len(flow.called_by),
+                "tests": list(flow.tests),
+            }
+        )
+    return rows
+
+
+def _workflow_ordered_steps(
+    model: ProjectModel,
+    flow_ids: list[str],
+    token_budget: int,
+) -> list[dict[str, Any]]:
+    limit = _slice_item_budget(token_budget)
+    steps: list[dict[str, Any]] = []
+    for flow in _flows_by_ids(model, flow_ids):
+        for index, node in enumerate(flow.nodes, start=1):
+            steps.append(
+                {
+                    "flow_id": flow.id,
+                    "flow": flow.name,
+                    "step_index": index,
+                    "node_id": node.id,
+                    "kind": _enum_value(node.kind),
+                    "label": node.label,
+                    "source": _source_anchor(node.location),
+                    "evidence": _enum_value(node.evidence),
+                    **_node_decision_context(node),
+                }
+            )
+            if len(steps) >= limit:
+                return steps
+    return steps
+
+
+def _workflow_decisions(
+    model: ProjectModel,
+    flow_ids: list[str],
+    token_budget: int,
+) -> list[dict[str, Any]]:
+    decisions: list[dict[str, Any]] = []
+    for flow in _flows_by_ids(model, flow_ids):
+        for node in flow.nodes:
+            if node.kind is not NodeKind.DECISION:
+                continue
+            decisions.append(
+                {
+                    "flow_id": flow.id,
+                    "flow": flow.name,
+                    "node_id": node.id,
+                    "label": node.label,
+                    "source": _source_anchor(node.location),
+                    "evidence": _enum_value(node.evidence),
+                    **_node_decision_context(node),
+                }
+            )
+    return decisions[: _slice_item_budget(token_budget)]
+
+
+def _workflow_calls(
+    model: ProjectModel,
+    flow_ids: list[str],
+    token_budget: int,
+) -> list[dict[str, Any]]:
+    flows = {flow.id: flow for flow in model.flows}
+    calls: list[dict[str, Any]] = []
+    for flow in _flows_by_ids(model, flow_ids):
+        for target_id in flow.calls:
+            target = flows.get(target_id)
+            calls.append(
+                {
+                    "source_flow_id": flow.id,
+                    "source_flow": flow.name,
+                    "target_flow_id": target_id,
+                    "target_flow": target.name if target else None,
+                    "resolved": target is not None,
+                    "confidence": "resolved" if target else "unresolved",
+                    "source": _source_anchor(flow.location),
+                }
+            )
+        for caller_id in flow.called_by:
+            caller = flows.get(caller_id)
+            calls.append(
+                {
+                    "source_flow_id": caller_id,
+                    "source_flow": caller.name if caller else None,
+                    "target_flow_id": flow.id,
+                    "target_flow": flow.name,
+                    "resolved": caller is not None,
+                    "confidence": "resolved" if caller else "unresolved",
+                    "source": _source_anchor(caller.location if caller else flow.location),
+                    "relationship": "caller",
+                }
+            )
+    return calls[: _slice_item_budget(token_budget)]
+
+
+def _workflow_domain_logic(
+    domain_map_payload: dict[str, Any],
+    flow_ids: list[str],
+    token_budget: int,
+) -> dict[str, Any]:
+    concepts = _list_dicts(domain_map_payload.get("concepts"))
+    selected = set(flow_ids)
+    if selected:
+        concepts = [
+            concept
+            for concept in concepts
+            if selected.intersection(_string_list(concept.get("subgraph_flow_ids")))
+        ]
+    return {
+        "concepts": concepts[: max(1, min(5, _slice_item_budget(token_budget)))],
+        "omitted_concept_count": max(
+            0, len(concepts) - max(1, min(5, _slice_item_budget(token_budget)))
+        ),
+        "source": "domain_map",
+        "guardrail": domain_map_payload.get("guardrail"),
+    }
+
+
+def _workflow_review_signals(pack: dict[str, Any], token_budget: int) -> list[dict[str, Any]]:
+    rows = []
+    for item in _list_dicts(pack.get("review"))[: _slice_item_budget(token_budget)]:
+        rows.append(
+            {
+                "finding_id": item.get("id"),
+                "kind": item.get("kind"),
+                "severity": item.get("severity"),
+                "evidence": item.get("evidence"),
+                "message": item.get("message"),
+                "flow_id": item.get("flow_id"),
+                "node_id": item.get("node_id"),
+                "source": item.get("location"),
+                "guardrail": (
+                    "Review candidate, not a confirmed defect."
+                    if item.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
+                    else "Source-backed review signal."
+                ),
+                "next_tools": item.get("next_tools", {}),
+            }
+        )
+    return rows
+
+
+def _workflow_source_ranges(
+    model: ProjectModel,
+    flow_ids: list[str],
+    pack: dict[str, Any],
+    token_budget: int,
+) -> list[dict[str, Any]]:
+    ranges: list[dict[str, Any]] = []
+    seen: set[tuple[str, int, int]] = set()
+
+    def add(location: Any, *, flow_id: str | None = None, node_id: str | None = None) -> None:
+        if not hasattr(location, "path"):
+            return
+        key = (str(location.path), int(location.start_line), int(location.end_line))
+        if key in seen:
+            return
+        seen.add(key)
+        ranges.append(
+            {
+                "path": location.path,
+                "start_line": location.start_line,
+                "end_line": location.end_line,
+                "flow_id": flow_id,
+                "node_id": node_id,
+            }
+        )
+
+    for flow in _flows_by_ids(model, flow_ids):
+        add(flow.location, flow_id=flow.id)
+        for node in flow.nodes:
+            add(node.location, flow_id=flow.id, node_id=node.id)
+    for item in _list_dicts(pack.get("review")):
+        location = item.get("location")
+        if not isinstance(location, dict):
+            continue
+        start_line = _coerce_int(location.get("start_line"), 0)
+        key = (
+            str(location.get("path", "")),
+            start_line,
+            _coerce_int(location.get("end_line"), start_line),
+        )
+        if key in seen or not key[0]:
+            continue
+        seen.add(key)
+        ranges.append(
+            {
+                "path": key[0],
+                "start_line": key[1],
+                "end_line": key[2],
+                "flow_id": item.get("flow_id"),
+                "finding_id": item.get("id"),
+            }
+        )
+    return ranges[: _slice_item_budget(token_budget)]
+
+
+def _workflow_visuals(pack: dict[str, Any]) -> dict[str, Any]:
+    visual = pack.get("visual_context")
+    if not isinstance(visual, dict):
+        return {"include_visual": False, "next_tools": {}}
+    inline_keys = [
+        key
+        for key in ("impact_snapshot", "subgraph_snapshot", "flow_snapshots", "finding_snapshots")
+        if key in visual
+    ]
+    return {
+        "include_visual": visual.get("include_visual", False),
+        "inline_payloads": inline_keys,
+        "format": visual.get("format", "svg"),
+        "snapshot_budget": visual.get("snapshot_budget", {}),
+        "next_tools": visual.get("next_tools", {}),
+        "omitted_visual_snapshot_count": visual.get("omitted_visual_snapshot_count", 0),
+        "omitted_visual_snapshot_reasons": visual.get("omitted_visual_snapshot_reasons", {}),
+    }
+
+
+def _workflow_omissions(
+    pack: dict[str, Any],
+    selected_flow_ids: list[str],
+    visible_flow_ids: list[str],
+    token_budget: int,
+) -> dict[str, Any]:
+    navigation_value = pack.get("navigation")
+    navigation: dict[str, Any] = navigation_value if isinstance(navigation_value, dict) else {}
+    visual_value = pack.get("visual_context")
+    visual: dict[str, Any] = visual_value if isinstance(visual_value, dict) else {}
+    impact_value = pack.get("impact")
+    impact: dict[str, Any] = impact_value if isinstance(impact_value, dict) else {}
+    return {
+        "token_budget": token_budget,
+        "omitted_selected_flow_count": max(0, len(selected_flow_ids) - len(visible_flow_ids)),
+        "omitted_flow_navigation_count": navigation.get("omitted_flow_navigation_count", 0),
+        "omitted_flow_snapshot_count": visual.get("omitted_flow_snapshot_count", 0),
+        "omitted_finding_snapshot_count": visual.get("omitted_finding_snapshot_count", 0),
+        "omitted_visual_snapshot_count": visual.get("omitted_visual_snapshot_count", 0),
+        "unresolved_targets": impact.get("unresolved_targets", []),
+    }
+
+
+def _workflow_next_actions(
+    primary_flow_ids: list[str],
+    supporting_flow_ids: list[str],
+    finding_ids: list[str],
+) -> list[str]:
+    actions = [
+        "Use ordered_steps and source_ranges when answering the user.",
+        "Keep review_signals evidence tiers explicit.",
+    ]
+    if supporting_flow_ids:
+        actions.append("Inspect supporting_flows when caller/callee context changes the answer.")
+    if finding_ids:
+        actions.append("Use get_finding_context before treating review signals as actionable.")
+    if primary_flow_ids:
+        actions.append("Use snapshot_slice when visual flowchart context would clarify the answer.")
+    return actions
+
+
+def _workflow_slice_next_tools(
+    primary_flow_ids: list[str],
+    supporting_flow_ids: list[str],
+    finding_ids: list[str],
+    token_budget: int,
+) -> dict[str, Any]:
+    flow_ids = _unique_preserve_order([*primary_flow_ids, *supporting_flow_ids])
+    tools: dict[str, Any] = {
+        "expand_slice": {
+            "tool": "expand_slice",
+            "arguments": {
+                "flow_ids": flow_ids,
+                "finding_ids": finding_ids,
+                "direction": "neighbors",
+                "depth": 1,
+                "token_budget": token_budget,
+            },
+        },
+        "snapshot_slice": {
+            "tool": "snapshot_slice",
+            "arguments": {
+                "flow_ids": flow_ids,
+                "finding_ids": finding_ids,
+                "format": "svg",
+                "token_budget": token_budget,
+            },
+        },
+    }
+    if primary_flow_ids:
+        tools["explain_primary_flow"] = {
+            "tool": "explain_flow",
+            "arguments": {"flow_id": primary_flow_ids[0], "token_budget": token_budget},
+        }
+    if len(flow_ids) >= 2:
+        tools["workflow_path"] = {
+            "tool": "workflow_path",
+            "arguments": {
+                "source": flow_ids[0],
+                "target": flow_ids[-1],
+                "token_budget": token_budget,
+            },
+        }
+    if finding_ids:
+        tools["top_finding_context"] = {
+            "tool": "get_finding_context",
+            "arguments": {"finding_id": finding_ids[0], "token_budget": token_budget},
+        }
+    return tools
+
+
+def _workflow_task_type(question: str | None, inputs: dict[str, Any]) -> str:
+    text = (question or "").lower()
+    if inputs.get("changed_files"):
+        return "review_impact"
+    if inputs.get("finding_id"):
+        return "inspect_review_signal"
+    if inputs.get("domain") or inputs.get("value"):
+        return "inspect_domain_logic"
+    if any(term in text for term in ("impact", "break", "affected", "modifica", "rompe")):
+        return "review_impact"
+    if any(term in text for term in ("test", "coverage", "verifica")):
+        return "prepare_tests"
+    if any(term in text for term in ("where", "handled", "status", "state", "role")):
+        return "inspect_state_handling"
+    if any(term in text for term in ("path", "trace", "from", "to", "percorso")):
+        return "trace_behavior"
+    return "explain_behavior"
+
+
+def _node_decision_context(node: Any) -> dict[str, Any]:
+    if node.kind is not NodeKind.DECISION:
+        return {}
+    return {
+        "condition": node.metadata.get("condition"),
+        "domain": node.metadata.get("domain"),
+        "subject": node.metadata.get("subject"),
+        "operator": node.metadata.get("operator"),
+        "values": node.metadata.get("values", []),
+        "branches": node.metadata.get("branches", []),
+    }
+
+
+def _expand_workflow_slice_targets(
+    model: ProjectModel,
+    *,
+    flow_ids: list[str] | None,
+    finding_ids: list[str] | None,
+    direction: str,
+    depth: int,
+    token_budget: int,
+) -> dict[str, Any]:
+    normalized_direction = direction if direction in _slice_expansion_directions() else "neighbors"
+    known_seed_flows = _known_flow_ids(model, flow_ids)
+    known_finding_ids = _known_finding_ids(model, finding_ids)
+    known_seed_flows.extend(
+        finding.flow_id
+        for finding in _findings_by_ids(model, known_finding_ids)
+        if finding.flow_id not in known_seed_flows
+    )
+    known_seed_flows = _unique_preserve_order(known_seed_flows)
+    unknown_flow_ids = [item for item in flow_ids or [] if item not in set(known_seed_flows)]
+    unknown_finding_ids = [item for item in finding_ids or [] if item not in set(known_finding_ids)]
+    if not known_seed_flows and not known_finding_ids:
+        return {
+            "error_code": "slice_targets_missing",
+            "message": "expand_slice requires at least one known flow_id or finding_id.",
+            "flow_ids": [],
+            "finding_ids": [],
+            "unknown_flow_ids": unknown_flow_ids,
+            "unknown_finding_ids": unknown_finding_ids,
+        }
+    expanded = set(known_seed_flows)
+    frontier = set(known_seed_flows)
+    for _ in range(max(0, min(depth, 4))):
+        next_frontier = set()
+        for flow_id in frontier:
+            next_frontier.update(_slice_neighbor_flow_ids(model, flow_id, normalized_direction))
+        next_frontier.difference_update(expanded)
+        expanded.update(next_frontier)
+        frontier = next_frontier
+        if not frontier:
+            break
+    budget = _slice_flow_budget(token_budget)
+    ordered = _order_expanded_flow_ids(model, known_seed_flows, expanded)[:budget]
+    return {
+        "error_code": None,
+        "message": None,
+        "seed_flow_ids": known_seed_flows,
+        "flow_ids": ordered,
+        "finding_ids": known_finding_ids,
+        "direction": normalized_direction,
+        "depth": max(0, min(depth, 4)),
+        "unknown_flow_ids": unknown_flow_ids,
+        "unknown_finding_ids": unknown_finding_ids,
+        "omitted_expanded_flow_count": max(0, len(expanded) - len(ordered)),
+    }
+
+
+def _slice_neighbor_flow_ids(model: ProjectModel, flow_id: str, direction: str) -> set[str]:
+    flow = _flow_by_id(model, flow_id)
+    if flow is None:
+        return set()
+    neighbors: set[str] = set()
+    if direction in {"neighbors", "callees", "all"}:
+        neighbors.update(flow.calls)
+    if direction in {"neighbors", "callers", "all"}:
+        neighbors.update(flow.called_by)
+    if direction in {"neighbors", "tests", "all"}:
+        neighbors.update(flow.tests)
+    if direction in {"domain", "all"}:
+        domains = _flow_domain_keys(flow)
+        if domains:
+            for candidate in model.flows:
+                if candidate.id != flow.id and domains.intersection(_flow_domain_keys(candidate)):
+                    neighbors.add(candidate.id)
+    known = {item.id for item in model.flows}
+    return {item for item in neighbors if item in known}
+
+
+def _flow_domain_keys(flow: Any) -> set[str]:
+    keys: set[str] = set()
+    for node in getattr(flow, "nodes", []):
+        if node.kind is NodeKind.DECISION:
+            keys.update(_domain_keys(node.metadata))
+    return keys
+
+
+def _slice_expansion_directions() -> set[str]:
+    return {"neighbors", "callers", "callees", "tests", "domain", "all"}
+
+
+def _resolve_workflow_path_seed(
+    model: ProjectModel,
+    text: str,
+    scope: str | None,
+    token_budget: int,
+) -> dict[str, Any]:
+    normalized = text.strip()
+    exact = _flow_by_id(model, normalized)
+    if exact is not None and flow_in_agent_scope(exact, scope):
+        return {
+            "query": text,
+            "flow_ids": [exact.id],
+            "matches": [{**flow_summary(exact), "reason": "exact_flow_id"}],
+        }
+    exact_matches = [
+        flow
+        for flow in model.flows
+        if flow_in_agent_scope(flow, scope)
+        and (flow.symbol == normalized or flow.name == normalized)
+    ]
+    if exact_matches:
+        return {
+            "query": text,
+            "flow_ids": [flow.id for flow in exact_matches[: _slice_flow_budget(token_budget)]],
+            "matches": [
+                {**flow_summary(flow), "reason": "exact_symbol_or_name"}
+                for flow in exact_matches[: _slice_flow_budget(token_budget)]
+            ],
+        }
+    matches = query_model(model, normalized, limit=5, scope=scope)
+    rows = [match for match in matches if flow_in_agent_scope(match.flow, scope)]
+    return {
+        "query": text,
+        "flow_ids": [match.flow.id for match in rows],
+        "matches": [
+            {
+                **flow_summary(match.flow),
+                "score": match.score,
+                "reasons": match.reasons,
+            }
+            for match in rows
+        ],
+    }
+
+
+def _find_workflow_path(
+    model: ProjectModel,
+    source_flow_ids: list[str],
+    target_flow_ids: list[str],
+) -> dict[str, Any]:
+    targets = set(target_flow_ids)
+    graph = _workflow_call_graph(model)
+    queue: deque[tuple[str, list[str]]] = deque(
+        (source_id, [source_id]) for source_id in source_flow_ids
+    )
+    visited = set(source_flow_ids)
+    while queue:
+        current, path = queue.popleft()
+        if current in targets:
+            return {
+                "found": True,
+                "flow_ids": path,
+                "edges": _workflow_path_edges(model, path),
+                "omitted_reason": None,
+            }
+        for neighbor in graph.get(current, []):
+            if neighbor in visited:
+                continue
+            visited.add(neighbor)
+            queue.append((neighbor, [*path, neighbor]))
+    return {
+        "found": False,
+        "flow_ids": [],
+        "edges": [],
+        "omitted_reason": "no_static_call_path_in_model",
+    }
+
+
+def _workflow_call_graph(model: ProjectModel) -> dict[str, list[str]]:
+    graph: dict[str, set[str]] = {flow.id: set() for flow in model.flows}
+    known = set(graph)
+    for flow in model.flows:
+        for target in flow.calls:
+            if target in known:
+                graph[flow.id].add(target)
+                graph[target].add(flow.id)
+        for caller in flow.called_by:
+            if caller in known:
+                graph[flow.id].add(caller)
+                graph[caller].add(flow.id)
+    return {key: sorted(value) for key, value in graph.items()}
+
+
+def _workflow_path_edges(model: ProjectModel, path: list[str]) -> list[dict[str, Any]]:
+    flows = {flow.id: flow for flow in model.flows}
+    edges = []
+    for source_id, target_id in pairwise(path):
+        source = flows.get(source_id)
+        target = flows.get(target_id)
+        if source is None or target is None:
+            continue
+        direction = "calls" if target_id in source.calls else "called_by"
+        edges.append(
+            {
+                "source_flow_id": source_id,
+                "target_flow_id": target_id,
+                "relationship": direction,
+                "source": _source_anchor(source.location),
+            }
+        )
+    return edges
+
+
+def _workflow_path_error(
+    source: str,
+    target: str,
+    source_seed: dict[str, Any],
+    target_seed: dict[str, Any],
+    token_budget: int,
+) -> dict[str, Any]:
+    return {
+        "tool": "workflow_path",
+        "error": "Could not resolve both workflow path endpoints.",
+        "error_code": "workflow_path_endpoint_not_found",
+        "source": source_seed,
+        "target": target_seed,
+        "recoverable": True,
+        "guardrail": (
+            "Endpoint resolution uses deterministic model query matches. Missing matches "
+            "mean the current artifact lacks a modeled flow for the endpoint."
+        ),
+        "next_tools": {
+            "query_source": {
+                "tool": "query_logic",
+                "arguments": {"question": source, "token_budget": token_budget},
+            },
+            "query_target": {
+                "tool": "query_logic",
+                "arguments": {"question": target, "token_budget": token_budget},
+            },
+        },
+    }
+
+
+def _focused_flow_explanation(model: ProjectModel, flow: Any, token_budget: int) -> dict[str, Any]:
+    finding_rows = [
+        _finding_dict(finding, model, flows_by_id={flow.id: flow})
+        for finding in model.findings
+        if finding.flow_id == flow.id
+    ]
+    return {
+        "tool": "explain_flow",
+        "flow": _workflow_flow_rows(model, [flow.id])[0],
+        "ordered_steps": _workflow_ordered_steps(model, [flow.id], token_budget),
+        "decisions": _workflow_decisions(model, [flow.id], token_budget),
+        "calls": _workflow_calls(model, [flow.id], token_budget),
+        "review_signals": [
+            {
+                "finding_id": item.get("id"),
+                "kind": item.get("kind"),
+                "severity": item.get("severity"),
+                "evidence": item.get("evidence"),
+                "message": item.get("message"),
+                "guardrail": (
+                    "Review candidate, not a confirmed defect."
+                    if item.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
+                    else "Source-backed review signal."
+                ),
+            }
+            for item in finding_rows[: _slice_item_budget(token_budget)]
+        ],
+        "source_ranges": _workflow_source_ranges(
+            model,
+            [flow.id],
+            {"review": finding_rows},
+            token_budget,
+        ),
+        "next_tools": {
+            "snapshot_slice": {
+                "tool": "snapshot_slice",
+                "arguments": {"flow_ids": [flow.id], "format": "svg", "token_budget": token_budget},
+            },
+            "expand_slice": {
+                "tool": "expand_slice",
+                "arguments": {"flow_ids": [flow.id], "direction": "neighbors"},
+            },
+        },
+    }
+
+
+def _focused_node_explanation(
+    model: ProjectModel,
+    flow: Any,
+    node: Any,
+    token_budget: int,
+) -> dict[str, Any]:
+    incoming = [edge for edge in flow.edges if edge.target == node.id]
+    outgoing = [edge for edge in flow.edges if edge.source == node.id]
+    related_findings = [
+        finding
+        for finding in model.findings
+        if finding.flow_id == flow.id and finding.node_id == node.id
+    ]
+    return {
+        "tool": "explain_node",
+        "flow": flow_summary(flow),
+        "node": {
+            "id": node.id,
+            "kind": _enum_value(node.kind),
+            "label": node.label,
+            "detail": node.detail,
+            "source": _source_anchor(node.location),
+            "evidence": _enum_value(node.evidence),
+            "metadata": node.metadata,
+        },
+        "decision": _node_decision_context(node),
+        "incoming_edges": [
+            _edge_payload(edge) for edge in incoming[: _slice_item_budget(token_budget)]
+        ],
+        "outgoing_edges": [
+            _edge_payload(edge) for edge in outgoing[: _slice_item_budget(token_budget)]
+        ],
+        "review_signals": [
+            _finding_dict(finding, model, flows_by_id={flow.id: flow})
+            for finding in related_findings[: _slice_item_budget(token_budget)]
+        ],
+        "next_tools": {
+            "explain_flow": {
+                "tool": "explain_flow",
+                "arguments": {"flow_id": flow.id, "token_budget": token_budget},
+            },
+            "snapshot_slice": {
+                "tool": "snapshot_slice",
+                "arguments": {"flow_ids": [flow.id], "format": "svg", "token_budget": token_budget},
+            },
+        },
+    }
+
+
+def _focused_edge_explanation(
+    model: ProjectModel,
+    flow: Any,
+    edge: Any,
+    token_budget: int,
+) -> dict[str, Any]:
+    source_node = next((node for node in flow.nodes if node.id == edge.source), None)
+    target_node = next((node for node in flow.nodes if node.id == edge.target), None)
+    return {
+        "tool": "explain_edge",
+        "flow": flow_summary(flow),
+        "edge": _edge_payload(edge),
+        "source_node": _node_payload(source_node) if source_node is not None else None,
+        "target_node": _node_payload(target_node) if target_node is not None else None,
+        "source_ranges": [
+            item
+            for item in (
+                _source_range_payload(source_node.location, flow.id, source_node.id)
+                if source_node is not None
+                else None,
+                _source_range_payload(target_node.location, flow.id, target_node.id)
+                if target_node is not None
+                else None,
+            )
+            if item is not None
+        ],
+        "next_tools": {
+            "explain_flow": {
+                "tool": "explain_flow",
+                "arguments": {"flow_id": flow.id, "token_budget": token_budget},
+            },
+            "snapshot_slice": {
+                "tool": "snapshot_slice",
+                "arguments": {"flow_ids": [flow.id], "format": "svg", "token_budget": token_budget},
+            },
+        },
+    }
+
+
+def _slice_target_error(
+    tool: str,
+    error_code: str,
+    message: str,
+    *,
+    slice_id: str | None,
+    flow_ids: list[str] | None,
+    finding_ids: list[str] | None,
+) -> dict[str, Any]:
+    return {
+        "tool": tool,
+        "ok": False,
+        "error": message,
+        "error_code": error_code,
+        "slice_id": slice_id,
+        "flow_ids": flow_ids or [],
+        "finding_ids": finding_ids or [],
+        "recoverable": True,
+        "guardrail": (
+            "Slice tools operate only on ids in the current local model. Re-run "
+            "agent_context if the artifact changed or ids are unavailable."
+        ),
+        "next_tools": {
+            "agent_context": {
+                "tool": "agent_context",
+                "arguments": {"token_budget": 900},
+            },
+            "list_flows": {
+                "tool": "list_flows",
+                "arguments": {"entrypoints_only": False, "token_budget": 900},
+            },
+        },
+    }
+
+
+def _known_flow_ids(model: ProjectModel, flow_ids: list[str] | None) -> list[str]:
+    known = {flow.id for flow in model.flows}
+    return _unique_preserve_order(flow_id for flow_id in flow_ids or [] if flow_id in known)
+
+
+def _known_finding_ids(model: ProjectModel, finding_ids: list[str] | None) -> list[str]:
+    known = {finding.id for finding in model.findings}
+    return _unique_preserve_order(
+        finding_id for finding_id in finding_ids or [] if finding_id in known
+    )
+
+
+def _flows_by_ids(model: ProjectModel, flow_ids: list[str]) -> list[Any]:
+    flows = {flow.id: flow for flow in model.flows}
+    return [flows[flow_id] for flow_id in flow_ids if flow_id in flows]
+
+
+def _findings_by_ids(model: ProjectModel, finding_ids: list[str]) -> list[Any]:
+    findings = {finding.id: finding for finding in model.findings}
+    return [findings[finding_id] for finding_id in finding_ids if finding_id in findings]
+
+
+def _flow_by_id(model: ProjectModel, flow_id: str) -> Any | None:
+    return next((flow for flow in model.flows if flow.id == flow_id), None)
+
+
+def _resolve_node(model: ProjectModel, node_id: str, flow_id: str | None) -> tuple[Any, Any] | None:
+    flows = _flows_by_ids(model, [flow_id]) if flow_id else model.flows
+    for flow in flows:
+        for node in flow.nodes:
+            if node.id == node_id:
+                return flow, node
+    return None
+
+
+def _resolve_edge(model: ProjectModel, edge_id: str, flow_id: str | None) -> tuple[Any, Any] | None:
+    flows = _flows_by_ids(model, [flow_id]) if flow_id else model.flows
+    for flow in flows:
+        for edge in flow.edges:
+            if edge.id == edge_id:
+                return flow, edge
+    return None
+
+
+def _order_expanded_flow_ids(
+    model: ProjectModel,
+    seed_flow_ids: list[str],
+    expanded: set[str],
+) -> list[str]:
+    seed = _unique_preserve_order(seed_flow_ids)
+    by_id = {flow.id: flow for flow in model.flows}
+    rest = sorted(
+        (flow_id for flow_id in expanded if flow_id not in set(seed)),
+        key=lambda flow_id: (
+            by_id[flow_id].location.path if flow_id in by_id else "",
+            by_id[flow_id].name if flow_id in by_id else flow_id,
+            flow_id,
+        ),
+    )
+    return [*seed, *rest]
+
+
+def _slice_primary_budget(token_budget: int) -> int:
+    if token_budget <= 0:
+        return 3
+    return max(1, min(4, token_budget // 300))
+
+
+def _slice_supporting_budget(token_budget: int) -> int:
+    if token_budget <= 0:
+        return 6
+    return max(1, min(8, token_budget // 180))
+
+
+def _slice_flow_budget(token_budget: int) -> int:
+    if token_budget <= 0:
+        return 20
+    return max(1, min(24, token_budget // 80))
+
+
+def _slice_item_budget(token_budget: int) -> int:
+    if token_budget <= 0:
+        return 40
+    return max(4, min(40, token_budget // 40))
+
+
+def _source_anchor(location: Any) -> dict[str, Any]:
+    return {
+        "path": location.path,
+        "start_line": location.start_line,
+        "end_line": location.end_line,
+    }
+
+
+def _source_range_payload(location: Any, flow_id: str, node_id: str) -> dict[str, Any]:
+    return {
+        **_source_anchor(location),
+        "flow_id": flow_id,
+        "node_id": node_id,
+    }
+
+
+def _node_payload(node: Any) -> dict[str, Any]:
+    return {
+        "id": node.id,
+        "kind": _enum_value(node.kind),
+        "label": node.label,
+        "source": _source_anchor(node.location),
+        "evidence": _enum_value(node.evidence),
+    }
+
+
+def _edge_payload(edge: Any) -> dict[str, Any]:
+    return {
+        "id": edge.id,
+        "source": edge.source,
+        "target": edge.target,
+        "label": edge.label,
+        "evidence": _enum_value(edge.evidence),
+    }
+
+
+def _enum_value(value: Any) -> str:
+    return str(getattr(value, "value", value))
+
+
+def _coerce_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _unique_preserve_order(values: Any) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value is None:
+            continue
+        item = str(value)
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
 
 
 def _context_visual_pack(

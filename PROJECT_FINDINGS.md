@@ -414,7 +414,14 @@ from SVG as an optional rasterization layer.
 Current checkpoint:
 
 - MCP `agent_context` is now the preferred one-call path for ordinary questions that need
-  deterministic context, impact orientation, and optional visual snapshots.
+  deterministic workflow-slice context, impact orientation, and optional visual snapshots.
+- MCP `agent_context` now returns a first-class `workflow_slice` with a stable handle,
+  primary/supporting flows, ordered source-grounded steps, decisions, calls, domain logic,
+  review signals, source ranges, visual handles, omissions, and next-tool hints.
+- MCP exposes `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
+  `explain_node`, and `explain_edge` so agents can progressively widen a slice, trace
+  between concepts, render deterministic visual context, or inspect a focused entity
+  without falling back to public CLI commands.
 - MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, `get_impact_snapshot`, and
   `get_subgraph_snapshot`.
 - Snapshots are generated from the deterministic model and returned as inline SVG.
@@ -481,9 +488,12 @@ The MCP should be treated as a public API, not as an internal convenience wrappe
 
 Current checkpoint:
 
-- MCP exposes `agent_context` as the primary one-call context pack for ordinary agent
-  questions, selected code/current file, changed files, and focused flow/symbol/finding or
-  dependency-path targets.
+- MCP exposes `agent_context` as the primary one-call workflow-slice tool for ordinary
+  agent questions, selected code/current file, changed files, and focused flow/symbol/finding
+  or dependency-path targets.
+- MCP contract tests now pin `workflow_slice` shape plus `expand_slice`, `workflow_path`,
+  `snapshot_slice`, `explain_flow`, `explain_node`, and `explain_edge` discovery and
+  end-to-end payload behavior.
 - MCP exposes `analysis_quality`, a bounded analyzer-quality tool with guardrails and
   next-tool hints so agents do not need to mine the full summary payload.
 - MCP tests now assert the structured `analysis_quality` payload, token-budget schema, and

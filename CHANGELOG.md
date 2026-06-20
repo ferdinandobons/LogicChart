@@ -111,6 +111,12 @@ The project follows Semantic Versioning.
 - Added MCP `agent_context` as the primary agent entrypoint for ordinary code-logic
   questions, change-impact review, focused flow/finding inspection, selected-code context,
   and optional visual context.
+- Added `workflow_slice` to MCP `agent_context`, with stable slice handles, ordered
+  workflow steps, primary/supporting flows, decisions, calls, domain logic, review signals,
+  source ranges, visual handles, omissions, guardrails, and next-tool hints.
+- Added MCP `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
+  `explain_node`, and `explain_edge` for progressive workflow-slice navigation and focused
+  source-grounded inspection.
 - Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,
