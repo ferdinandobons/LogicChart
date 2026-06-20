@@ -40,7 +40,9 @@ REMOVED_AGENT_COMMAND_SNIPPETS = (
 
 def _assert_current_agent_instructions(content: str) -> None:
     assert "Prefer the LogicChart MCP `agent_context` tool" in content
-    assert "render `workflow_slice.presentation`" in content
+    assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
+    assert "show a detailed Mermaid `flowchart TD`" in content
+    assert "Do not collapse visual workflow requests into" in content
     assert "Show raw JSON or YAML only when explicitly requested" in content
     assert "logicchart view ..." in content
     assert "provider keys" in content
@@ -54,10 +56,14 @@ def _assert_current_agent_instructions(content: str) -> None:
 def _assert_logicchart_skill(content: str) -> None:
     assert content.startswith("---\nname: logicchart\n")
     assert "description: Use when answering codebase logic" in content
+    assert "workflow/flusso" in content
     assert "`agent_context`" in content
     assert "`workflow_slice`" in content
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
+    assert "detailed Mermaid `flowchart TD`" in content
+    assert "error branches, rollback/cleanup paths" in content
+    assert "Do not collapse the workflow into a short linear overview" in content
     assert "workflow_slice.handle.flow_ids" in content
     assert "`viewer_targets` command" in content
     assert "`workflow_slice.presentation` as supporting context" in content

@@ -19,7 +19,9 @@ but it must not replace source-backed flow data, diagnostic evidence, or review-
 `logicchart setup-agent claude` installs `.claude/skills/logicchart/SKILL.md`. These
 provider-native skills route implicit code-logic questions to MCP `agent_context` and route
 visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the manual UI
-fallback when inline SVG rendering is unavailable.
+fallback when inline SVG rendering is unavailable. When the agent cannot show the SVG
+inline, it should render a detailed Mermaid `flowchart TD` with decision/error branches
+instead of a compact linear workflow summary.
 
 ## MCP Annotation Workflow
 

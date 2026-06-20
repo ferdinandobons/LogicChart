@@ -122,6 +122,9 @@ The project follows Semantic Versioning.
 - Added provider-native LogicChart skill installation for Codex and Claude setup, guiding
   agents to use MCP `agent_context` by default and `snapshot_slice`/`viewer_targets` for
   visual workflow requests.
+- Updated generated LogicChart agent guidance so visual workflow requests prefer a
+  detailed Mermaid flowchart fallback with decision/error branches instead of a compact
+  linear summary when inline SVG is unavailable.
 - Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,

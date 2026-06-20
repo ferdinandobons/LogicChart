@@ -155,9 +155,10 @@ LogicChart server block.
 When supported by the agent, setup also installs a project-scoped LogicChart skill. The
 skill tells the agent to use `agent_context` for implicit code-logic questions and to call
 `snapshot_slice` when the user asks to show, visualize, render, diagram, or open a
-workflow/canvas view. If inline rendering is not available, the agent should provide the
-returned `viewer_targets` command and hash target instead of falling back to raw JSON or
-YAML.
+workflow/canvas view. If inline SVG rendering is not available, the agent should show a
+detailed Mermaid `flowchart TD` with decision and error branches, then provide the returned
+`viewer_targets` command and hash target instead of falling back to a short linear summary
+or raw JSON/YAML.
 
 High-value MCP tools include:
 

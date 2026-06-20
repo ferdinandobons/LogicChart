@@ -67,6 +67,10 @@ LogicChart is in a strong alpha state.
   Claude. The skill is scoped to the selected agent target and tells the coding agent to
   call MCP `agent_context` by default, then `snapshot_slice`/`viewer_targets` when the user
   asks for a visual workflow or canvas-like slice.
+- The generated skill and agent guidance now treat generic workflow/flusso requests as
+  visual workflow requests. If inline SVG is unavailable, the expected fallback is a
+  detailed Mermaid flowchart with decision and error branches, not a compressed linear
+  summary.
 - Codex MCP setup now uses `default_tools_approval_mode = "approve"` for the generated
   project-scoped LogicChart server, so the central local MCP workflow does not stop on
   every `agent_context` or navigation call.

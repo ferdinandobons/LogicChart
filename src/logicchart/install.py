@@ -27,11 +27,12 @@ CODEX_MCP_START = "# logicchart:mcp-config:start"
 CODEX_MCP_END = "# logicchart:mcp-config:end"
 
 SKILL_DESCRIPTION = (
-    "Use when answering codebase logic, behavior, workflow, decision, state/status, "
-    "change impact, testing, review-signal, or visual workflow/canvas questions in a "
-    "project that uses LogicChart. Prefer the LogicChart MCP agent_context tool before "
-    "broad searches, and use snapshot_slice or viewer_targets when the user asks to show, "
-    "visualize, render, diagram, canvas, or workflow_slice."
+    "Use when answering codebase logic, behavior, workflow/flusso, decision, "
+    "state/status, change impact, testing, review-signal, or visual workflow/canvas "
+    "questions in a project that uses LogicChart. Prefer the LogicChart MCP "
+    "agent_context tool before broad searches, and use snapshot_slice, detailed Mermaid, "
+    "or viewer_targets when the user asks to show, visualize, render, diagram, canvas, "
+    "workflow, flusso, or workflow_slice."
 )
 
 SKILL_TEMPLATE = f"""---
@@ -59,18 +60,23 @@ configured.
 
 ## Visual Workflow Requests
 
-When the user asks to show a workflow, workflow_slice, diagram, visual flow, canvas, or
-similar code path:
+When the user asks to show a workflow, workflow_slice, diagram, visual flow, canvas,
+flusso, or similar code path:
 
 1. Call `agent_context` with `include_visual=true` when available.
 2. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
    `workflow_slice.handle.finding_ids`.
 3. Show the SVG snapshot or rendered visual first when the client supports it.
-4. If inline rendering is not possible, provide the `viewer_targets` command and hash
+4. If inline SVG rendering is not possible, show a detailed Mermaid `flowchart TD` first.
+   Build it from source-grounded slice fields, not from memory. Include UI/client entry
+   points, routes, service methods, persistence/external calls, major validations,
+   decision nodes, error branches, rollback/cleanup paths, and terminal success states.
+   Do not collapse the workflow into a short linear overview.
+5. Also provide the `viewer_targets` command and hash
    target so the user can open the same visual in `logicchart view`.
-5. Treat `workflow_slice.presentation` as supporting context for this request, not as the
+6. Treat `workflow_slice.presentation` as supporting context for this request, not as the
    primary output.
-6. Keep the textual summary short and secondary. Do not answer with raw JSON or YAML unless
+7. Keep the textual summary short and secondary. Do not answer with raw JSON or YAML unless
    the user explicitly asks for it.
 
 ## Guardrails
@@ -97,9 +103,12 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
    current file, flow id, symbol, finding id, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
-3. When the user asks to show a `workflow_slice`, render `workflow_slice.presentation`,
-   primary/supporting flows, ordered steps, decisions, review signals, and source ranges
-   first. Show raw JSON or YAML only when explicitly requested.
+3. When the user asks to show a workflow, flusso, visual flow, canvas, or
+   `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available; if the
+   client cannot render the SVG inline, show a detailed Mermaid `flowchart TD` with
+   primary/supporting flows, ordered steps, decisions, error branches, rollback/cleanup
+   paths, review signals, and source ranges. Do not collapse visual workflow requests into
+   a short linear overview. Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
 5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
