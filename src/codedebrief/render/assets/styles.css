@@ -1274,6 +1274,7 @@
       overflow: hidden;
     }
     .panel-quality { flex: 0 0 auto; max-height: 260px; border-bottom: 1px solid var(--line); }
+    .panel-quality.panel-quality-expanded { flex: 1 1 auto; max-height: none; }
     .panel-source { flex: 1 1 48%; border-bottom: 1px solid var(--line); }
     .panel[data-collapsed] {
       flex: 0 0 auto;

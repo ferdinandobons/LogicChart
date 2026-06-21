@@ -266,6 +266,7 @@
         clear(sourceBody);
         if (sourceFileEl) sourceFileEl.textContent = "";
         if (sourcePanel) sourcePanel.hidden = !flow;
+        if (qualityPanel) qualityPanel.classList.toggle("panel-quality-expanded", !flow);
 
         if (!flow) {
           sourceBody.appendChild(el("p", "panel-empty", "Select a flow or node to view its source."));

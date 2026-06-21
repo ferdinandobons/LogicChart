@@ -141,7 +141,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           </div>
           <div class="panel-body quality-scroll" id="quality" role="region" aria-label="Analysis health metrics"></div>
         </section>
-        <section class="panel panel-source" id="sourcePanel" aria-label="Source" data-collapsible-panel data-panel-state="source">
+        <section class="panel panel-source" id="sourcePanel" aria-label="Source" data-collapsible-panel data-panel-state="source" hidden>
           <div class="panel-head" data-panel-heading>
             <button class="panel-collapse-toggle" id="sourcePanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="source" title="Collapse Source" aria-label="Collapse Source"><span class="panel-chevron" aria-hidden="true"></span></button>
             <h2 class="rail-title">Source</h2>

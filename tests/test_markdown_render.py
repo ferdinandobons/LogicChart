@@ -63,6 +63,7 @@ def test_markdown_renders_flow_report() -> None:
     assert "## Project Map" in out
     assert "## Entry Point Flows" in out
     assert "flowchart TD" in out
+    assert "flowchart LR" not in out
 
 
 def test_mermaid_node_label_injection_is_neutralized() -> None:

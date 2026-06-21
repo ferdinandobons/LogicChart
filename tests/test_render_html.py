@@ -202,7 +202,14 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     assert "data-collapsible-panel" in html
     assert 'id="qualityPanelToggle"' in html
     assert 'id="sourcePanelToggle"' in html
+    assert (
+        'id="sourcePanel" aria-label="Source" '
+        'data-collapsible-panel data-panel-state="source" hidden'
+    ) in html
     assert 'id="errorsPanelToggle"' not in html
+    assert "[hidden] { display: none !important; }" in html
+    assert 'classList.toggle("panel-quality-expanded", !flow)' in html
+    assert ".panel-quality.panel-quality-expanded" in html
     assert 'id="detailsCollapseAll"' in html
     assert 'id="detailsExpandAll"' in html
     assert 'aria-controls="quality"' in html

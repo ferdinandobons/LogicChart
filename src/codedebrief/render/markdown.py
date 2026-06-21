@@ -48,7 +48,7 @@ def _project_map(model: ProjectModel, entrypoints: list[Flow]) -> list[str]:
     if not entrypoints:
         return ["No entry points were detected."]
     by_id = {flow.id: flow for flow in model.flows}
-    lines = ["```mermaid", "flowchart LR"]
+    lines = ["```mermaid", "flowchart TD"]
     rendered_nodes: set[str] = set()
     for flow in entrypoints:
         lines.append(f'  {_mermaid_id(flow.id)}["{_escape(flow.name)}"]')
