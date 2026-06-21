@@ -35,7 +35,6 @@ def test_model_quality_counts_calls_and_labels(tmp_path: Path) -> None:
     assert quality["calls"]["total"] >= 2
     assert quality["calls"]["resolved"] >= 1
     assert quality["calls"]["unresolved"] >= 1
-    assert "findings" not in quality
     python_depth = quality["languages"]["depth"]["python"]
     assert python_depth["files"] == 1
     assert python_depth["flows"] >= 2

@@ -187,16 +187,16 @@ def test_missing_lazy_language_dependency_does_not_abort(
 @pytest.mark.parametrize(
     "payload",
     [
-        {"flows": "notalist", "findings": [], "files": [], "root": ".", "generated_at": "x"},
+        {"flows": "notalist", "files": [], "root": ".", "generated_at": "x"},
         {"root": ".", "generated_at": "x"},  # missing schema_version
         {
-            "schema_version": "1.1",
+            "schema_version": "2.0",
             "generated_at": "x",
             "root": ".",
             "files": [{"path": "a", "language": "python", "sha256": "h", "bogus": 1}],
         },
         {
-            "schema_version": "1.1",
+            "schema_version": "2.0",
             "generated_at": "x",
             "root": ".",
             "flows": [

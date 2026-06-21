@@ -38,36 +38,8 @@ export interface LogicChartFlow extends ProgressiveFlowNode {
   };
 }
 
-export interface LogicChartFinding {
-  id?: string;
-  kind?: string;
-  severity?: string;
-  evidence?: string;
-  flow_id?: string;
-  node_id?: string | null;
-}
-
-export interface LogicChartAnnotationText {
-  label?: string;
-  description?: string;
-  summary?: string;
-  explanation?: string;
-  remediation?: string;
-}
-
-export interface LogicChartAnnotations {
-  schema_version?: string;
-  model_hash?: string;
-  flows?: Record<string, LogicChartAnnotationText>;
-  nodes?: Record<string, LogicChartAnnotationText>;
-  findings?: Record<string, LogicChartAnnotationText>;
-  scopes?: Record<string, LogicChartAnnotationText>;
-}
-
 export interface LogicChartPayload {
-  annotations?: LogicChartAnnotations;
   flows: LogicChartFlow[];
-  findings?: LogicChartFinding[];
   metadata?: {
     scopes?: Record<string, number>;
     [key: string]: unknown;

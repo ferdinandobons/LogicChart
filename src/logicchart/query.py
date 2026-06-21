@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel
-from logicchart.quality import model_quality
 from logicchart.util import metadata_scope_names
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
@@ -42,24 +41,21 @@ class QueryMatch:
             "reasons": self.reasons,
             "subgraph_flow_ids": [self.flow.id],
             "next_tools": {
-                "flow_navigation": {
-                    "tool": "get_flow_navigation",
+                "agent_context": {
+                    "tool": "agent_context",
                     "arguments": {"flow_id": self.flow.id},
                 },
-                "visual_snapshot": {
-                    "tool": "get_flow_snapshot",
-                    "arguments": {"flow_id": self.flow.id, "format": "svg"},
-                },
-                "context_pack": {
-                    "tool": "context_pack",
-                    "arguments": {"flow_ids": [self.flow.id]},
-                },
-                "subgraph_snapshot": {
-                    "tool": "get_subgraph_snapshot",
+                "snapshot_slice": {
+                    "tool": "snapshot_slice",
                     "arguments": {
                         "flow_ids": [self.flow.id],
                         "format": "svg",
+                        "include_svg": False,
                     },
+                },
+                "expand_slice": {
+                    "tool": "expand_slice",
+                    "arguments": {"flow_ids": [self.flow.id], "direction": "neighbors"},
                 },
             },
         }
@@ -315,68 +311,10 @@ def impact_model(
     )
 
 
-def render_query(matches: list[QueryMatch]) -> str:
-    if not matches:
-        return "No matching logic flows found."
-    lines = []
-    for index, match in enumerate(matches, 1):
-        flow = match.flow
-        lines.append(
-            f"{index}. {flow.name} [{flow.entry_kind}] "
-            f"{flow.location.path}:{flow.location.start_line}"
-        )
-        lines.append(f"   score={match.score} · " + "; ".join(match.reasons[:3]))
-    return "\n".join(lines)
-
-
-def render_impact(result: ImpactResult) -> str:
-    target_count = (
-        len(result.target_flow_ids)
-        + len(result.target_symbols)
-        + len(result.target_dependency_paths)
-    )
-    lines = [
-        f"Changed files: {len(result.changed_files)}",
-        f"Explicit targets: {target_count}",
-        f"Directly impacted flows: {len(result.directly_impacted)}",
-        f"Transitively impacted flows: {len(result.transitively_impacted)}",
-    ]
-    if result.target_flow_ids or result.target_symbols or result.target_dependency_paths:
-        lines.append("\nTargets:")
-        if result.target_flow_ids:
-            lines.append(f"- flows: {', '.join(result.target_flow_ids)}")
-        if result.target_symbols:
-            lines.append(f"- symbols: {', '.join(result.target_symbols)}")
-        if result.target_dependency_paths:
-            lines.append(f"- dependency paths: {', '.join(result.target_dependency_paths)}")
-    if result.directly_impacted:
-        lines.append("\nDirect impact:")
-        lines.extend(
-            f"- {flow.name} ({flow.location.path}:{flow.location.start_line})"
-            f" - {_compact_list(result.impact_reasons.get(flow.id, []), limit=3)}"
-            for flow in result.directly_impacted
-        )
-    if result.transitively_impacted:
-        lines.append("\nCaller impact:")
-        lines.extend(
-            f"- {flow.name} ({flow.location.path}:{flow.location.start_line})"
-            f" - {_compact_list(result.impact_reasons.get(flow.id, []), limit=3)}"
-            for flow in result.transitively_impacted
-        )
-    if result.unresolved_targets:
-        lines.append("\nUnresolved targets:")
-        lines.extend(
-            f"- {item['type']} {item['value']}: {item['reason']}"
-            for item in result.unresolved_targets
-        )
-    return "\n".join(lines)
-
-
 def flow_navigation(
     model: ProjectModel,
     target: str,
     token_budget: int = 0,
-    annotations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """A bounded navigation pack for one flow, shared by CLI and MCP."""
     flow, error = _resolve_flow_target(model, target)
@@ -407,93 +345,29 @@ def flow_navigation(
             [_decision_navigation(node) for node in flow.nodes if node.kind is NodeKind.DECISION],
             token_budget,
         ),
-        "annotations": _flow_annotations(flow, annotations),
         "next_tools": {
-            "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": flow.id}},
-            "visual_snapshot": {
-                "tool": "get_flow_snapshot",
-                "arguments": {"flow_id": flow.id, "format": "svg"},
-            },
-            "subgraph_snapshot": {
-                "tool": "get_subgraph_snapshot",
-                "arguments": {"flow_ids": [flow.id], "format": "svg"},
-            },
-            "source_impact": {
-                "tool": "analyze_impact",
-                "arguments": {"changed_files": [flow.location.path]},
-            },
-            "related_query": {
-                "tool": "query_logic",
+            "agent_context": {
+                "tool": "agent_context",
                 "arguments": {
+                    "flow_id": flow.id,
                     "question": flow.name,
                     **({"scope": primary_scope} if primary_scope else {}),
                 },
             },
+            "snapshot_slice": {
+                "tool": "snapshot_slice",
+                "arguments": {
+                    "flow_ids": [flow.id],
+                    "format": "svg",
+                    "include_svg": False,
+                },
+            },
+            "expand_slice": {
+                "tool": "expand_slice",
+                "arguments": {"flow_ids": [flow.id], "direction": "neighbors"},
+            },
         },
     }
-
-
-def render_flow_navigation(navigation: dict[str, Any]) -> str:
-    if "error" in navigation:
-        return f"error: {navigation['error']}"
-    flow = navigation["flow"]
-    lines = [
-        f"Flow: {flow['name']} ({flow['id']})",
-        f"Symbol: {flow['symbol']}",
-        f"Source: {flow['source']}",
-        (
-            f"Shape: {flow['nodes']} nodes, {flow['edges']} edges, "
-            f"{flow['decisions']} decisions, {flow['calls']} calls, {flow['callers']} callers"
-        ),
-    ]
-    decision_nodes = navigation.get("decision_nodes") or []
-    if decision_nodes:
-        lines.append("\nDecision nodes:")
-        for item in decision_nodes:
-            lines.append(f"- {item['label']} @ {item['source']}")
-    called = navigation.get("called_flows") or []
-    if called:
-        lines.append("\nCalled flows:")
-        lines.extend(f"- {item['name']} ({item['id']}) @ {item['source']}" for item in called)
-    callers = navigation.get("caller_flows") or []
-    if callers:
-        lines.append("\nCaller flows:")
-        lines.extend(f"- {item['name']} ({item['id']}) @ {item['source']}" for item in callers)
-    unresolved = navigation.get("unresolved_call_ids") or []
-    if unresolved:
-        lines.append("\nUnresolved call ids:")
-        lines.extend(f"- {item}" for item in unresolved)
-    next_tools = navigation.get("next_tools") or {}
-    if next_tools:
-        lines.append("\nNext tools:")
-        for name, tool in next_tools.items():
-            lines.append(f"- {name}: {tool['tool']} {tool['arguments']}")
-    return "\n".join(lines)
-
-
-def model_summary(model: ProjectModel) -> dict[str, Any]:
-    """An orientation snapshot for the generated code-logic model."""
-    quality = model.metadata.get("quality") or model_quality(model)
-    return {
-        "flows": len(model.flows),
-        "entrypoints": sum(flow.is_entrypoint for flow in model.flows),
-        "languages": model.metadata.get("languages", []),
-        "language_capabilities": model.metadata.get("language_capabilities", {}),
-        "enums": {
-            language: sorted(members)
-            for language, members in model.metadata.get("enums", {}).items()
-        },
-        "scopes": model.metadata.get("scopes", {}),
-        "quality": quality,
-    }
-
-
-def _compact_list(value: Any, limit: int = 6) -> str:
-    items = _list_value(value)
-    shown = items[:limit]
-    text = ", ".join(_metadata_text(item) for item in shown)
-    omitted = len(items) - len(shown)
-    return f"{text} (+{omitted} more)" if omitted > 0 else text
 
 
 def _resolve_flow_target(
@@ -536,15 +410,11 @@ def _flow_target_error(
         "recoverable": True,
         "guardrail": (
             "This reports an invalid flow-navigation target from the generated model; "
-            "re-run query_logic or list_flows to locate a modeled flow."
+            "re-run agent_context with a narrower question to locate a modeled flow."
         ),
         "next_tools": {
-            "list_flows": {
-                "tool": "list_flows",
-                "arguments": {"entrypoints_only": False, "token_budget": 600},
-            },
-            "query_logic": {
-                "tool": "query_logic",
+            "agent_context": {
+                "tool": "agent_context",
                 "arguments": {"question": target, "token_budget": 600},
             },
         },
@@ -589,29 +459,6 @@ def _decision_navigation(node: FlowNode) -> dict[str, Any]:
         "operator": node.metadata.get("operator"),
         "values": node.metadata.get("values", []),
         "branches": node.metadata.get("branches", []),
-    }
-
-
-def _flow_annotations(
-    flow: Flow,
-    annotations: dict[str, Any] | None,
-) -> dict[str, Any]:
-    if not annotations:
-        return {"status": "absent"}
-    flow_annotations = annotations.get("flows", {})
-    node_annotations = annotations.get("nodes", {})
-    scope_annotations = annotations.get("scopes", {})
-    return {
-        "status": "loaded",
-        "flow": flow_annotations.get(flow.id),
-        "nodes": {
-            node.id: node_annotations[node.id] for node in flow.nodes if node.id in node_annotations
-        },
-        "scopes": {
-            scope: scope_annotations[scope]
-            for scope in metadata_scope_names(flow.metadata)
-            if scope in scope_annotations
-        },
     }
 
 
@@ -674,92 +521,6 @@ def _decision_values(node: FlowNode) -> set[str]:
         if isinstance(branch, dict):
             values.add(str(branch.get("label", "")))
     return values
-
-
-def where_is_state_handled(
-    model: ProjectModel, domain: str, value: str | None = None
-) -> list[dict[str, Any]]:
-    """Every flow that branches on a domain/value-namespace, with the values it covers."""
-    results: list[dict[str, Any]] = []
-    if not domain:
-        # An empty domain is not a wildcard: it would match empty metadata and return
-        # every decision node.
-        return results
-    for flow in model.flows:
-        for node in flow.nodes:
-            if node.kind is not NodeKind.DECISION:
-                continue
-            namespaces = {
-                str(node.metadata.get("domain", "")),
-                str(node.metadata.get("value_namespace", "")),
-            }
-            if domain not in namespaces:
-                continue
-            values = [str(item) for item in node.metadata.get("values", [])]
-            if value is not None and value not in values:
-                continue
-            results.append(
-                {
-                    "flow": flow.name,
-                    "subject": node.metadata.get("subject"),
-                    "values": values,
-                    "source": f"{node.location.path}:{node.location.start_line}",
-                }
-            )
-    return results
-
-
-def find_decisions(
-    model: ProjectModel,
-    *,
-    domain: str | None = None,
-    subject: str | None = None,
-    missing_fallback: bool = False,
-) -> list[dict[str, Any]]:
-    """Structured search over decision nodes (by domain/subject/implicit fallback)."""
-    results: list[dict[str, Any]] = []
-    for flow in model.flows:
-        for node in flow.nodes:
-            if node.kind is not NodeKind.DECISION:
-                continue
-            if domain is not None and node.metadata.get("domain") != domain:
-                continue
-            # Equality match on subject, consistent with where_is_state_handled's exact
-            # domain/value matching (was a substring test, so "status" matched
-            # "order_status").
-            if subject is not None and str(node.metadata.get("subject", "")) != subject:
-                continue
-            has_implicit_fallback = _has_implicit_fallback(node)
-            if missing_fallback and not has_implicit_fallback:
-                continue
-            results.append(
-                {
-                    "flow": flow.name,
-                    "subject": node.metadata.get("subject"),
-                    "operator": node.metadata.get("operator"),
-                    "values": node.metadata.get("values"),
-                    "has_implicit_fallback": has_implicit_fallback,
-                    "source": f"{node.location.path}:{node.location.start_line}",
-                }
-            )
-    return results
-
-
-def _has_implicit_fallback(node: FlowNode) -> bool:
-    branches = node.metadata.get("branches")
-    if not isinstance(branches, list):
-        return False
-    return any(isinstance(branch, dict) and branch.get("implicit") is True for branch in branches)
-
-
-def _list_value(value: Any) -> list[Any]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    if isinstance(value, tuple | set):
-        return list(value)
-    return [value]
 
 
 def _enum_text(value: Any) -> str:
@@ -864,14 +625,6 @@ def _flow_metadata_tokens(flow: Flow) -> set[str]:
             if isinstance(branch, dict):
                 values.extend(str(branch.get(key, "")) for key in ("label", "outcome"))
     return _tokenize(" ".join(values))
-
-
-def _metadata_text(value: Any) -> str:
-    if isinstance(value, dict):
-        return " ".join(f"{key} {_metadata_text(item)}" for key, item in value.items())
-    if isinstance(value, (list, tuple, set)):
-        return " ".join(_metadata_text(item) for item in value)
-    return str(value)
 
 
 def _normalize_path(value: str) -> str:

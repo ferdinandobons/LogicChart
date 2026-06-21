@@ -36,8 +36,6 @@ The project follows Semantic Versioning.
 - Added deterministic visual presentation metadata for workflow slices, including stable
   top-to-bottom Mermaid output, `diagram_hash`, viewer targets, local `.mmd` / Markdown
   snapshot artifacts, and legacy SVG/HTML artifacts for local inspection.
-- Added optional local annotation sidecars and MCP annotation tools for agent-authored
-  enrichment without requiring provider keys.
 - Added analyzer quality, skipped-file, language-capability, and parse-warning metadata for
   comprehension-oriented validation and viewer summaries.
 
@@ -50,12 +48,12 @@ The project follows Semantic Versioning.
   setup.
 - Removed dead internal finding detector modules, diagnostic helpers, gated detector
   configuration, detector-only tests, and obsolete example expected-finding docs.
-- Removed dead provider-managed LLM enrichment code and provider/model configuration. MCP
-  annotation preview is now local-only and feeds agent-authored sidecars.
+- Removed dead provider-managed LLM enrichment code and provider/model configuration.
 - Removed `docs/llm.md`, `docs/viewer.md`, and the obsolete viewer screenshot asset now
   covered by the README and generated agent/setup guidance.
 - Removed findings/review queues from the generated viewer and public MCP workflow path.
-  The legacy empty `findings` field remains in schema 1.1 for artifact compatibility.
+- Removed the legacy `findings` artifact field and moved the canonical model schema to
+  `2.0`.
 
 ### Fixed
 

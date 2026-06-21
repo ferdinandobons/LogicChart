@@ -1,9 +1,9 @@
 """Relevance/scoring correctness for query_model and the CLI <-> MCP JSON contract.
 
 These tests pin the exact per-bucket weights and the deterministic ordering, lock the
-no-match / empty-query behavior, and prove the substring/entry-kind false positives that
-an adversarial review found are gone. The CORE relevance (real queries still surface the
-right flows) is covered by the demo golden test; here we isolate the scoring mechanics.
+no-match / empty-query behavior, and prove substring/entry-kind false positives are gone.
+The CORE relevance (real queries still surface the right flows) is covered by the demo
+golden test; here we isolate the scoring mechanics.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ def _flow(
 
 def _model(flows: list[Flow]) -> ProjectModel:
     return ProjectModel(
-        schema_version="1.1",
+        schema_version="2.0",
         generated_at="2026-06-16T00:00:00+00:00",
         root="/tmp/project",
         flows=flows,
@@ -303,21 +303,17 @@ def test_query_match_to_dict_shape() -> None:
         "reasons": ["`widget` matches the flow identity"],
         "subgraph_flow_ids": ["f1"],
         "next_tools": {
-            "flow_navigation": {
-                "tool": "get_flow_navigation",
+            "agent_context": {
+                "tool": "agent_context",
                 "arguments": {"flow_id": "f1"},
             },
-            "visual_snapshot": {
-                "tool": "get_flow_snapshot",
-                "arguments": {"flow_id": "f1", "format": "svg"},
+            "snapshot_slice": {
+                "tool": "snapshot_slice",
+                "arguments": {"flow_ids": ["f1"], "format": "svg", "include_svg": False},
             },
-            "context_pack": {
-                "tool": "context_pack",
-                "arguments": {"flow_ids": ["f1"]},
-            },
-            "subgraph_snapshot": {
-                "tool": "get_subgraph_snapshot",
-                "arguments": {"flow_ids": ["f1"], "format": "svg"},
+            "expand_slice": {
+                "tool": "expand_slice",
+                "arguments": {"flow_ids": ["f1"], "direction": "neighbors"},
             },
         },
         "source": "app.py:1",

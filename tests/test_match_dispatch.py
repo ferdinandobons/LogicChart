@@ -28,7 +28,7 @@ def _match_meta(model: ProjectModel, flow_name: str) -> dict:
     return node.metadata
 
 
-def test_guarded_wildcard_is_modeled_without_public_findings(tmp_path: Path) -> None:
+def test_guarded_wildcard_is_modeled(tmp_path: Path) -> None:
     body = (
         "def handle(status):\n"
         "    match status:\n"
@@ -42,7 +42,6 @@ def test_guarded_wildcard_is_modeled_without_public_findings(tmp_path: Path) -> 
     model = _analyze(tmp_path, body)
     meta = _match_meta(model, "handle")
     assert {"Status.A", "Status.B"} <= set(meta["values"])
-    assert model.findings == []
 
 
 def test_guarded_wildcard_leaves_trailing_return_live(tmp_path: Path) -> None:
@@ -58,7 +57,6 @@ def test_guarded_wildcard_leaves_trailing_return_live(tmp_path: Path) -> None:
     model = _analyze(tmp_path, body)
     flow = next(f for f in model.flows if f.name == "handle")
     assert any(node.label == "Return 'fallthrough'" for node in flow.nodes)
-    assert model.findings == []
 
 
 def test_or_pattern_members_are_split(tmp_path: Path) -> None:
@@ -74,7 +72,6 @@ def test_or_pattern_members_are_split(tmp_path: Path) -> None:
     meta = _match_meta(model, "handle")
     assert meta["value_namespace"] == "Status"
     assert {"Status.A", "Status.B", "Status.C"} <= set(meta["values"])
-    assert model.findings == []
 
 
 def test_real_default_stays_explicit(tmp_path: Path) -> None:
@@ -91,4 +88,3 @@ def test_real_default_stays_explicit(tmp_path: Path) -> None:
     model = _analyze(tmp_path, body)
     meta = _match_meta(model, "handle")
     assert any(branch["label"] == "_" and not branch["implicit"] for branch in meta["branches"])
-    assert model.findings == []

@@ -33,9 +33,9 @@ LogicChart gives agents a deterministic navigation layer:
 
 - entrypoints, decisions, branches, calls, outcomes, and source ranges;
 - domain concepts such as statuses, roles, permissions, enums, and feature flags;
-- impact context for changed files, symbols, flows, and dependency paths;
+- affected-workflow context for changed files, symbols, flows, and dependency paths;
 - canonical visual slices with stable diagram hashes;
-- optional agent-authored labels and summaries kept separate from analyzer facts.
+- optional language-friendly labels derived as a presentation layer from analyzer facts.
 
 ## Quick Start
 
@@ -63,7 +63,7 @@ After setup, ask the coding agent ordinary questions:
 ```text
 How does checkout work?
 Show me the workflow for certificate upload.
-What logic is impacted by this change?
+Which workflows are affected by this change?
 Where is this status handled?
 What should I test after editing this file?
 ```
@@ -157,11 +157,8 @@ Primary MCP tools:
 | `explain_flow` | Explain one flow with ordered steps, decisions, calls, and source anchors. |
 | `explain_node` | Explain one flowchart node with local edge and source context. |
 | `explain_edge` | Explain one modeled edge with source context. |
-| `domain_map` | Aggregate state/domain handling across decisions and flows. |
 | `validate_artifacts` | Check generated model validity and optional sync. |
 | `update_logicchart` | Refresh JSON, Markdown, and HTML artifacts from local source. |
-| `preview_annotation_targets` | Preview local flow/node/scope annotation targets. |
-| `write_annotations` | Write validated agent-authored labels and summaries. |
 
 Use `logicchart view` for the manual UI. The CLI intentionally stays small:
 `setup-agent`, `update`, `view`, `validate`, `doctor`, and `mcp`.
@@ -175,7 +172,6 @@ LogicChart writes deterministic artifacts under `logicchart-out/`:
 | `logic-flow.json` | Yes | Canonical model consumed by MCP, CI, scripts, and the viewer. |
 | `logic-flow.md` | Yes | Human-readable Markdown summary with Mermaid flowcharts. |
 | `logic-flow.html` | Usually no | Local interactive viewer generated from the model. |
-| `logic-annotations.json` | Optional | Validated sidecar for agent-generated labels and summaries. |
 
 Commit `logic-flow.json` and `logic-flow.md` when LogicChart is part of the project
 workflow. Regenerate HTML locally when a human needs the viewer.
@@ -205,9 +201,10 @@ LogicChart extracts and aggregates domain concepts such as:
 - feature flags;
 - handled values and the decisions that branch on them.
 
-MCP `domain_map` connects these concepts to flows, nodes, source ranges, snapshots, and
-`agent_context`. Value filters match handled values, including enum-style suffix matches
-such as `PAID` for `Status.PAID`.
+`agent_context` includes relevant domain logic inside the returned `workflow_slice`, with
+links back to flows, nodes, source ranges, snapshots, and viewer targets. Value matching
+uses modeled code facts, including enum-style suffix matches such as `PAID` for
+`Status.PAID`.
 
 ## Supported Code
 
@@ -307,5 +304,3 @@ Schemas:
 
 - [schema/logic-flow.schema.json](schema/logic-flow.schema.json) documents the canonical
   artifact model.
-- [schema/logic-annotations.schema.json](schema/logic-annotations.schema.json) documents the
-  optional annotation sidecar.

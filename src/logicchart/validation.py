@@ -8,7 +8,6 @@ from typing import Any, cast
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.analysis.registry import supported_language_ids
-from logicchart.annotations import load_annotations
 from logicchart.artifacts import output_paths
 from logicchart.config import LogicChartConfig
 from logicchart.model import ProjectModel
@@ -22,7 +21,6 @@ class ValidationReport:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     artifact: str = ""
-    annotations: dict[str, Any] | None = None
     quality: dict[str, Any] | None = None
 
     def add_error(self, message: str) -> None:
@@ -38,8 +36,6 @@ class ValidationReport:
         }
         if self.quality is not None:
             payload["quality"] = self.quality
-        if self.annotations is not None:
-            payload["annotations"] = self.annotations
         return payload
 
 
@@ -48,7 +44,6 @@ def validate_logicchart(
     *,
     config: LogicChartConfig | None = None,
     check_sync: bool = False,
-    include_annotations: bool = False,
     include_quality: bool = False,
     quality_thresholds: dict[str, float | int] | None = None,
 ) -> ValidationReport:
@@ -80,12 +75,6 @@ def validate_logicchart(
 
     _validate_languages(model, report)
     _validate_json_schema(artifact, report)
-    annotations = load_annotations(root, model, active_config)
-    if include_annotations or annotations.status != "absent":
-        report.annotations = annotations.to_dict()
-    if annotations.status != "absent" and not annotations.ok:
-        for annotation_error in annotations.errors:
-            report.add_error(f"annotations: {annotation_error}")
     active_thresholds = quality_thresholds or {}
     if include_quality or active_thresholds:
         report.quality = model.metadata.get("quality") or model_quality(model)

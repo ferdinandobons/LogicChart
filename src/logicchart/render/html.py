@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-from logicchart.annotations import load_annotations
 from logicchart.model import ProjectModel
 from logicchart.render.payload import build_payload
 
@@ -33,12 +32,6 @@ def _optional_inline_js(name: str) -> str:
 
 def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
     payload_data = build_payload(model, source_root)
-    if source_root is not None:
-        annotations = load_annotations(source_root, model)
-        if annotations.status != "absent":
-            payload_data.setdefault("metadata", {})["annotations"] = annotations.to_dict()
-        if annotations.ok and annotations.annotations is not None:
-            payload_data["annotations"] = annotations.annotations
     payload = json.dumps(payload_data, ensure_ascii=False).replace("</", "<\\/")
     css = _asset("styles.css")
     js = _inline_js("shell.js")

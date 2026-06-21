@@ -79,14 +79,12 @@ packages = ["src/logicchart"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schema/logic-flow.schema.json" = "logicchart/schema/logic-flow.schema.json"
-"schema/logic-annotations.schema.json" = "logicchart/schema/logic-annotations.schema.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
   "/src",
   "/tests",
   "/frontend",
-  "/docs",
   "/schema",
   "/package.json",
   "/package-lock.json",

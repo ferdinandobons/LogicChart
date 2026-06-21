@@ -22,12 +22,6 @@ class NodeKind(str, Enum):
     ERROR = "error"
 
 
-class Severity(str, Enum):
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-
-
 @dataclass(slots=True)
 class SourceLocation:
     path: str
@@ -74,20 +68,6 @@ class Flow:
 
 
 @dataclass(slots=True)
-class Finding:
-    id: str
-    kind: str
-    severity: Severity
-    message: str
-    evidence: Evidence
-    flow_id: str
-    location: SourceLocation
-    node_id: str | None = None
-    detail: str = ""
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
 class FileRecord:
     path: str
     language: str
@@ -128,14 +108,13 @@ class ProjectModel:
     generated_at: str
     root: str
     flows: list[Flow] = field(default_factory=list)
-    findings: list[Finding] = field(default_factory=list)
     files: list[FileRecord] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def empty(cls, root: Path) -> ProjectModel:
         return cls(
-            schema_version="1.1",
+            schema_version="2.0",
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=str(root.resolve()),
         )
@@ -152,14 +131,12 @@ class ProjectModel:
             raise ValueError("malformed logic-flow.json: expected a JSON object at the top level")
         try:
             flows = [_flow_from_dict(item) for item in data.get("flows", [])]
-            findings = [_finding_from_dict(item) for item in data.get("findings", [])]
             files = [FileRecord(**item) for item in data.get("files", [])]
             return cls(
                 schema_version=data["schema_version"],
                 generated_at=data["generated_at"],
                 root=data["root"],
                 flows=flows,
-                findings=findings,
                 files=files,
                 metadata=data.get("metadata", {}),
             )
@@ -208,20 +185,5 @@ def _flow_from_dict(data: dict[str, Any]) -> Flow:
         calls=data.get("calls", []),
         called_by=data.get("called_by", []),
         tests=data.get("tests", []),
-        metadata=data.get("metadata", {}),
-    )
-
-
-def _finding_from_dict(data: dict[str, Any]) -> Finding:
-    return Finding(
-        id=data["id"],
-        kind=data["kind"],
-        severity=Severity(data["severity"]),
-        message=data["message"],
-        evidence=Evidence(data["evidence"]),
-        flow_id=data["flow_id"],
-        location=_location_from_dict(data["location"]),
-        node_id=data.get("node_id"),
-        detail=data.get("detail", ""),
         metadata=data.get("metadata", {}),
     )

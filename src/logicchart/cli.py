@@ -151,7 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser(
         "validate",
         help="Validate the generated LogicChart model.",
-        description="Validate generated artifacts and optional quality/annotation checks.",
+        description="Validate generated artifacts and optional analyzer-quality checks.",
         epilog=dedent(
             """\
             Examples:
@@ -179,11 +179,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--quality",
         action="store_true",
         help="Include deterministic analysis-quality metrics in the report.",
-    )
-    validate.add_argument(
-        "--annotations",
-        action="store_true",
-        help="Include optional logic-annotations.json sidecar validation status.",
     )
     validate.add_argument(
         "--max-skipped-files",
@@ -260,7 +255,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Path(args.path),
                 args.check_sync,
                 args.json_output,
-                args.annotations,
                 args.quality,
                 _quality_thresholds(args),
                 args.profile,
@@ -342,7 +336,6 @@ def _setup_agent(
         root,
         check_sync=False,
         json_output=False,
-        include_annotations=True,
         include_quality=False,
         quality_thresholds=None,
         profile=profile,
@@ -358,7 +351,7 @@ def _setup_agent(
         [
             "Ask your coding agent ordinary questions about the code logic.",
             "Try: How does this feature work?",
-            "Try: What logic is impacted by this change?",
+            "Try: Which workflows are affected by this change?",
             "Try: Show me the workflow for this feature.",
             "Manual UI: `logicchart view`",
         ]
@@ -416,7 +409,7 @@ def _analyze(
         print(f"- HTML: {html_path}")
     if show_next_steps:
         steps = [
-            "Ask your coding agent questions about behavior, flow, or impact.",
+            "Ask your coding agent questions about behavior, workflows, or changed-code context.",
             "Run `logicchart validate --check-sync` before committing generated artifacts.",
         ]
         if html_path:
@@ -473,7 +466,6 @@ def _validate(
     root: Path,
     check_sync: bool,
     json_output: bool,
-    include_annotations: bool,
     include_quality: bool,
     quality_thresholds: dict[str, float | int] | None,
     profile: str | None = None,
@@ -485,7 +477,6 @@ def _validate(
         root,
         config=config,
         check_sync=check_sync,
-        include_annotations=include_annotations,
         include_quality=include_quality,
         quality_thresholds=quality_thresholds,
     )
@@ -502,9 +493,6 @@ def _validate(
             print(f"Warning: {warning}")
         for error in report.errors:
             print(f"Error: {error}", file=sys.stderr)
-        if report.annotations is not None:
-            status_text = report.annotations.get("status", "unknown")
-            print(f"Annotations: {status_text}")
         if report.quality is not None:
             print(render_quality(report.quality))
         if show_next_steps:

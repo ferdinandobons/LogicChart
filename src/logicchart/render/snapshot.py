@@ -45,7 +45,6 @@ class _LayoutEdge:
 
 
 SNAPSHOT_WIDTH = 720
-SNAPSHOT_MARGIN_X = 52
 FLOW_NODE_WIDTH = 340
 
 
@@ -58,62 +57,6 @@ def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
         "recoverable": True,
         "guardrail": ("This reports an unsupported visual export format for LogicChart snapshots."),
     }
-
-
-def render_flow_snapshot(
-    model: ProjectModel,
-    flow_id: str,
-    *,
-    highlight_node_ids: set[str] | None = None,
-    title: str | None = None,
-    max_nodes: int | None = None,
-) -> dict[str, Any]:
-    flow = next((item for item in model.flows if item.id == flow_id), None)
-    if flow is None:
-        return _snapshot_request_error("flow", flow_id)
-    highlighted = highlight_node_ids or set()
-    rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
-    layout = _flow_layout(
-        flow,
-        highlighted,
-        rendered_nodes=rendered_nodes,
-    )
-    svg = _flow_svg(
-        flow,
-        highlighted,
-        rendered_nodes=rendered_nodes,
-        title=title,
-        layout=layout,
-    )
-    return {
-        "format": "svg",
-        "flow_id": flow.id,
-        "title": title or flow.name,
-        "svg": svg,
-        "highlighted_node_ids": sorted(highlight_node_ids or []),
-        "node_count": len(flow.nodes),
-        "rendered_node_count": len(rendered_nodes),
-        "omitted_node_count": max(0, len(flow.nodes) - len(rendered_nodes)),
-        "layout": _flow_layout_payload(flow, rendered_nodes, layout),
-        "layout_quality": _flow_layout_quality(flow, rendered_nodes, layout),
-    }
-
-
-def _snapshot_request_error(
-    target_type: str,
-    target_id: str,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "error": f"Unknown {target_type}: {target_id}",
-        "error_code": f"snapshot_{target_type}_not_found",
-        "target_type": target_type,
-        "target_id": target_id,
-        "recoverable": True,
-        "guardrail": (
-            "This reports an invalid snapshot target from the generated LogicChart model."
-        ),
-    }
-    return payload
 
 
 def _subgraph_empty_error() -> dict[str, Any]:
@@ -135,78 +78,6 @@ def _unique(items: list[str]) -> list[str]:
         result.append(item)
         seen.add(item)
     return result
-
-
-def render_impact_snapshot(
-    *,
-    changed_files: list[str],
-    direct: list[Flow],
-    transitive: list[Flow],
-    max_flows: int | None = None,
-    target_flow_ids: list[str] | None = None,
-    target_symbols: list[str] | None = None,
-    target_dependency_paths: list[str] | None = None,
-    unresolved_targets: list[Any] | None = None,
-    impact_reasons: dict[str, list[str]] | None = None,
-    subgraph_flow_ids: list[str] | None = None,
-) -> dict[str, Any]:
-    rendered_direct = _select_impact_flows(direct, max_flows)
-    rendered_transitive = _select_impact_flows(transitive, max_flows)
-    target_labels = _impact_target_labels(
-        target_flow_ids=target_flow_ids or [],
-        target_symbols=target_symbols or [],
-        target_dependency_paths=target_dependency_paths or [],
-    )
-    layout = _impact_layout(
-        changed_files,
-        direct,
-        transitive,
-        rendered_direct=rendered_direct,
-        rendered_transitive=rendered_transitive,
-        target_labels=target_labels,
-        unresolved_targets=unresolved_targets or [],
-    )
-    svg = _impact_svg(
-        changed_files,
-        direct,
-        transitive,
-        rendered_direct=rendered_direct,
-        rendered_transitive=rendered_transitive,
-        target_labels=target_labels,
-        unresolved_targets=unresolved_targets or [],
-        layout=layout,
-    )
-    return {
-        "format": "svg",
-        "changed_files": changed_files,
-        "target_flow_ids": target_flow_ids or [],
-        "target_symbols": target_symbols or [],
-        "target_dependency_paths": target_dependency_paths or [],
-        "unresolved_targets": unresolved_targets or [],
-        "impact_reasons": impact_reasons or {},
-        "subgraph_flow_ids": subgraph_flow_ids or [],
-        "direct_flow_ids": [flow.id for flow in direct],
-        "transitive_flow_ids": [flow.id for flow in transitive],
-        "rendered_direct_flow_ids": [flow.id for flow in rendered_direct],
-        "rendered_transitive_flow_ids": [flow.id for flow in rendered_transitive],
-        "omitted_direct_flow_count": max(0, len(direct) - len(rendered_direct)),
-        "omitted_transitive_flow_count": max(0, len(transitive) - len(rendered_transitive)),
-        "layout": _impact_layout_payload(
-            direct,
-            transitive,
-            rendered_direct,
-            rendered_transitive,
-            layout,
-        ),
-        "layout_quality": _impact_layout_quality(
-            direct,
-            transitive,
-            rendered_direct,
-            rendered_transitive,
-            layout,
-        ),
-        "svg": svg,
-    }
 
 
 def render_subgraph_snapshot(
@@ -276,70 +147,6 @@ def render_subgraph_snapshot(
         ),
         "svg": svg,
     }
-
-
-def _flow_svg(
-    flow: Flow,
-    highlight_node_ids: set[str],
-    *,
-    rendered_nodes: list[FlowNode],
-    title: str | None,
-    layout: dict[str, Any] | None = None,
-) -> str:
-    nodes = rendered_nodes
-    omitted = max(0, len(flow.nodes) - len(nodes))
-    layout = layout or _flow_layout(flow, highlight_node_ids, rendered_nodes=nodes)
-    width = int(layout["width"])
-    height = int(layout["height"])
-    node_width = int(layout["node_width"])
-    node_height = int(layout["node_height"])
-    positions = layout["positions"]
-    parts = [
-        _svg_open(width, height, title or flow.name),
-        _style(),
-        f'<rect class="background" x="0" y="0" width="{width}" height="{height}" />',
-        _text(28, 34, title or flow.name, "title"),
-        _text(
-            28,
-            58,
-            f"{flow.entry_kind} - {flow.language} - "
-            f"{flow.location.path}:{flow.location.start_line}",
-            "subtitle",
-        ),
-        _text(
-            28,
-            82,
-            f"{len(flow.nodes)} nodes - {len(flow.edges)} edges",
-            "meta",
-        ),
-    ]
-    for edge in flow.edges:
-        if edge.source not in positions or edge.target not in positions:
-            continue
-        parts.append(
-            _edge(edge.source, edge.target, positions, node_width, node_height, edge.label)
-        )
-    for node in nodes:
-        parts.append(
-            _flow_node(
-                node,
-                positions[node.id],
-                node_width,
-                node_height,
-                highlighted=node.id in highlight_node_ids,
-            )
-        )
-    if omitted:
-        parts.append(
-            _text(
-                28,
-                height - 34,
-                f"{omitted} additional nodes omitted from this compact snapshot.",
-                "meta",
-            )
-        )
-    parts.append("</svg>")
-    return "\n".join(parts)
 
 
 def _subgraph_svg(
@@ -433,110 +240,6 @@ def _subgraph_svg(
     return "\n".join(parts)
 
 
-def _impact_svg(
-    changed_files: list[str],
-    direct: list[Flow],
-    transitive: list[Flow],
-    *,
-    rendered_direct: list[Flow],
-    rendered_transitive: list[Flow],
-    target_labels: list[str],
-    unresolved_targets: list[Any],
-    layout: dict[str, Any] | None = None,
-) -> str:
-    layout = layout or _impact_layout(
-        changed_files,
-        direct,
-        transitive,
-        rendered_direct=rendered_direct,
-        rendered_transitive=rendered_transitive,
-        target_labels=target_labels,
-        unresolved_targets=unresolved_targets,
-    )
-    width = int(layout["width"])
-    height = int(layout["height"])
-    row_height = int(layout["row_height"])
-    row_gap = int(layout["row_gap"])
-    omitted_direct = max(0, len(direct) - len(rendered_direct))
-    omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
-    meta_lines: list[str] = []
-    if changed_files:
-        meta_lines.append(_compact(f"Changed files: {', '.join(changed_files)}", 125))
-    if target_labels:
-        meta_lines.append(_compact(f"Targets: {', '.join(target_labels)}", 125))
-    if unresolved_targets:
-        unresolved_label = ", ".join(_unresolved_target_label(item) for item in unresolved_targets)
-        meta_lines.append(_compact(f"Unresolved targets: {unresolved_label}", 125))
-    parts = [
-        _svg_open(width, height, "LogicChart impact snapshot"),
-        _style(),
-        f'<rect class="background" x="0" y="0" width="{width}" height="{height}" />',
-        _text(28, 34, "Impact snapshot", "title"),
-        _text(
-            28,
-            58,
-            f"{len(changed_files)} changed files - {len(direct)} direct - "
-            f"{len(transitive)} caller impact",
-            "subtitle",
-        ),
-    ]
-    parts.extend(_text(28, 84 + index * 24, line, "meta") for index, line in enumerate(meta_lines))
-    parts.extend(
-        [
-            _text(
-                int(layout["direct_column"]["x"]) + 28,
-                int(layout["direct_heading_y"]),
-                "Direct impact",
-                "column",
-            ),
-            _text(
-                int(layout["transitive_column"]["x"]) + 28,
-                int(layout["transitive_heading_y"]),
-                "Caller impact",
-                "column",
-            ),
-        ]
-    )
-    for index, flow in enumerate(rendered_direct):
-        parts.append(
-            _impact_box(
-                flow,
-                int(layout["direct_column"]["x"]),
-                int(layout["direct_column"]["y"]) + index * (row_height + row_gap),
-                row_height,
-                width=int(layout["direct_column"]["width"]),
-            )
-        )
-    for index, flow in enumerate(rendered_transitive):
-        parts.append(
-            _impact_box(
-                flow,
-                int(layout["transitive_column"]["x"]),
-                int(layout["transitive_column"]["y"]) + index * (row_height + row_gap),
-                row_height,
-                width=int(layout["transitive_column"]["width"]),
-            )
-        )
-    if not direct and not transitive:
-        message = (
-            "No modeled flows matched the requested targets."
-            if unresolved_targets
-            else "No modeled flows are affected by these files."
-        )
-        parts.append(_text(52, int(layout["direct_column"]["y"]) + 42, message, "meta"))
-    if omitted_direct or omitted_transitive:
-        parts.append(
-            _text(
-                52,
-                height - 34,
-                f"{omitted_direct} direct and {omitted_transitive} caller flows omitted.",
-                "meta",
-            )
-        )
-    parts.append("</svg>")
-    return "\n".join(parts)
-
-
 def _unresolved_target_label(item: Any) -> str:
     if isinstance(item, dict):
         target_type = item.get("type")
@@ -545,237 +248,6 @@ def _unresolved_target_label(item: Any) -> str:
             return f"{target_type}:{value}"
         return _compact(str(item), 80)
     return str(item)
-
-
-def _impact_target_labels(
-    *,
-    target_flow_ids: list[str],
-    target_symbols: list[str],
-    target_dependency_paths: list[str],
-) -> list[str]:
-    labels: list[str] = []
-    labels.extend(f"flow:{item}" for item in target_flow_ids)
-    labels.extend(f"symbol:{item}" for item in target_symbols)
-    labels.extend(f"path:{item}" for item in target_dependency_paths)
-    return labels
-
-
-def _flow_layout(
-    flow: Flow,
-    highlight_node_ids: set[str],
-    *,
-    rendered_nodes: list[FlowNode],
-) -> dict[str, Any]:
-    width = SNAPSHOT_WIDTH
-    header_height = 108
-    row_gap = 34
-    node_width = FLOW_NODE_WIDTH
-    node_height = 76
-    x = (width - node_width) // 2
-    positions = {
-        node.id: (x, header_height + index * (node_height + row_gap))
-        for index, node in enumerate(rendered_nodes)
-    }
-    graph_height = header_height + max(1, len(rendered_nodes)) * (node_height + row_gap) + 86
-    height = graph_height
-    rendered_edge_count = sum(
-        edge.source in positions and edge.target in positions for edge in flow.edges
-    )
-    return {
-        "engine": "static-flow-snapshot-v1",
-        "direction": "top_to_bottom",
-        "width": width,
-        "height": height,
-        "header_height": header_height,
-        "row_gap": row_gap,
-        "node_width": node_width,
-        "node_height": node_height,
-        "x": x,
-        "graph_height": graph_height,
-        "positions": positions,
-        "rendered_edge_count": rendered_edge_count,
-        "omitted_edge_count": max(0, len(flow.edges) - rendered_edge_count),
-        "highlighted_node_count": len(highlight_node_ids),
-    }
-
-
-def _flow_layout_payload(
-    flow: Flow,
-    rendered_nodes: list[FlowNode],
-    layout: dict[str, Any],
-) -> dict[str, Any]:
-    positions: dict[str, tuple[int, int]] = layout["positions"]
-    return {
-        "engine": layout["engine"],
-        "direction": layout["direction"],
-        "orientation": "vertical",
-        "canvas": {"width": layout["width"], "height": layout["height"]},
-        "node": {
-            "width": layout["node_width"],
-            "height": layout["node_height"],
-            "row_gap": layout["row_gap"],
-        },
-        "bounds": {
-            "x": layout["x"],
-            "y": layout["header_height"],
-            "width": layout["node_width"],
-            "height": max(1, layout["graph_height"] - layout["header_height"]),
-        },
-        "rendered_edge_count": layout["rendered_edge_count"],
-        "omitted_edge_count": layout["omitted_edge_count"],
-        "compact": len(rendered_nodes) < len(flow.nodes),
-        "node_positions": [
-            {
-                "id": node.id,
-                "x": positions[node.id][0],
-                "y": positions[node.id][1],
-                "width": layout["node_width"],
-                "height": layout["node_height"],
-            }
-            for node in rendered_nodes
-        ],
-    }
-
-
-def _flow_layout_quality(
-    flow: Flow,
-    rendered_nodes: list[FlowNode],
-    layout: dict[str, Any],
-) -> dict[str, Any]:
-    omitted_nodes = max(0, len(flow.nodes) - len(rendered_nodes))
-    omitted_edges = int(layout["omitted_edge_count"])
-    rendered_node_ids = {node.id for node in rendered_nodes}
-    clarity = _layout_clarity(
-        _flow_layout_boxes(rendered_nodes, layout),
-        canvas_width=float(layout["width"]),
-        canvas_height=float(layout["height"]),
-        edges=[
-            _LayoutEdge(edge.source, edge.target, edge.label)
-            for edge in flow.edges
-            if edge.source in rendered_node_ids and edge.target in rendered_node_ids
-        ],
-    )
-    return _snapshot_layout_quality(
-        compact=omitted_nodes > 0 or omitted_edges > 0,
-        counts={
-            "node_count": len(flow.nodes),
-            "rendered_node_count": len(rendered_nodes),
-            "omitted_node_count": omitted_nodes,
-            "edge_count": len(flow.edges),
-            "rendered_edge_count": int(layout["rendered_edge_count"]),
-            "omitted_edge_count": omitted_edges,
-        },
-        clarity=clarity,
-    )
-
-
-def _impact_layout(
-    changed_files: list[str],
-    direct: list[Flow],
-    transitive: list[Flow],
-    *,
-    rendered_direct: list[Flow],
-    rendered_transitive: list[Flow],
-    target_labels: list[str],
-    unresolved_targets: list[Any],
-) -> dict[str, Any]:
-    width = SNAPSHOT_WIDTH
-    row_height = 84
-    row_gap = 22
-    meta_line_count = (
-        int(bool(changed_files)) + int(bool(target_labels)) + int(bool(unresolved_targets))
-    )
-    target_offset = max(0, meta_line_count - 1) * 24
-    section_gap = 42
-    column_x = SNAPSHOT_MARGIN_X
-    column_width = width - SNAPSHOT_MARGIN_X * 2
-    direct_heading_y = 126 + target_offset
-    direct_y = direct_heading_y + 24
-    direct_rows = max(1, len(rendered_direct))
-    transitive_heading_y = direct_y + direct_rows * (row_height + row_gap) + section_gap
-    transitive_y = transitive_heading_y + 24
-    transitive_rows = max(1, len(rendered_transitive))
-    height = transitive_y + transitive_rows * (row_height + row_gap) + 80
-    return {
-        "engine": "static-impact-snapshot-v1",
-        "direction": "top_to_bottom_sections",
-        "width": width,
-        "height": height,
-        "row_height": row_height,
-        "row_gap": row_gap,
-        "rows": direct_rows + transitive_rows,
-        "section_gap": section_gap,
-        "target_offset": target_offset,
-        "direct_heading_y": direct_heading_y,
-        "transitive_heading_y": transitive_heading_y,
-        "direct_column": {"x": column_x, "y": direct_y, "width": column_width},
-        "transitive_column": {"x": column_x, "y": transitive_y, "width": column_width},
-        "changed_file_count": len(changed_files),
-        "target_count": len(target_labels),
-        "unresolved_target_count": len(unresolved_targets),
-    }
-
-
-def _impact_layout_payload(
-    direct: list[Flow],
-    transitive: list[Flow],
-    rendered_direct: list[Flow],
-    rendered_transitive: list[Flow],
-    layout: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "engine": layout["engine"],
-        "direction": layout["direction"],
-        "orientation": "vertical",
-        "canvas": {"width": layout["width"], "height": layout["height"]},
-        "row": {"height": layout["row_height"], "gap": layout["row_gap"]},
-        "target_count": layout["target_count"],
-        "columns": [
-            {
-                "id": "direct",
-                "label": "Direct impact",
-                **layout["direct_column"],
-                "rendered_flow_count": len(rendered_direct),
-                "omitted_flow_count": max(0, len(direct) - len(rendered_direct)),
-            },
-            {
-                "id": "caller",
-                "label": "Caller impact",
-                **layout["transitive_column"],
-                "rendered_flow_count": len(rendered_transitive),
-                "omitted_flow_count": max(0, len(transitive) - len(rendered_transitive)),
-            },
-        ],
-        "compact": len(rendered_direct) < len(direct) or len(rendered_transitive) < len(transitive),
-    }
-
-
-def _impact_layout_quality(
-    direct: list[Flow],
-    transitive: list[Flow],
-    rendered_direct: list[Flow],
-    rendered_transitive: list[Flow],
-    layout: dict[str, Any],
-) -> dict[str, Any]:
-    omitted_direct = max(0, len(direct) - len(rendered_direct))
-    omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
-    return _snapshot_layout_quality(
-        compact=omitted_direct > 0 or omitted_transitive > 0,
-        counts={
-            "direct_flow_count": len(direct),
-            "rendered_direct_flow_count": len(rendered_direct),
-            "omitted_direct_flow_count": omitted_direct,
-            "transitive_flow_count": len(transitive),
-            "rendered_transitive_flow_count": len(rendered_transitive),
-            "omitted_transitive_flow_count": omitted_transitive,
-            "unresolved_target_count": int(layout["unresolved_target_count"]),
-        },
-        clarity=_layout_clarity(
-            _impact_layout_boxes(rendered_direct, rendered_transitive, layout),
-            canvas_width=float(layout["width"]),
-            canvas_height=float(layout["height"]),
-        ),
-    )
 
 
 def _subgraph_layout(
@@ -953,49 +425,6 @@ def _snapshot_layout_quality(
             "snapshot tool when omitted counts are non-zero."
         ),
     }
-
-
-def _flow_layout_boxes(rendered_nodes: list[FlowNode], layout: dict[str, Any]) -> list[_LayoutBox]:
-    positions: dict[str, tuple[int, int]] = layout["positions"]
-    boxes = [
-        _LayoutBox(
-            id=node.id,
-            x=float(positions[node.id][0]),
-            y=float(positions[node.id][1]),
-            width=float(layout["node_width"]),
-            height=float(layout["node_height"]),
-            kind="node",
-        )
-        for node in rendered_nodes
-        if node.id in positions
-    ]
-    return boxes
-
-
-def _impact_layout_boxes(
-    rendered_direct: list[Flow],
-    rendered_transitive: list[Flow],
-    layout: dict[str, Any],
-) -> list[_LayoutBox]:
-    row_height = float(layout["row_height"])
-    row_gap = float(layout["row_gap"])
-    boxes: list[_LayoutBox] = []
-    for column_id, flows, column in (
-        ("direct", rendered_direct, layout["direct_column"]),
-        ("caller", rendered_transitive, layout["transitive_column"]),
-    ):
-        for index, flow in enumerate(flows):
-            boxes.append(
-                _LayoutBox(
-                    id=f"{column_id}:{flow.id}",
-                    x=float(column["x"]),
-                    y=float(column["y"]) + index * (row_height + row_gap),
-                    width=float(column["width"]),
-                    height=row_height,
-                    kind="flow",
-                )
-            )
-    return boxes
 
 
 def _subgraph_layout_boxes(
@@ -1189,12 +618,6 @@ def _select_flow_nodes(
     return [node for node in flow.nodes if node.id in selected_ids]
 
 
-def _select_impact_flows(flows: list[Flow], max_flows: int | None) -> list[Flow]:
-    if max_flows is None:
-        return flows
-    return flows[: _effective_limit(max_flows, len(flows))]
-
-
 def _effective_limit(value: int | None, default: int) -> int:
     if value is None:
         return default
@@ -1269,21 +692,6 @@ def _edge(
     )
 
 
-def _impact_box(flow: Flow, x: int, y: int, height: int, *, width: int) -> str:
-    lines = [
-        f'<rect class="impact-node" x="{x}" y="{y}" width="{width}" height="{height}" rx="10" />',
-        _text(x + 16, y + 28, _compact(flow.name, 72), "node-label"),
-        _text(
-            x + 16,
-            y + 52,
-            f"{flow.entry_kind} - {flow.language}",
-            "node-meta",
-        ),
-        _text(x + 16, y + 72, _compact(flow.location.path, 82), "node-meta"),
-    ]
-    return "\n".join(lines)
-
-
 def _style() -> str:
     return """
 <style>
@@ -1293,7 +701,7 @@ def _style() -> str:
   .meta { fill: #64748b; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
   .column { fill: #334155; font: 700 13px system-ui, sans-serif; }
   .subgraph-section { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
-  .node, .impact-node { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.4; }
+  .node { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.4; }
   .kind-decision { fill: #fff7ed; stroke: #f97316; }
   .kind-call { fill: #ecfeff; stroke: #0891b2; }
   .kind-error { fill: #fef2f2; stroke: #ef4444; }

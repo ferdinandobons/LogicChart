@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.1",
-  "generated_at": "2026-06-21T10:21:08.458068+00:00",
+  "schema_version": "2.0",
+  "generated_at": "2026-06-21T12:51:45.571313+00:00",
   "root": ".",
   "flows": [
     {
@@ -19860,7 +19860,6 @@
       }
     }
   ],
-  "findings": [],
   "files": [
     {
       "path": "examples/demo/backend/auth/AuthService.cs",

@@ -28,7 +28,6 @@ import {
   flowLabel,
   flowPath,
   scopeNamesForFlow,
-  type LogicChartAnnotationText,
   type LogicChartFlow,
   type LogicChartPayload,
 } from "./logicchart-model";
@@ -986,7 +985,6 @@ export function ViewerApp({
       <g className="scope-nodes">
         {scopeNodes.map(item => (
           <ScopeNode
-            annotation={payload?.annotations?.scopes?.[item.scope]}
             currentSelection={currentSelection}
             draggingNodeKey={draggingNodeKey}
             hasRootSelection={hasRootSelection}
@@ -1210,7 +1208,6 @@ export function ViewerApp({
           if (!detail) return null;
           return (
             <FlowDetail
-              annotations={payload?.annotations?.nodes}
               detail={detail}
               draggingNodeKey={draggingNodeKey}
               manualNodePositions={manualNodePositions}
@@ -1235,12 +1232,10 @@ export function ViewerApp({
       <g className="flow-nodes">
         {[...flowPositions.values()].map(position => {
           const flow = flowById.get(position.id);
-          const flowAnnotation = payload?.annotations?.flows?.[position.id];
           const flowSummary =
             flow && isLogicChartFlow(flow)
-              ? flowAccessibilitySummary(asLogicChartFlow(flow), flowAnnotation)
+              ? flowAccessibilitySummary(asLogicChartFlow(flow))
               : position.id;
-          const flowTitle = annotationTitle(flowSummary, flowAnnotation);
           const flowOpen = routeFlowIds.includes(position.id);
           const targetSelected =
             currentSelection?.kind === "scope-entry" &&
@@ -1288,7 +1283,6 @@ export function ViewerApp({
             <g
               aria-label={flowSummary}
               className={flowClassName}
-              data-annotation-label={flowAnnotation?.label}
               data-flow-id={position.id}
               data-flow-summary={flowSummary}
               key={position.id}
@@ -1323,7 +1317,7 @@ export function ViewerApp({
                 y={-position.height / 2}
               />
               <text textAnchor="middle">
-                {flow ? displayFlowLabel(asLogicChartFlow(flow), flowAnnotation) : position.id}
+                {flow ? displayFlowLabel(asLogicChartFlow(flow)) : position.id}
               </text>
               {flow ? (
                 <text className="meta" textAnchor="middle" y="22">
@@ -1331,7 +1325,7 @@ export function ViewerApp({
                 </text>
               ) : null}
               {flow && flowPath(flow) ? (
-                <title>{flowTitle}</title>
+                <title>{flowSummary}</title>
               ) : null}
             </g>
           );
@@ -1428,7 +1422,6 @@ function RootNode({
 }
 
 function ScopeNode({
-  annotation,
   currentSelection,
   draggingNodeKey,
   hasRootSelection,
@@ -1441,7 +1434,6 @@ function ScopeNode({
   suppressNodeClick,
   toneStyle,
 }: {
-  annotation?: LogicChartAnnotationText;
   currentSelection: SelectedConnection;
   draggingNodeKey: string | null;
   hasRootSelection: boolean;
@@ -1479,15 +1471,13 @@ function ScopeNode({
   ]
     .filter(Boolean)
     .join(" ");
-  const label = displayScopeLabel(item.scope, annotation);
+  const label = displayScopeLabel(item.scope);
   const baseTitle = `${label} · ${plural(item.flowCount, "flow")}`;
-  const title = annotationTitle(baseTitle, annotation);
 
   return (
     <g
-      aria-label={title}
+      aria-label={baseTitle}
       className={className}
-      data-annotation-label={annotation?.label}
       data-scope={item.scope}
       role="button"
       style={toneStyle}
@@ -1520,7 +1510,7 @@ function ScopeNode({
         x={-item.width / 2}
         y={-item.height / 2}
       />
-      <title>{title}</title>
+      <title>{baseTitle}</title>
       <text textAnchor="middle">{label}</text>
       <text className="meta" textAnchor="middle" y="24">
         {plural(item.flowCount, "flow")}
@@ -1532,7 +1522,6 @@ function ScopeNode({
 function FlowDetail({
   anchorX,
   anchorY,
-  annotations,
   detail,
   draggingNodeKey,
   flowId,
@@ -1546,7 +1535,6 @@ function FlowDetail({
 }: {
   anchorX: number;
   anchorY: number;
-  annotations?: Record<string, LogicChartAnnotationText>;
   detail: FlowDetailLayout;
   draggingNodeKey: string | null;
   flowId: string;
@@ -1773,7 +1761,6 @@ function FlowDetail({
             topLevelDimmed={topLevelDimmed}
             anchorX={anchorX}
             anchorY={anchorY}
-            annotation={annotations?.[position.id]}
           />
         ))}
       </g>
@@ -1784,7 +1771,6 @@ function FlowDetail({
 function FlowDetailNode({
   anchorX,
   anchorY,
-  annotation,
   connectedNodeIds,
   draggingNodeKey,
   flowId,
@@ -1798,7 +1784,6 @@ function FlowDetailNode({
 }: {
   anchorX: number;
   anchorY: number;
-  annotation?: LogicChartAnnotationText;
   connectedNodeIds: ReadonlySet<string>;
   draggingNodeKey: string | null;
   flowId: string;
@@ -1832,13 +1817,11 @@ function FlowDetailNode({
   ]
     .filter(Boolean)
     .join(" ");
-  const label = displayNodeLabel(position.node.label || position.id, annotation);
-  const title = annotationTitle(label, annotation);
+  const label = displayNodeLabel(position.node.label || position.id);
   return (
     <g
-      aria-label={title}
+      aria-label={label}
       className={className}
-      data-annotation-label={annotation?.label}
       data-detail-node-id={position.id}
       data-detail-flow-id={flowId}
       role="button"
@@ -1862,7 +1845,7 @@ function FlowDetailNode({
         })
       }
     >
-      <title>{title}</title>
+      <title>{label}</title>
       {kind === "decision" ? (
         <polygon
           className="detail-shape"
@@ -2373,14 +2356,11 @@ function flowMeta(flow: ProgressiveFlowNode): string[] {
   return [item.entry_kind, item.language].filter((value): value is string => Boolean(value));
 }
 
-function flowAccessibilitySummary(
-  flow: LogicChartFlow,
-  annotation?: LogicChartAnnotationText,
-): string {
+function flowAccessibilitySummary(flow: LogicChartFlow): string {
   const nodes = flow.nodes || [];
   const decisionCount = nodes.filter(node => node.kind === "decision").length;
   const pieces = [
-    displayFlowLabel(flow, annotation),
+    displayFlowLabel(flow),
     flowMeta(flow).join(" in ") || "flow",
     plural(nodes.length, "node"),
     plural(decisionCount, "decision"),
@@ -2392,32 +2372,16 @@ function flowAccessibilitySummary(
   return pieces.join(" · ");
 }
 
-function displayFlowLabel(
-  flow: LogicChartFlow,
-  annotation?: LogicChartAnnotationText,
-): string {
-  return displayAnnotationLabel(flowLabel(flow), annotation);
+function displayFlowLabel(flow: LogicChartFlow): string {
+  return compactSvgText(flowLabel(flow), 64);
 }
 
-function displayNodeLabel(label: string, annotation?: LogicChartAnnotationText): string {
-  return displayAnnotationLabel(label, annotation);
+function displayNodeLabel(label: string): string {
+  return compactSvgText(label, 64);
 }
 
-function displayScopeLabel(scope: string, annotation?: LogicChartAnnotationText): string {
-  return displayAnnotationLabel(scope, annotation);
-}
-
-function displayAnnotationLabel(
-  fallback: string,
-  annotation?: LogicChartAnnotationText,
-): string {
-  const label = annotation?.label?.trim();
-  return label ? compactSvgText(label, 64) : fallback;
-}
-
-function annotationTitle(base: string, annotation?: LogicChartAnnotationText): string {
-  const detail = annotation?.description || annotation?.summary || annotation?.explanation;
-  return detail ? `${base}\n${detail}` : base;
+function displayScopeLabel(scope: string): string {
+  return compactSvgText(scope, 64);
 }
 
 function compactSvgText(value: string, limit: number): string {

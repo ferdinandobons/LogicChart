@@ -1,8 +1,8 @@
 """Golden-master comprehension SLA, measured on examples/demo.
 
 The demo is a dense polyglot frontend/backend codebase (11 languages across two
-macro-parts). The SLA pins that LogicChart models the flows without exposing review
-findings as part of the public artifact surface.
+macro-parts). The SLA pins that LogicChart models the flows as source-grounded
+comprehension artifacts.
 """
 
 from __future__ import annotations
@@ -54,23 +54,20 @@ def test_demo_is_polyglot_and_scoped(tmp_path: Path) -> None:
     assert scopes >= _EXPECTED_SCOPES
 
 
-def test_demo_does_not_emit_review_findings(tmp_path: Path) -> None:
+def test_demo_emits_comprehension_metadata(tmp_path: Path) -> None:
     model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
-
-    assert model.findings == []
-    assert "finding_count" not in model.metadata
-    assert "finding_rules" not in model.metadata
+    assert model.schema_version == "2.0"
+    assert "quality" in model.metadata
 
 
 def test_demo_rust_match_is_not_a_false_positive(tmp_path: Path) -> None:
-    # The Rust router should still be modeled without emitting review findings.
     model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
     rust_flows = {flow.id for flow in model.flows if flow.language == "rust"}
     assert rust_flows  # the backend router was discovered
-    assert not any(f.flow_id in rust_flows for f in model.findings)
+    assert any(flow.nodes for flow in model.flows if flow.id in rust_flows)
 
 
-def test_quorum_fixture_models_all_sibling_flows_without_review_findings(tmp_path: Path) -> None:
+def test_quorum_fixture_models_all_sibling_flows(tmp_path: Path) -> None:
     full = """
 def handle_{n}(account):
     if account.status == Status.ACTIVE:
@@ -98,4 +95,3 @@ def handle_partial(account):
         "handle_c",
         "handle_partial",
     }
-    assert model.findings == []

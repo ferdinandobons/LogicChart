@@ -1,4 +1,4 @@
-"""Domain metadata remains navigable without a public review queue."""
+"""Domain metadata remains navigable for workflow explanations."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ _ENUM = (
 )
 
 
-def test_enum_dispatch_keeps_domain_metadata_without_findings(tmp_path: Path) -> None:
+def test_enum_dispatch_keeps_domain_metadata(tmp_path: Path) -> None:
     (tmp_path / "domain.py").write_text(_ENUM, encoding="utf-8")
     (tmp_path / "svc.py").write_text(
         "def handle(result):\n"
@@ -28,10 +28,9 @@ def test_enum_dispatch_keeps_domain_metadata_without_findings(tmp_path: Path) ->
     values = {value for node in decisions for value in node.metadata["values"]}
 
     assert {"Result.A", "Result.B", "Result.C"} <= values
-    assert model.findings == []
 
 
-def test_cross_flow_siblings_remain_navigable_without_review_queue(tmp_path: Path) -> None:
+def test_cross_flow_siblings_remain_navigable(tmp_path: Path) -> None:
     (tmp_path / "svc.py").write_text(
         "def refund(order):\n"
         "    if order.amount <= 0:\n"
@@ -49,4 +48,3 @@ def test_cross_flow_siblings_remain_navigable_without_review_queue(tmp_path: Pat
 
     assert refund.nodes
     assert capture.nodes
-    assert model.findings == []

@@ -35,7 +35,6 @@ def test_plain_js_is_analyzed_and_labelled(tmp_path: Path) -> None:
     assert {f.language for f in model.flows} == {"javascript"}
     handle = next(f for f in model.flows if f.name == "handle")
     persist = next(f for f in model.flows if f.name == "persist")
-    assert model.findings == []
     # the intra-file call to persist resolves to its flow
     assert persist.id in handle.calls
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:logicchart:schema:logic-flow:1.1",
+  "$id": "urn:logicchart:schema:logic-flow:2.0",
   "title": "LogicChart Logical Model",
   "description": "Canonical decision-flow artifact generated from source code.",
   "type": "object",
@@ -9,13 +9,12 @@
     "generated_at",
     "root",
     "flows",
-    "findings",
     "files",
     "metadata"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1"
+      "const": "2.0"
     },
     "generated_at": {
       "type": "string",
@@ -28,12 +27,6 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/flow"
-      }
-    },
-    "findings": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/finding"
       }
     },
     "files": {
@@ -252,53 +245,6 @@
       },
       "additionalProperties": false
     },
-    "finding": {
-      "type": "object",
-      "required": [
-        "id",
-        "kind",
-        "severity",
-        "message",
-        "evidence",
-        "flow_id",
-        "location",
-        "detail",
-        "metadata"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "kind": {
-          "type": "string"
-        },
-        "severity": {
-          "enum": ["info", "warning", "error"]
-        },
-        "message": {
-          "type": "string"
-        },
-        "evidence": {
-          "$ref": "#/$defs/evidence"
-        },
-        "flow_id": {
-          "type": "string"
-        },
-        "location": {
-          "$ref": "#/$defs/location"
-        },
-        "node_id": {
-          "type": ["string", "null"]
-        },
-        "detail": {
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/$defs/finding_metadata"
-        }
-      },
-      "additionalProperties": false
-    },
     "file": {
       "type": "object",
       "required": ["path", "language", "sha256", "flow_ids"],
@@ -343,258 +289,6 @@
     "evidence": {
       "enum": ["VERIFIED", "INFERRED", "POTENTIAL_GAP"]
     },
-    "finding_metadata": {
-      "type": "object",
-      "properties": {
-        "diagnostic": {
-          "$ref": "#/$defs/finding_diagnostic"
-        },
-        "category": {
-          "type": "string"
-        },
-        "confidence": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "subject": {
-          "type": "string"
-        },
-        "value_namespace": {
-          "type": "string"
-        },
-        "condition": {
-          "type": "string"
-        },
-        "constant": {
-          "type": "string"
-        },
-        "always": {
-          "type": "boolean"
-        },
-        "missing": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/json_value"
-              }
-            }
-          ]
-        },
-        "declared": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/json_value"
-          }
-        },
-        "expected": {
-          "$ref": "#/$defs/json_value"
-        },
-        "actual": {
-          "$ref": "#/$defs/json_value"
-        },
-        "outcome": {
-          "$ref": "#/$defs/json_value"
-        }
-      },
-      "additionalProperties": true
-    },
-    "finding_diagnostic": {
-      "type": "object",
-      "required": [
-        "rule_id",
-        "category",
-        "severity",
-        "evidence",
-        "confidence",
-        "scope",
-        "inputs",
-        "evidence_chain",
-        "expected",
-        "actual",
-        "missing",
-        "review_prompt",
-        "suggested_next_actions"
-      ],
-      "properties": {
-        "rule_id": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string"
-        },
-        "severity": {
-          "enum": ["info", "warning", "error"]
-        },
-        "evidence": {
-          "$ref": "#/$defs/evidence"
-        },
-        "confidence": {
-          "$ref": "#/$defs/diagnostic_confidence"
-        },
-        "scope": {
-          "$ref": "#/$defs/diagnostic_scope"
-        },
-        "inputs": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "evidence_chain": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "expected": {
-          "$ref": "#/$defs/json_value"
-        },
-        "actual": {
-          "$ref": "#/$defs/json_value"
-        },
-        "missing": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/json_value"
-              }
-            }
-          ]
-        },
-        "review_prompt": {
-          "type": "string"
-        },
-        "suggested_next_actions": {
-          "$ref": "#/$defs/string_array"
-        }
-      },
-      "additionalProperties": true
-    },
-    "diagnostic_confidence": {
-      "type": "object",
-      "required": ["score", "basis"],
-      "properties": {
-        "score": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 1
-        },
-        "basis": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": true
-    },
-    "diagnostic_scope": {
-      "type": "object",
-      "required": ["flow_id", "source", "path", "line", "related_flow_ids", "related_node_ids"],
-      "properties": {
-        "category": {
-          "type": "string"
-        },
-        "flow_id": {
-          "type": "string"
-        },
-        "flow_name": {
-          "type": ["string", "null"]
-        },
-        "node_id": {
-          "type": ["string", "null"]
-        },
-        "node_label": {
-          "type": ["string", "null"]
-        },
-        "source": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string"
-        },
-        "line": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "end_line": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "language": {
-          "type": ["string", "null"]
-        },
-        "related_flow_ids": {
-          "$ref": "#/$defs/string_array"
-        },
-        "related_node_ids": {
-          "$ref": "#/$defs/string_array"
-        },
-        "related_decision_count": {
-          "$ref": "#/$defs/non_negative_integer"
-        }
-      },
-      "additionalProperties": true
-    },
-    "finding_rule": {
-      "type": "object",
-      "required": [
-        "rule_id",
-        "category",
-        "title",
-        "purpose",
-        "preconditions",
-        "evidence_rationale",
-        "caveats",
-        "metadata_fields",
-        "review_prompt",
-        "suggested_next_actions"
-      ],
-      "properties": {
-        "rule_id": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "purpose": {
-          "type": "string"
-        },
-        "preconditions": {
-          "$ref": "#/$defs/string_array"
-        },
-        "evidence_rationale": {
-          "type": "string"
-        },
-        "caveats": {
-          "$ref": "#/$defs/string_array"
-        },
-        "metadata_fields": {
-          "$ref": "#/$defs/string_array"
-        },
-        "review_prompt": {
-          "type": "string"
-        },
-        "suggested_next_actions": {
-          "$ref": "#/$defs/string_array"
-        },
-        "true_positive_example": {
-          "type": "string"
-        },
-        "intentional_suppression_example": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": true
-    },
     "project_metadata": {
       "type": "object",
       "properties": {
@@ -602,9 +296,6 @@
           "$ref": "#/$defs/non_negative_integer"
         },
         "entrypoint_count": {
-          "$ref": "#/$defs/non_negative_integer"
-        },
-        "finding_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
         "languages": {
@@ -623,12 +314,6 @@
             "additionalProperties": {
               "$ref": "#/$defs/string_array"
             }
-          }
-        },
-        "finding_rules": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/finding_rule"
           }
         },
         "quality": {
@@ -656,9 +341,6 @@
           "type": "object"
         },
         "calls": {
-          "type": "object"
-        },
-        "findings": {
           "type": "object"
         },
         "labels": {

@@ -206,7 +206,7 @@ def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> 
     assert report.artifact == str(json_path)
 
 
-def test_artifact_keeps_empty_legacy_findings_field(tmp_path: Path) -> None:
+def test_artifact_uses_comprehension_schema_without_review_queue(tmp_path: Path) -> None:
     (tmp_path / "orders.py").write_text(
         "def route(order):\n"
         "    if order.status == 'draft':\n"
@@ -220,12 +220,8 @@ def test_artifact_keeps_empty_legacy_findings_field(tmp_path: Path) -> None:
     schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
 
     Draft202012Validator(schema).validate(artifact)
-    # The schema still carries the legacy key for compatibility, but the product no longer
-    # generates review findings or finding-rule metadata.
-    assert "findings" in schema["required"]
-    assert artifact["findings"] == []
-    assert "finding_count" not in artifact["metadata"]
-    assert "finding_rules" not in artifact["metadata"]
+    assert artifact["schema_version"] == "2.0"
+    assert "quality" in artifact["metadata"]
     assert "quality" in schema["$defs"]["project_metadata"]["properties"]
 
 

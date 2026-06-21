@@ -125,47 +125,6 @@ describe("ViewerApp", () => {
     expect(html).not.toContain('scope-node dimmed');
   });
 
-  it("overlays matching annotation labels on flow and detail nodes", () => {
-    const annotatedPayload: LogicChartPayload = {
-      ...payload,
-      annotations: {
-        flows: {
-          "orders-route": {
-            description: "Human-reviewed endpoint summary.",
-            label: "Orders endpoint",
-          },
-        },
-        nodes: {
-          "orders-route:n2": {
-            description: "Checks the order state before rendering.",
-            label: "Order state gate",
-          },
-        },
-        scopes: {
-          frontend: {
-            label: "Frontend surface",
-            summary: "Browser and route handlers.",
-          },
-        },
-      },
-    };
-
-    const html = renderToStaticMarkup(
-      <ViewerApp scope="frontend" payload={annotatedPayload} routeFlowIds={["orders-route"]} />,
-    );
-
-    expect(html).toContain("Orders endpoint");
-    expect(html).toContain("Human-reviewed endpoint summary.");
-    expect(html).toContain('data-annotation-label="Orders endpoint"');
-    expect(html).toContain("Order state gate");
-    expect(html).toContain("Checks the order state before rendering.");
-    expect(html).toContain('data-annotation-label="Order state gate"');
-    expect(html).toContain("Frontend surface");
-    expect(html).toContain("Browser and route handlers.");
-    expect(html).toContain('data-scope="frontend"');
-    expect(html).toContain('data-annotation-label="Frontend surface"');
-  });
-
   it("dims unrelated flow nodes when a scope-entry connection is selected", () => {
     useViewerStore.getState().setSelectedConnection({
       kind: "scope-entry",

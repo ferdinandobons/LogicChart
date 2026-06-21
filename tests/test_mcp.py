@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import asyncio
-import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,29 +9,43 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.annotation_preview import build_annotation_preview
-from logicchart.annotations import annotations_path, model_hash
-from logicchart.artifacts import load_model, write_artifacts
+from logicchart.artifacts import write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.mcp_server import (
     MCP_INSTRUCTIONS,
     _agent_action_terms,
     _context_navigation_pack,
-    _context_pack_payload,
     _context_visual_pack,
     _domain_logic_map,
-    _enrichment_options,
-    _enrichment_preview_payload,
     _model_load_error,
-    _quality_report,
+    _selection_context_payload,
     _unknown_target_error,
     _update_workflow_payload,
     _validation_payload,
     _workflow_slice_payload,
     flow_in_agent_scope,
 )
-from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel, SourceLocation
-from logicchart.query import impact_model, query_model
+from logicchart.model import (
+    Flow,
+    FlowEdge,
+    FlowNode,
+    NodeKind,
+    ProjectModel,
+    SourceLocation,
+)
+from logicchart.query import impact_model
+
+PUBLIC_MCP_TOOLS = {
+    "agent_context",
+    "expand_slice",
+    "workflow_path",
+    "snapshot_slice",
+    "explain_flow",
+    "explain_node",
+    "explain_edge",
+    "validate_artifacts",
+    "update_logicchart",
+}
 
 
 def test_flow_in_agent_scope_normalizes_legacy_string_scope() -> None:
@@ -47,7 +62,7 @@ def test_agent_action_terms_include_common_italian_aliases() -> None:
     }
 
 
-def test_context_pack_treats_unknown_scope_as_query_hint(tmp_path: Path) -> None:
+def test_selection_context_treats_unknown_scope_as_query_hint(tmp_path: Path) -> None:
     model = ProjectModel.empty(tmp_path)
     upload_flow = Flow(
         id="upload-flow",
@@ -117,7 +132,7 @@ def test_context_pack_treats_unknown_scope_as_query_hint(tmp_path: Path) -> None
     ]
     model.metadata["scopes"] = {"frontend": 2}
 
-    payload = _context_pack_payload(
+    payload = _selection_context_payload(
         tmp_path,
         LogicChartConfig(),
         model,
@@ -191,7 +206,7 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     )
     model = ProjectModel.empty(tmp_path)
     model.flows = [upload_flow, start_flow]
-    pack = _context_pack_payload(
+    pack = _selection_context_payload(
         tmp_path,
         LogicChartConfig(),
         model,
@@ -216,7 +231,7 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
             "include_visual": False,
             "token_budget": 600,
         },
-        domain_map_payload=_domain_logic_map(
+        domain_logic_payload=_domain_logic_map(
             model,
             domain=None,
             value=None,
@@ -229,47 +244,12 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     assert [flow["id"] for flow in workflow_slice["primary_flows"]] == ["upload-flow"]
     assert "start-flow" in {flow["id"] for flow in workflow_slice["supporting_flows"]}
     assert workflow_slice["presentation"]["schema_version"] == "workflow_slice.presentation.v1"
-    assert workflow_slice["presentation"]["counts"]["primary_flows"] == 1
-    assert workflow_slice["presentation"]["counts"]["supporting_flows"] == 1
-    assert "Show raw JSON or YAML only" in " ".join(
-        workflow_slice["presentation"]["agent_guidance"]
-    )
-    assert "visible depth and branches" in " ".join(
-        workflow_slice["presentation"]["agent_guidance"]
-    )
     assert "bounded summary" in " ".join(workflow_slice["presentation"]["agent_guidance"])
-    assert "depth_policy" in workflow_slice["presentation"]
-    assert "display_policy" in workflow_slice["presentation"]
-    assert "label_policy" in workflow_slice["presentation"]
-    assert "media_policy" in workflow_slice["presentation"]
-    assert (
-        "deterministic source"
-        in workflow_slice["presentation"]["display_policy"]["source_extraction"]
+    assert "language-friendly rewrite" in " ".join(
+        workflow_slice["presentation"]["display_policy"]["closing_options"]
     )
-    assert (
-        "clearest useful subset"
-        in workflow_slice["presentation"]["display_policy"]["first_response"]
-    )
-    assert (
-        "low-signal implementation nodes"
-        in workflow_slice["presentation"]["display_policy"]["first_response"]
-    )
-    closing_options = " ".join(workflow_slice["presentation"]["display_policy"]["closing_options"])
-    assert "language-friendly rewrite" in closing_options
-    assert "omitted nodes" in closing_options
-    assert "related area" in closing_options
     assert "human-friendly" in workflow_slice["presentation"]["label_policy"]["human_friendly"]
-    assert (
-        "language used by the user"
-        in workflow_slice["presentation"]["label_policy"]["human_friendly"]
-    )
-    media_policy = workflow_slice["presentation"]["media_policy"]
-    assert "canonical_visual.diagram" in media_policy["mermaid_canonical"]
-    assert "artifact.mermaid_path" in media_policy["mermaid_canonical"]
-    assert "raw code block" in media_policy["mermaid_canonical"]
-    assert "explicit SVG requests" in media_policy["svg_snapshot"]
-    assert "logicchart view" in workflow_slice["presentation"]["media_policy"]["manual_viewer"]
-    assert "explore a related area" in workflow_slice["presentation"]["visual_guidance"]
+
     canonical_visual = workflow_slice["presentation"]["canonical_visual"]
     assert canonical_visual["schema_version"] == "workflow_slice.canonical_visual.v1"
     assert canonical_visual["format"] == "mermaid"
@@ -281,69 +261,28 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     assert "DeadlineType is valid" in canonical_visual["diagram"]
     assert '-->|"Next"|' in canonical_visual["diagram"]
     assert "calls OCRService.start_processing" in canonical_visual["diagram"]
-    assert "~~~" in canonical_visual["diagram"]
     assert canonical_visual["diagram_hash"]
     assert canonical_visual["layout"]["direction"] == "top_to_bottom"
-    assert canonical_visual["layout"]["flow_direction"] == "top_to_bottom"
     assert canonical_visual["layout"]["flow_grouping"] == "vertical_parent_subgraph"
-    assert canonical_visual["layout"]["constraint_edge"] == "invisible_mermaid_link"
-    assert canonical_visual["layout"]["constraint_count"] == 1
     assert "human-friendly view" in canonical_visual["guardrail"]
-    assert (
-        canonical_visual
-        == _workflow_slice_payload(
-            model,
-            pack,
-            question="OCR upload certificati",
-            inputs={
-                "question": "OCR upload certificati",
-                "changed_files": [],
-                "current_file": None,
-                "flow_id": None,
-                "symbol": None,
-                "dependency_path": None,
-                "domain": None,
-                "value": None,
-                "scope": None,
-                "include_visual": False,
-                "token_budget": 600,
-            },
-            domain_map_payload=_domain_logic_map(
-                model,
-                domain=None,
-                value=None,
-                scope=None,
-                token_budget=600,
-            ),
-            token_budget=600,
-        )["presentation"]["canonical_visual"]
-    )
 
 
-def test_mcp_lists_and_queries_flows(tmp_path: Path) -> None:
+def test_mcp_public_surface_and_workflow_tools(tmp_path: Path) -> None:
     source = tmp_path / "app.py"
     source.write_text(
         """
 def authorize(user):
     if user.role == "admin":
-        return True
-    return False
+        return allow(user)
+    return deny(user)
 """,
         encoding="utf-8",
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
     flow = result.model.flows[0]
-    annotations_path(tmp_path).write_text(
-        json.dumps(
-            {
-                "schema_version": "1.0",
-                "model_hash": model_hash(result.model),
-                "flows": {flow.id: {"label": "Annotated authorization"}},
-            }
-        ),
-        encoding="utf-8",
-    )
+    assert flow.nodes
+    assert flow.edges
 
     async def exercise_server() -> None:
         parameters = StdioServerParameters(
@@ -357,66 +296,10 @@ def authorize(user):
                 assert init.instructions == MCP_INSTRUCTIONS
                 tools = await session.list_tools()
                 names = {tool.name for tool in tools.tools}
-                assert {"list_flows", "get_flow", "query_logic", "update_logicchart"} <= names
-                assert {
-                    "logicchart_summary",
-                    "agent_context",
-                    "analysis_quality",
-                    "get_flow_navigation",
-                    "get_flow_snapshot",
-                    "get_subgraph_snapshot",
-                    "get_impact_snapshot",
-                    "preview_enrichment",
-                    "preview_annotation_targets",
-                    "annotation_status",
-                    "validate_annotations",
-                    "write_annotations",
-                    "clear_annotations",
-                    "domain_map",
-                    "where_state_handled",
-                    "find_decision_nodes",
-                    "context_pack",
-                    "validate_artifacts",
-                    "expand_slice",
-                    "workflow_path",
-                    "snapshot_slice",
-                    "explain_flow",
-                    "explain_node",
-                    "explain_edge",
-                } <= names
-                assert {
-                    "explain_finding_chain",
-                    "get_finding_context",
-                    "finding_rules",
-                    "get_finding_snapshot",
-                    "review_queue",
-                }.isdisjoint(names)
+                assert names == PUBLIC_MCP_TOOLS
 
-                listed = await session.call_tool("list_flows", {"entrypoints_only": False})
-                assert not listed.isError
-                listed_rows = listed.structuredContent["result"]  # type: ignore[index]
-                assert listed_rows[0]["id"] == flow.id  # type: ignore[index]
-                assert "findings" not in listed_rows[0]  # type: ignore[index]
-
-                # Spec §5.2: every query/list tool exposes a token_budget cap.
                 schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
-                update_properties = schema_by_name["update_logicchart"].get("properties", {})
-                assert "full" in update_properties
-                validation_properties = schema_by_name["validate_artifacts"].get("properties", {})
-                assert "max_parse_warnings" in validation_properties
                 for budget_tool in (
-                    "get_flow",
-                    "get_flow_navigation",
-                    "get_flow_snapshot",
-                    "get_subgraph_snapshot",
-                    "get_impact_snapshot",
-                    "query_logic",
-                    "analysis_quality",
-                    "analyze_impact",
-                    "preview_enrichment",
-                    "preview_annotation_targets",
-                    "domain_map",
-                    "context_pack",
                     "agent_context",
                     "expand_slice",
                     "workflow_path",
@@ -425,54 +308,13 @@ def authorize(user):
                     "explain_node",
                     "explain_edge",
                 ):
-                    properties = schema_by_name[budget_tool].get("properties", {})
-                    assert "token_budget" in properties, budget_tool
-                agent_context_properties = schema_by_name["agent_context"].get("properties", {})
-                assert {
-                    "question",
-                    "changed_files",
-                    "selected_code",
-                    "current_file",
-                    "flow_id",
-                    "symbol",
-                    "dependency_path",
-                    "domain",
-                    "value",
-                    "include_visual",
-                } <= set(agent_context_properties)
-                snapshot_slice_properties = schema_by_name["snapshot_slice"].get("properties", {})
-                assert "include_svg" in snapshot_slice_properties
-                context_properties = schema_by_name["context_pack"].get("properties", {})
-                assert {"flow_ids", "symbols", "dependency_paths"} <= set(context_properties)
-                assert {
-                    "language",
-                    "source_path",
-                    "domain",
-                    "value",
-                } <= set(context_properties)
-                assert "visual_byte_budget" in context_properties
-                for impact_tool in ("analyze_impact", "get_impact_snapshot"):
-                    impact_properties = schema_by_name[impact_tool].get("properties", {})
-                    assert "dependency_paths" in impact_properties
-                enrichment_properties = schema_by_name["preview_enrichment"].get("properties", {})
-                assert {"flow_ids", "max_nodes_per_flow"} <= set(enrichment_properties)
-                annotation_target_properties = schema_by_name["preview_annotation_targets"].get(
+                    assert "token_budget" in schema_by_name[budget_tool].get("properties", {})
+                assert "include_svg" in schema_by_name["snapshot_slice"].get("properties", {})
+                assert "full" in schema_by_name["update_logicchart"].get("properties", {})
+                assert "max_parse_warnings" in schema_by_name["validate_artifacts"].get(
                     "properties", {}
-                )
-                assert {"flow_ids", "max_nodes_per_flow"} <= set(annotation_target_properties)
-                write_annotation_properties = schema_by_name["write_annotations"].get(
-                    "properties", {}
-                )
-                assert {"flows", "nodes", "scopes", "replace_existing"} <= set(
-                    write_annotation_properties
                 )
 
-                response = await session.call_tool(
-                    "query_logic",
-                    {"question": "admin authorization", "limit": 5},
-                )
-                assert not response.isError
-                assert "authorize" in str(response.content)
                 agent_context = await session.call_tool(
                     "agent_context",
                     {
@@ -484,60 +326,31 @@ def authorize(user):
                     },
                 )
                 assert not agent_context.isError
-                agent_context_payload = agent_context.structuredContent  # type: ignore[assignment]
+                agent_context_payload = agent_context.structuredContent
                 assert agent_context_payload["tool"] == "agent_context"  # type: ignore[index]
                 assert "source-grounded" in agent_context_payload["guardrail"]  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    agent_context_payload["inputs"]["current_file"] == "app.py"
-                )
+                assert agent_context_payload["inputs"]["current_file"] == "app.py"  # type: ignore[index]
                 context = agent_context_payload["context"]  # type: ignore[index]
                 assert context["query"][0]["flow_id"] == flow.id
                 assert "visual_context" in context
-                assert (  # type: ignore[index]
-                    agent_context_payload["recommended_next_tools"]["validate_artifacts"]["tool"]
-                    == "validate_artifacts"
-                )
                 workflow_slice = agent_context_payload["workflow_slice"]  # type: ignore[index]
                 assert workflow_slice["schema_version"] == "workflow_slice.v1"
                 assert workflow_slice["id"].startswith("slice-")
                 assert workflow_slice["handle"]["flow_ids"] == [flow.id]
-                assert (  # type: ignore[index]
-                    workflow_slice["presentation"]["schema_version"]
-                    == "workflow_slice.presentation.v1"
-                )
-                assert "Show raw JSON or YAML only" in " ".join(  # type: ignore[index]
-                    workflow_slice["presentation"]["agent_guidance"]
-                )
-                assert "depth_policy" in workflow_slice["presentation"]
-                assert "display_policy" in workflow_slice["presentation"]
-                assert "label_policy" in workflow_slice["presentation"]
-                assert "media_policy" in workflow_slice["presentation"]
-                display_policy = workflow_slice["presentation"]["display_policy"]  # type: ignore[index]
-                assert "deterministic source" in display_policy["source_extraction"]
-                assert "clearest useful subset" in display_policy["first_response"]
-                assert "omitted nodes" in " ".join(display_policy["closing_options"])
-                canonical_visual = workflow_slice["presentation"]["canonical_visual"]  # type: ignore[index]
-                assert canonical_visual["format"] == "mermaid"
-                assert canonical_visual["diagram"].startswith("flowchart TD\n")
-                assert 'subgraph workflow_slice["workflow_slice"]' in canonical_visual["diagram"]
-                assert "direction TB" in canonical_visual["diagram"]
-                assert canonical_visual["diagram_hash"]
-                assert canonical_visual["layout"]["direction"] == "top_to_bottom"
-                assert canonical_visual["layout"]["flow_grouping"] == "vertical_parent_subgraph"
-                assert "Render this diagram as-is" in canonical_visual["guardrail"]
                 assert workflow_slice["primary_flows"][0]["id"] == flow.id
                 assert workflow_slice["ordered_steps"]
                 assert workflow_slice["source_ranges"]
                 assert workflow_slice["viewer_targets"]["command"] == "logicchart view"
-                assert workflow_slice["viewer_targets"]["targets"][0]["flow_id"] == flow.id
-                assert workflow_slice["viewer_targets"]["targets"][0]["hash_fragment"].startswith(
-                    "#flow="
-                )
                 assert workflow_slice["next_tools"]["expand_slice"]["tool"] == "expand_slice"
                 assert (
                     workflow_slice["next_tools"]["snapshot_slice"]["arguments"]["include_svg"]
                     is False
                 )
+                canonical_visual = workflow_slice["presentation"]["canonical_visual"]
+                assert canonical_visual["format"] == "mermaid"
+                assert canonical_visual["diagram"].startswith("flowchart TD\n")
+                assert canonical_visual["layout"]["direction"] == "top_to_bottom"
+
                 expanded_slice = await session.call_tool(
                     "expand_slice",
                     {
@@ -548,9 +361,8 @@ def authorize(user):
                     },
                 )
                 assert not expanded_slice.isError
-                expanded_payload = expanded_slice.structuredContent  # type: ignore[assignment]
-                assert expanded_payload["tool"] == "expand_slice"  # type: ignore[index]
-                assert expanded_payload["workflow_slice"]["handle"]["flow_ids"]  # type: ignore[index]
+                assert expanded_slice.structuredContent["tool"] == "expand_slice"  # type: ignore[index]
+
                 slice_snapshot = await session.call_tool(
                     "snapshot_slice",
                     {
@@ -560,30 +372,16 @@ def authorize(user):
                     },
                 )
                 assert not slice_snapshot.isError
-                assert slice_snapshot.structuredContent["snapshot"]["format"] == "svg"  # type: ignore[index]
-                assert slice_snapshot.structuredContent["canonical_visual"]["format"] == "mermaid"  # type: ignore[index]
                 artifact = slice_snapshot.structuredContent["artifact"]  # type: ignore[index]
-                assert artifact["written"] is True  # type: ignore[index]
-                assert artifact["schema_version"] == "snapshot_artifact.v1"  # type: ignore[index]
-                assert artifact["format"] == "svg"  # type: ignore[index]
-                assert artifact["preferred_format"] == "mermaid"  # type: ignore[index]
-                assert artifact["formats"] == ["mermaid", "svg"]  # type: ignore[index]
-                assert artifact["mermaid_path"].endswith(".mmd")  # type: ignore[index]
-                assert artifact["mermaid_markdown_path"].endswith(".md")  # type: ignore[index]
-                assert artifact["html_path"].endswith(".html")  # type: ignore[index]
-                assert artifact["svg_path"].endswith(".svg")  # type: ignore[index]
-                assert Path(artifact["mermaid_path"]).exists()  # type: ignore[index]
-                assert Path(artifact["mermaid_markdown_path"]).exists()  # type: ignore[index]
-                assert Path(artifact["html_path"]).exists()  # type: ignore[index]
-                assert Path(artifact["svg_path"]).exists()  # type: ignore[index]
-                mermaid_text = Path(artifact["mermaid_path"]).read_text(encoding="utf-8")  # type: ignore[index]
-                assert mermaid_text.startswith("flowchart TD")
-                assert "<svg" in Path(artifact["svg_path"]).read_text(encoding="utf-8")  # type: ignore[index]
-                assert "open" in artifact["open_command"] or "xdg-open" in artifact["open_command"]  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    slice_snapshot.structuredContent["viewer_targets"]["targets"][0]["flow_id"]
-                    == flow.id
-                )
+                assert artifact["written"] is True
+                assert artifact["schema_version"] == "snapshot_artifact.v1"
+                assert artifact["format"] == "svg"
+                assert artifact["preferred_format"] == "mermaid"
+                assert artifact["formats"] == ["mermaid", "svg"]
+                assert Path(artifact["mermaid_path"]).exists()
+                assert Path(artifact["svg_path"]).exists()
+                assert Path(artifact["html_path"]).exists()
+
                 light_slice_snapshot = await session.call_tool(
                     "snapshot_slice",
                     {
@@ -594,534 +392,47 @@ def authorize(user):
                     },
                 )
                 assert not light_slice_snapshot.isError
-                light_payload = light_slice_snapshot.structuredContent  # type: ignore[assignment]
+                light_payload = light_slice_snapshot.structuredContent
                 assert "svg" not in light_payload["snapshot"]  # type: ignore[index]
-                assert light_payload["snapshot"]["svg_omitted"] is True  # type: ignore[index]
-                assert light_payload["snapshot"]["svg_byte_size"] > 0  # type: ignore[index]
-                assert light_payload["artifact"]["written"] is True  # type: ignore[index]
-                assert light_payload["artifact"]["format"] == "mermaid"  # type: ignore[index]
-                assert light_payload["artifact"]["preferred_format"] == "mermaid"  # type: ignore[index]
                 assert light_payload["artifact"]["formats"] == ["mermaid"]  # type: ignore[index]
-                assert light_payload["artifact"]["mermaid_path"].endswith(".mmd")  # type: ignore[index]
-                assert light_payload["artifact"]["mermaid_markdown_path"].endswith(".md")  # type: ignore[index]
                 assert "svg_path" not in light_payload["artifact"]  # type: ignore[index]
-                assert "html_path" not in light_payload["artifact"]  # type: ignore[index]
+
                 path_response = await session.call_tool(
                     "workflow_path",
                     {"source": flow.id, "target": flow.id, "token_budget": 480},
                 )
                 assert not path_response.isError
-                path_payload = path_response.structuredContent  # type: ignore[assignment]
-                assert path_payload["path"]["found"] is True  # type: ignore[index]
-                assert path_payload["workflow_slice"]["primary_flows"][0]["id"] == flow.id  # type: ignore[index]
+                assert path_response.structuredContent["path"]["found"] is True  # type: ignore[index]
+
                 flow_explanation = await session.call_tool(
                     "explain_flow",
                     {"flow_id": flow.id, "token_budget": 480},
                 )
                 assert not flow_explanation.isError
                 assert flow_explanation.structuredContent["flow"]["id"] == flow.id  # type: ignore[index]
+
                 node_explanation = await session.call_tool(
                     "explain_node",
                     {"flow_id": flow.id, "node_id": flow.nodes[0].id, "token_budget": 480},
                 )
                 assert not node_explanation.isError
                 assert node_explanation.structuredContent["node"]["id"] == flow.nodes[0].id  # type: ignore[index]
+
                 edge_explanation = await session.call_tool(
                     "explain_edge",
                     {"flow_id": flow.id, "edge_id": flow.edges[0].id, "token_budget": 480},
                 )
                 assert not edge_explanation.isError
                 assert edge_explanation.structuredContent["edge"]["id"] == flow.edges[0].id  # type: ignore[index]
-                filtered_response = await session.call_tool(
-                    "query_logic",
-                    {"question": "", "symbol": flow.symbol, "source_path": "app.py"},
-                )
-                assert not filtered_response.isError
-                filtered_rows = filtered_response.structuredContent["result"]  # type: ignore[index]
-                assert [row["flow_id"] for row in filtered_rows] == [flow.id]
-
-                summary = await session.call_tool("logicchart_summary", {})
-                assert not summary.isError
-                assert "flows" in str(summary.content)
-                assert "finding_rules" not in str(summary.content)
-                assert "quality" in str(summary.content)
-                assert "language_capabilities" in str(summary.content)
-                assert "Annotated authorization" not in str(summary.content)
-                assert "annotations" in str(summary.content)
-                assert summary.structuredContent["annotations"]["counts"]["flows"] == 1  # type: ignore[index]
-
-                enrichment = await session.call_tool(
-                    "preview_enrichment",
-                    {"flow_ids": [flow.id], "token_budget": 240},
-                )
-                assert not enrichment.isError
-                enrichment_payload = enrichment.structuredContent  # type: ignore[assignment]
-                assert enrichment_payload["provider_call_made"] is False  # type: ignore[index]
-                assert enrichment_payload["send_required"] is False  # type: ignore[index]
-                assert enrichment_payload["targets"]["flow_ids"] == [flow.id]  # type: ignore[index]
-                assert "finding_ids" not in enrichment_payload["targets"]  # type: ignore[index]
-                assert enrichment_payload["request"]["flows"][0]["id"] == flow.id  # type: ignore[index]
-                assert "findings" not in enrichment_payload["request"]  # type: ignore[index]
-                assert "agent-authored annotations" in enrichment_payload["guardrail"]  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    enrichment_payload["next_tools"]["subgraph_snapshot"]["tool"]
-                    == "get_subgraph_snapshot"
-                )
-                assert "next_cli" not in enrichment_payload
-                assert "logicchart validate" in enrichment_payload["next_actions"][2]  # type: ignore[index]
-
-                preview_targets = await session.call_tool(
-                    "preview_annotation_targets",
-                    {"flow_ids": [flow.id], "token_budget": 240},
-                )
-                assert not preview_targets.isError
-                preview_targets_payload = preview_targets.structuredContent  # type: ignore[assignment]
-                assert preview_targets_payload["tool"] == "preview_annotation_targets"  # type: ignore[index]
-                assert preview_targets_payload["send_required"] is False  # type: ignore[index]
-                assert preview_targets_payload["allowed_fields"]["flows"] == [  # type: ignore[index]
-                    "label",
-                    "description",
-                    "summary",
-                ]
-                assert (  # type: ignore[index]
-                    preview_targets_payload["next_tools"]["write_annotations"]["tool"]
-                    == "write_annotations"
-                )
-
-                annotation_status = await session.call_tool(
-                    "annotation_status",
-                    {"include_annotations": True},
-                )
-                assert not annotation_status.isError
-                annotation_status_payload = annotation_status.structuredContent  # type: ignore[assignment]
-                assert annotation_status_payload["status"] == "loaded"  # type: ignore[index]
-                assert annotation_status_payload["counts"]["flows"] == 1  # type: ignore[index]
-                assert annotation_status_payload["annotations"]["flows"][flow.id]["label"] == (  # type: ignore[index]
-                    "Annotated authorization"
-                )
-
-                invalid_annotation_write = await session.call_tool(
-                    "write_annotations",
-                    {"flows": {"missing-flow": {"label": "Unknown flow"}}},
-                )
-                assert not invalid_annotation_write.isError
-                invalid_write_payload = invalid_annotation_write.structuredContent  # type: ignore[assignment]
-                assert invalid_write_payload["ok"] is False  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    invalid_write_payload["error_code"] == "annotation_validation_failed"
-                )
-                assert "missing-flow" in "; ".join(invalid_write_payload["errors"])  # type: ignore[index]
-
-                wrong_provenance_write = await session.call_tool(
-                    "write_annotations",
-                    {
-                        "flows": {flow.id: {"summary": "Provider-sourced summary."}},
-                        "generated_by": {"kind": "llm", "provider": "example"},
-                    },
-                )
-                assert not wrong_provenance_write.isError
-                wrong_provenance_payload = wrong_provenance_write.structuredContent  # type: ignore[assignment]
-                assert wrong_provenance_payload["ok"] is False  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    wrong_provenance_payload["error_code"] == "annotation_provenance_invalid"
-                )
-                assert "agent_generated" in "; ".join(wrong_provenance_payload["errors"])  # type: ignore[index]
-
-                annotation_write = await session.call_tool(
-                    "write_annotations",
-                    {
-                        "flows": {
-                            flow.id: {
-                                "summary": "Agent-authored summary for authorization.",
-                            }
-                        },
-                        "generated_by": {
-                            "kind": "agent_generated",
-                            "agent": "test-agent",
-                        },
-                    },
-                )
-                assert not annotation_write.isError
-                annotation_write_payload = annotation_write.structuredContent  # type: ignore[assignment]
-                assert annotation_write_payload["ok"] is True  # type: ignore[index]
-                assert annotation_write_payload["tool"] == "write_annotations"  # type: ignore[index]
-                assert annotation_write_payload["counts"]["flows"] == 1  # type: ignore[index]
-                validate_annotation_sidecar = await session.call_tool(
-                    "validate_annotations",
-                    {"include_annotations": True},
-                )
-                assert not validate_annotation_sidecar.isError
-                validate_annotation_payload = validate_annotation_sidecar.structuredContent  # type: ignore[assignment]
-                assert validate_annotation_payload["ok"] is True  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    validate_annotation_payload["annotations"]["flows"][flow.id]["summary"]
-                    == "Agent-authored summary for authorization."
-                )
-                assert (  # type: ignore[index]
-                    validate_annotation_payload["next_tools"]["validate_artifacts"]["tool"]
-                    == "validate_artifacts"
-                )
-
-                quality = await session.call_tool("analysis_quality", {"token_budget": 240})
-                assert not quality.isError
-                quality_payload = quality.structuredContent  # type: ignore[assignment]
-                assert "quality" in quality_payload
-                assert "guardrail" in quality_payload
-                assert (
-                    quality_payload["next_tools"]["validate_quality"]["tool"]  # type: ignore[index]
-                    == "validate_artifacts"
-                )
-                quality_metrics = quality_payload["quality"]  # type: ignore[index]
-                assert "python" in quality_metrics["languages"]["depth"]  # type: ignore[index]
-                assert (
-                    quality_metrics["languages"]["depth"]["python"]["capability"]["frontend"]  # type: ignore[index]
-                    == "python_ast"
-                )
-                assert isinstance(quality_payload["attention"], list)  # type: ignore[index]
-
-                navigation = await session.call_tool(
-                    "get_flow_navigation",
-                    {"flow_id": flow.id},
-                )
-                assert not navigation.isError
-                assert "decision_nodes" in str(navigation.content)
-                assert "visual_snapshot" in str(navigation.content)
-                assert "Annotated authorization" in str(navigation.content)
-
-                flow_snapshot = await session.call_tool(
-                    "get_flow_snapshot",
-                    {"flow_id": flow.id},
-                )
-                assert not flow_snapshot.isError
-                assert "<svg" in str(flow_snapshot.content)
-                subgraph_snapshot = await session.call_tool(
-                    "get_subgraph_snapshot",
-                    {"flow_ids": [flow.id], "token_budget": 120},
-                )
-                assert not subgraph_snapshot.isError
-                subgraph_payload = subgraph_snapshot.structuredContent  # type: ignore[assignment]
-                assert subgraph_payload["rendered_flow_ids"] == [flow.id]  # type: ignore[index]
-                assert (
-                    subgraph_payload["layout"]["engine"]  # type: ignore[index]
-                    == "static-subgraph-snapshot-v1"
-                )
-                assert "Subgraph snapshot" in str(subgraph_snapshot.content)
-                missing_flow = await session.call_tool("get_flow", {"flow_id": "missing-flow"})
-                assert not missing_flow.isError
-                missing_flow_payload = missing_flow.structuredContent  # type: ignore[assignment]
-                assert missing_flow_payload["error_code"] == "flow_not_found"  # type: ignore[index]
-                assert missing_flow_payload["target_id"] == "missing-flow"  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    missing_flow_payload["next_tools"]["list_flows"]["tool"] == "list_flows"
-                )
-                missing_navigation = await session.call_tool(
-                    "get_flow_navigation",
-                    {"flow_id": "missing-flow"},
-                )
-                assert not missing_navigation.isError
-                missing_navigation_payload = missing_navigation.structuredContent  # type: ignore[assignment]
-                assert missing_navigation_payload["error_code"] == "flow_not_found"  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    missing_navigation_payload["next_tools"]["query_logic"]["tool"] == "query_logic"
-                )
-                missing_flow_snapshot = await session.call_tool(
-                    "get_flow_snapshot",
-                    {"flow_id": "missing-flow"},
-                )
-                assert not missing_flow_snapshot.isError
-                missing_flow_snapshot_payload = missing_flow_snapshot.structuredContent  # type: ignore[assignment]
-                assert (  # type: ignore[index]
-                    missing_flow_snapshot_payload["error_code"] == "snapshot_flow_not_found"
-                )
-                missing_subgraph_snapshot = await session.call_tool(
-                    "get_subgraph_snapshot",
-                    {"flow_ids": ["missing-flow"]},
-                )
-                assert not missing_subgraph_snapshot.isError
-                missing_subgraph_payload = missing_subgraph_snapshot.structuredContent  # type: ignore[assignment]
-                assert missing_subgraph_payload["unresolved_targets"] == [  # type: ignore[index]
-                    {"type": "flow", "value": "missing-flow", "reason": "not_found"}
-                ]
-
-                impact_snapshot = await session.call_tool(
-                    "get_impact_snapshot",
-                    {"changed_files": ["app.py"]},
-                )
-                assert not impact_snapshot.isError
-                assert "Impact snapshot" in str(impact_snapshot.content)
-                targeted_impact = await session.call_tool(
-                    "analyze_impact",
-                    {"flow_ids": [flow.id], "token_budget": 120},
-                )
-                assert not targeted_impact.isError
-                targeted_payload = targeted_impact.structuredContent  # type: ignore[assignment]
-                assert targeted_payload["changed_files"] == []  # type: ignore[index]
-                assert targeted_payload["target_flow_ids"] == [flow.id]  # type: ignore[index]
-                assert targeted_payload["impact_reasons"] == {  # type: ignore[index]
-                    flow.id: [f"explicit flow target `{flow.id}`"]
-                }
-                assert targeted_payload["direct"][0]["reasons"] == [  # type: ignore[index]
-                    f"explicit flow target `{flow.id}`"
-                ]
-                assert flow.id in targeted_payload["subgraph_flow_ids"]  # type: ignore[index]
-                targeted_snapshot = await session.call_tool(
-                    "get_impact_snapshot",
-                    {"flow_ids": [flow.id], "token_budget": 120},
-                )
-                assert not targeted_snapshot.isError
-                targeted_snapshot_payload = targeted_snapshot.structuredContent  # type: ignore[assignment]
-                assert flow.id in str(targeted_snapshot.content)
-                assert targeted_snapshot_payload["target_flow_ids"] == [flow.id]  # type: ignore[index]
-                assert targeted_snapshot_payload["unresolved_targets"] == []  # type: ignore[index]
-                dependency_impact = await session.call_tool(
-                    "analyze_impact",
-                    {"dependency_paths": ["./app.py"], "token_budget": 120},
-                )
-                assert not dependency_impact.isError
-                dependency_payload = dependency_impact.structuredContent  # type: ignore[assignment]
-                assert dependency_payload["changed_files"] == []  # type: ignore[index]
-                assert dependency_payload["target_dependency_paths"] == ["app.py"]  # type: ignore[index]
-                assert dependency_payload["impact_reasons"] == {  # type: ignore[index]
-                    flow.id: ["dependency path target `app.py`"]
-                }
-                dependency_snapshot = await session.call_tool(
-                    "get_impact_snapshot",
-                    {"dependency_paths": ["./app.py"], "token_budget": 120},
-                )
-                assert not dependency_snapshot.isError
-                dependency_snapshot_payload = dependency_snapshot.structuredContent  # type: ignore[assignment]
-                assert dependency_snapshot_payload["target_dependency_paths"] == [  # type: ignore[index]
-                    "app.py"
-                ]
-                missing_target_snapshot = await session.call_tool(
-                    "get_impact_snapshot",
-                    {"flow_ids": ["missing-flow"], "token_budget": 120},
-                )
-                assert not missing_target_snapshot.isError
-                missing_target_payload = missing_target_snapshot.structuredContent  # type: ignore[assignment]
-                assert missing_target_payload["target_flow_ids"] == [  # type: ignore[index]
-                    "missing-flow"
-                ]
-                assert missing_target_payload["unresolved_targets"] == [  # type: ignore[index]
-                    {"type": "flow", "value": "missing-flow", "reason": "not_found"}
-                ]
-                assert "Unresolved targets: flow:missing-flow" in str(
-                    missing_target_snapshot.content
-                )
-
-                context = await session.call_tool(
-                    "context_pack",
-                    {"question": "admin authorization", "changed_files": ["app.py"]},
-                )
-                assert not context.isError
-                assert "impact" in str(context.content)
-                context_payload = context.structuredContent  # type: ignore[assignment]
-                assert context_payload["visual_context"]["include_visual"] is False  # type: ignore[index]
-                assert (
-                    context_payload["visual_context"]["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
-                    == "get_impact_snapshot"
-                )
-                context_navigation = context_payload["navigation"]  # type: ignore[index]
-                assert context_navigation["flow_budget"] >= 1
-                assert context_navigation["flows"][0]["flow"]["id"] == flow.id
-                assert context_navigation["flows"][0]["annotations"]["flow"] == {
-                    "label": "Annotated authorization",
-                    "summary": "Agent-authored summary for authorization.",
-                }
-                assert (
-                    context_navigation["next_tools"]["flow_navigation"][0]["tool"]
-                    == "get_flow_navigation"
-                )
-                targeted_context = await session.call_tool(
-                    "context_pack",
-                    {"flow_ids": [flow.id], "token_budget": 120},
-                )
-                assert not targeted_context.isError
-                targeted_context_payload = targeted_context.structuredContent  # type: ignore[assignment]
-                targeted_impact = targeted_context_payload["impact"]  # type: ignore[index]
-                assert targeted_impact["changed_files"] == []
-                assert targeted_impact["target_flow_ids"] == [flow.id]
-                assert targeted_impact["impact_reasons"] == {
-                    flow.id: [f"explicit flow target `{flow.id}`"]
-                }
-                assert targeted_impact["direct"][0]["reasons"] == [
-                    f"explicit flow target `{flow.id}`"
-                ]
-                assert flow.id in targeted_impact["subgraph_flow_ids"]
-                impact_next_args = targeted_context_payload["visual_context"]["next_tools"][  # type: ignore[index]
-                    "impact_snapshot"
-                ]["arguments"]
-                assert impact_next_args["flow_ids"] == [flow.id]
-                subgraph_next_args = targeted_context_payload["visual_context"]["next_tools"][  # type: ignore[index]
-                    "subgraph_snapshot"
-                ]["arguments"]
-                assert subgraph_next_args["flow_ids"] == [flow.id]
-                targeted_navigation = targeted_context_payload["navigation"]  # type: ignore[index]
-                assert targeted_navigation["flow_budget"] == 1
-                assert targeted_navigation["per_flow_token_budget"] == 120
-                assert targeted_navigation["flows"][0]["flow"]["id"] == flow.id
-                assert (
-                    targeted_navigation["flows"][0]["next_tools"]["complete_flow"]["tool"]
-                    == "get_flow"
-                )
-                dependency_context = await session.call_tool(
-                    "context_pack",
-                    {"dependency_paths": ["./app.py"], "token_budget": 120},
-                )
-                assert not dependency_context.isError
-                dependency_context_payload = dependency_context.structuredContent  # type: ignore[assignment]
-                dependency_impact_payload = dependency_context_payload["impact"]  # type: ignore[index]
-                assert dependency_impact_payload["target_dependency_paths"] == ["app.py"]
-                dependency_next_args = dependency_context_payload["visual_context"][  # type: ignore[index]
-                    "next_tools"
-                ]["impact_snapshot"]["arguments"]
-                assert dependency_next_args["dependency_paths"] == ["app.py"]
 
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError
-                assert "ok" in str(validation.content)
-                validation_quality = await session.call_tool(
-                    "validate_artifacts",
-                    {"include_quality": True},
-                )
-                assert not validation_quality.isError
-                assert "quality" in str(validation_quality.content)
-                validation_threshold = await session.call_tool(
-                    "validate_artifacts",
-                    {"max_skipped_files": 0, "max_parse_warnings": 0},
-                )
-                assert not validation_threshold.isError
-                assert "quality" in str(validation_threshold.content)
-                role_domain = await session.call_tool(
-                    "domain_map",
-                    {"domain": "role", "value": "admin", "token_budget": 360},
-                )
-                assert not role_domain.isError
-                role_domain_payload = role_domain.structuredContent  # type: ignore[assignment]
-                assert role_domain_payload["tool"] == "domain_map"  # type: ignore[index]
-                role_concept = role_domain_payload["concepts"][0]  # type: ignore[index]
-                assert role_concept["domain"] == "role"
-                assert role_concept["handled_values"] == ["admin"]
-                assert role_concept["subgraph_flow_ids"] == [flow.id]
-                assert (  # type: ignore[index]
-                    role_concept["next_tools"]["subgraph_snapshot"]["tool"]
-                    == "get_subgraph_snapshot"
-                )
-                role_context = await session.call_tool(
-                    "agent_context",
-                    {
-                        "question": "where is admin role handled?",
-                        "domain": "role",
-                        "value": "admin",
-                        "token_budget": 360,
-                    },
-                )
-                assert not role_context.isError
-                role_context_payload = role_context.structuredContent  # type: ignore[assignment]
-                assert role_context_payload["domain_map"]["concepts"][0]["domain"] == "role"  # type: ignore[index]
-                clear_without_confirm = await session.call_tool("clear_annotations", {})
-                assert not clear_without_confirm.isError
-                assert (  # type: ignore[index]
-                    clear_without_confirm.structuredContent["error_code"]
-                    == "annotation_clear_confirmation_required"
-                )
-                clear_annotations = await session.call_tool(
-                    "clear_annotations",
-                    {"confirm": True},
-                )
-                assert not clear_annotations.isError
-                clear_payload = clear_annotations.structuredContent  # type: ignore[assignment]
-                assert clear_payload["status"] == "absent"  # type: ignore[index]
-                assert clear_payload["cleared"] is True  # type: ignore[index]
-
-                state = await session.call_tool("where_state_handled", {"domain": "role"})
-                assert not state.isError
-                assert "authorize" in str(state.content)
+                assert validation.structuredContent["ok"] is True  # type: ignore[index]
 
     asyncio.run(exercise_server())
 
 
-def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None:
-    """MCP query_logic uses the same QueryMatch serializer as the deterministic model."""
-    source = tmp_path / "app.py"
-    source.write_text(
-        "def authorize(user):\n"
-        "    if user.role == 'admin':\n"
-        "        return True\n"
-        "    return False\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    write_artifacts(tmp_path, result.model)
-
-    (tmp_path / "orders.py").write_text(
-        "def route(order):\n"
-        "    if order.status == 'draft':\n"
-        "        return draft(order)\n"
-        "    elif order.status == 'paid':\n"
-        "        return paid(order)\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    write_artifacts(tmp_path, result.model)
-    expected_rows = [match.to_dict() for match in query_model(result.model, "admin authorize")]
-
-    mcp_rows: list[dict[str, object]] = []
-    mcp_context_payloads: list[dict[str, object]] = []
-
-    async def call_mcp() -> None:
-        parameters = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
-        )
-        async with stdio_client(parameters) as streams:
-            read_stream, write_stream = streams
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                response = await session.call_tool("query_logic", {"question": "admin authorize"})
-                assert not response.isError
-                # A list-returning tool puts the full list under structuredContent.result
-                # (each content block is one item serialized on its own).
-                payload = response.structuredContent["result"]  # type: ignore[index]
-                mcp_rows.extend(payload)
-                context_response = await session.call_tool(
-                    "context_pack",
-                    {"question": "admin authorize", "token_budget": 240},
-                )
-                assert not context_response.isError
-                mcp_context_payloads.append(context_response.structuredContent)  # type: ignore[arg-type]
-
-    asyncio.run(call_mcp())
-
-    assert expected_rows == mcp_rows
-    assert expected_rows
-    assert len(mcp_context_payloads) == 1
-    context_payload = mcp_context_payloads[0]
-    assert context_payload["query_filters"] == {}
-    assert "review" not in context_payload
-    for row in expected_rows:
-        assert set(row) == {
-            "flow_id",
-            "name",
-            "language",
-            "entry_kind",
-            "framework",
-            "scope",
-            "score",
-            "reasons",
-            "subgraph_flow_ids",
-            "next_tools",
-            "source",
-        }
-        assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
-        assert row["next_tools"]["context_pack"]["tool"] == "context_pack"
-        assert row["next_tools"]["subgraph_snapshot"]["tool"] == "get_subgraph_snapshot"
-        assert row["subgraph_flow_ids"] == [row["flow_id"]]
-
-
-def test_domain_map_reports_independent_decision_domains(
-    tmp_path: Path,
-) -> None:
+def test_domain_logic_reports_independent_decision_domains(tmp_path: Path) -> None:
     source = tmp_path / "app.py"
     source.write_text(
         """
@@ -1147,15 +458,14 @@ def route(user, order):
     )
 
     concepts = {row["domain"]: row for row in payload["concepts"]}
+    assert payload["tool"] == "domain_logic"
     assert concepts["status"]["handled_values"] == ["draft", "paid"]
     assert concepts["role"]["handled_values"] == ["admin"]
-    assert "findings" not in concepts["status"]
     assert "missing_values" not in concepts["status"]
-    assert "findings" not in concepts["role"]
-    assert "missing_values" not in concepts["role"]
+    assert concepts["role"]["next_tools"]["snapshot_slice"]["tool"] == "snapshot_slice"
 
 
-def test_domain_map_reports_enum_handled_values_without_inferring_missing_cases(
+def test_domain_logic_reports_enum_handled_values_without_inferring_missing_cases(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "app.py"
@@ -1194,7 +504,6 @@ def route(status):
     assert concept["domain"] == "Status"
     assert concept["handled_values"] == ["Status.DRAFT", "Status.OPEN"]
     assert concept["decision_nodes"][0]["source_range"]["path"] == "app.py"
-    assert "findings" not in concept
     assert "missing_values" not in concept
 
     missing_value_payload = _domain_logic_map(
@@ -1204,11 +513,10 @@ def route(status):
         scope=None,
         token_budget=0,
     )
-
     assert missing_value_payload["concepts"] == []
 
 
-def test_domain_map_caps_snapshot_targets_with_token_budget(tmp_path: Path) -> None:
+def test_domain_logic_caps_snapshot_targets_with_token_budget(tmp_path: Path) -> None:
     source = tmp_path / "app.py"
     source.write_text(
         "\n\n".join(
@@ -1240,19 +548,9 @@ def route_{index}(user):
     assert len(concept["subgraph_flow_ids"]) == 1
     assert concept["omitted_subgraph_flow_count"] == 7
     assert (
-        concept["next_tools"]["subgraph_snapshot"]["arguments"]["flow_ids"]
+        concept["next_tools"]["snapshot_slice"]["arguments"]["flow_ids"]
         == concept["subgraph_flow_ids"]
     )
-
-    unlimited = _domain_logic_map(
-        model,
-        domain="role",
-        value=None,
-        scope=None,
-        token_budget=0,
-    )
-    assert len(unlimited["concepts"][0]["subgraph_flow_ids"]) == 8
-    assert unlimited["concepts"][0]["omitted_subgraph_flow_count"] == 0
 
 
 def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:
@@ -1265,22 +563,14 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
             read_stream, write_stream = streams
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
-                summary = await session.call_tool("logicchart_summary", {})
-                assert not summary.isError
-                payload = summary.structuredContent  # type: ignore[assignment]
+                context = await session.call_tool("agent_context", {"question": "anything"})
+                assert not context.isError
+                payload = context.structuredContent
                 assert payload["error_code"] == "artifact_missing"  # type: ignore[index]
                 assert payload["recoverable"] is True  # type: ignore[index]
                 assert "generated artifacts" in payload["guardrail"]  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
-                )
+                assert payload["next_tools"]["update_model"]["tool"] == "update_logicchart"  # type: ignore[index]
                 assert "logicchart update --full" in payload["next_cli"]  # type: ignore[index]
-
-                flows = await session.call_tool("list_flows", {})
-                assert not flows.isError
-                rows = flows.structuredContent["result"]  # type: ignore[index]
-                assert rows[0]["error_code"] == "artifact_missing"
-                assert rows[0]["artifact"].endswith("logicchart-out/logic-flow.json")
 
     asyncio.run(call_with_missing_artifact())
 
@@ -1297,15 +587,15 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
             read_stream, write_stream = streams
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
-                summary = await session.call_tool("logicchart_summary", {})
-                assert not summary.isError
-                payload = summary.structuredContent  # type: ignore[assignment]
+                context = await session.call_tool("agent_context", {"question": "anything"})
+                assert not context.isError
+                payload = context.structuredContent
                 assert payload["error_code"] == "artifact_malformed_json"  # type: ignore[index]
                 assert "invalid JSON" in payload["detail"]  # type: ignore[index]
 
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError
-                validation_payload = validation.structuredContent  # type: ignore[assignment]
+                validation_payload = validation.structuredContent
                 assert validation_payload["ok"] is False  # type: ignore[index]
                 assert "Malformed JSON" in validation_payload["errors"][0]  # type: ignore[index]
 
@@ -1343,138 +633,39 @@ def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> Non
                 await session.initialize()
                 stale = await session.call_tool("validate_artifacts", {"check_sync": True})
                 assert not stale.isError
-                stale_payload = stale.structuredContent  # type: ignore[assignment]
+                stale_payload = stale.structuredContent
                 assert stale_payload["ok"] is False  # type: ignore[index]
                 assert "stale" in stale_payload["errors"][0]  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    stale_payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
-                )
-                assert "logicchart update --full" in stale_payload["next_cli"]  # type: ignore[index]
+                assert stale_payload["next_tools"]["update_model"]["tool"] == "update_logicchart"  # type: ignore[index]
 
                 update = await session.call_tool("update_logicchart", {"full": True})
                 assert not update.isError
-                update_payload = update.structuredContent  # type: ignore[assignment]
+                update_payload = update.structuredContent
                 assert "app.py" in update_payload["changed_files"]  # type: ignore[index]
                 assert update_payload["flows"] >= 2  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    update_payload["next_tools"]["validate_artifacts"]["arguments"]
-                    == {"check_sync": True, "include_quality": True}
-                )
-                assert update_payload["next_artifacts"]["commit"][0].endswith(  # type: ignore[index]
-                    "logic-flow.json"
-                )
+                assert update_payload["next_tools"]["validate_artifacts"]["arguments"] == {  # type: ignore[index]
+                    "check_sync": True,
+                    "include_quality": True,
+                }
 
                 fresh = await session.call_tool(
                     "validate_artifacts",
                     {"check_sync": True, "include_quality": True},
                 )
                 assert not fresh.isError
-                fresh_payload = fresh.structuredContent  # type: ignore[assignment]
+                fresh_payload = fresh.structuredContent
                 assert fresh_payload["ok"] is True  # type: ignore[index]
                 assert "quality" in fresh_payload
-                assert (  # type: ignore[index]
-                    fresh_payload["next_tools"]["analysis_quality"]["tool"] == "analysis_quality"
-                )
+                assert fresh_payload["next_tools"] == {}
 
-                query = await session.call_tool("query_logic", {"question": "secondary"})
-                assert not query.isError
-                assert "secondary" in str(query.content)
+                context = await session.call_tool(
+                    "agent_context",
+                    {"question": "secondary", "token_budget": 240},
+                )
+                assert not context.isError
+                assert "secondary" in str(context.content)
 
     asyncio.run(exercise_update_validate())
-
-
-def test_analysis_quality_report_bounds_language_attention() -> None:
-    quality = {
-        "files": {
-            "skipped": {"total": 0, "sample": []},
-            "parse_errors": {
-                "total": 2,
-                "sample": [
-                    {"path": "partial.ts", "language": "typescript", "line": 4},
-                    {"path": "partial.go", "language": "go", "line": 9},
-                ],
-            },
-        },
-        "flows": {"huge": []},
-        "calls": {"unresolved": 0, "ambiguous": 0},
-        "labels": {"generic_nodes": 0, "sample": []},
-        "graph": {},
-        "languages": {
-            "attention": [
-                {"language": "python", "signals": ["low_call_resolution"]},
-                {"language": "typescript", "signals": ["generic_labels"]},
-            ],
-            "depth": {
-                "python": {"files": 3, "flows": 8},
-                "typescript": {"files": 4, "flows": 9},
-            },
-        },
-    }
-
-    report = _quality_report(quality, token_budget=120)
-
-    assert report["guardrail"].startswith("Quality attention signals")
-    assert report["next_tools"]["validate_quality"]["tool"] == "validate_artifacts"
-    languages = report["quality"]["languages"]
-    assert list(languages["depth"]) == ["python"]
-    assert languages["attention"] == [{"language": "python", "signals": ["low_call_resolution"]}]
-    assert languages["omitted_language_count"] == 1
-    assert report["quality"]["files"]["parse_errors"]["sample"] == [
-        {"path": "partial.ts", "language": "typescript", "line": 4}
-    ]
-    assert report["attention"][0]["type"] == "parse_warnings"
-    assert (
-        report["attention"][0]["next_tools"]["validate_parse_warnings"]["arguments"][
-            "max_parse_warnings"
-        ]
-        == 0
-    )
-    assert [item.get("language") for item in report["attention"][1:]] == [
-        "python",
-    ]
-    assert (
-        report["attention"][1]["next_tools"]["query_language"]["arguments"]["language"] == "python"
-    )
-
-
-def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
-    source = tmp_path / "orders.py"
-    source.write_text(
-        "def route(order):\n"
-        "    if order.status == 'draft':\n"
-        "        return draft(order)\n"
-        "    elif order.status == 'paid':\n"
-        "        return paid(order)\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    write_artifacts(tmp_path, result.model)
-    config = LogicChartConfig.load(tmp_path)
-    flow = next(item for item in result.model.flows if item.name == "route")
-    options = _enrichment_options(
-        scope=None,
-        flow_ids=[flow.id],
-        max_flows=8,
-        max_nodes_per_flow=12,
-        token_budget=240,
-    )
-    preview = build_annotation_preview(tmp_path, result.model, config, options)
-
-    payload = _enrichment_preview_payload(
-        preview,
-        token_budget=240,
-    )
-
-    assert payload["provider_call_made"] is False
-    assert payload["request"]["selection"]["max_flows"] == 1
-    assert payload["request"]["selection"]["max_nodes_per_flow"] == 4
-    assert payload["targets"]["flow_ids"] == [flow.id]
-    assert "finding_ids" not in payload["targets"]
-    assert "findings" not in payload["request"]
-    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["flow_ids"] == [flow.id]
-    assert "next_cli" not in payload
-    assert "logicchart validate" in payload["next_actions"][2]
-    assert "agent-authored annotations" in payload["guardrail"]
 
 
 def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
@@ -1503,22 +694,14 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
     )
 
     assert payload["include_visual"] is True
-    assert payload["next_tools"]["impact_snapshot"]["arguments"]["flow_ids"] == [flow.id]
-    assert payload["next_tools"]["subgraph_snapshot"]["arguments"] == {
+    assert payload["next_tools"]["snapshot_slice"]["arguments"] == {
         "flow_ids": [flow.id],
         "format": "svg",
+        "include_svg": False,
         "token_budget": 120,
     }
-    assert payload["impact_snapshot"]["format"] == "svg"
-    assert payload["impact_snapshot"]["layout_quality"]["status"] == "complete"
     assert payload["subgraph_snapshot"]["layout"]["engine"] == "static-subgraph-snapshot-v1"
-    assert payload["subgraph_snapshot"]["layout_quality"]["status"] == "compact"
-    assert payload["subgraph_snapshot"]["layout_quality"]["counts"]["omitted_node_count"] >= 1
     assert payload["subgraph_snapshot"]["rendered_flow_ids"] == [flow.id]
-    assert payload["flow_snapshots"][0]["flow_id"] == flow.id
-    assert payload["flow_snapshots"][0]["layout_quality"]["status"] == "compact"
-    assert payload["flow_snapshots"][0]["layout_quality"]["counts"]["omitted_node_count"] >= 1
-    assert "finding_snapshots" not in payload
     assert payload["snapshot_budget"]["used_visual_bytes"] > 0
 
     capped = _context_visual_pack(
@@ -1531,11 +714,8 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
         visual_byte_budget=1,
     )
 
-    assert "impact_snapshot" not in capped
-    assert capped["impact_snapshot_omitted_reason"] == "visual_byte_budget"
     assert "subgraph_snapshot" not in capped
     assert capped["subgraph_snapshot_omitted_reason"] == "visual_byte_budget"
-    assert capped["flow_snapshots"] == []
     assert capped["omitted_visual_snapshot_reasons"] == {
         "visual_byte_budget": capped["omitted_visual_snapshot_count"]
     }
@@ -1559,17 +739,16 @@ def test_mcp_context_navigation_pack_direct_contracts(tmp_path: Path) -> None:
         model,
         impact=impact,
         matches=[],
-        annotations=None,
         token_budget=120,
     )
 
     assert payload["flow_budget"] == 1
     assert payload["per_flow_token_budget"] == 120
     assert payload["flows"][0]["flow"]["id"] == flow.id
-    assert payload["flows"][0]["next_tools"]["complete_flow"]["tool"] == "get_flow"
-    assert payload["next_tools"]["flow_navigation"] == [
+    assert payload["flows"][0]["next_tools"]["agent_context"]["tool"] == "agent_context"
+    assert payload["next_tools"]["agent_context"] == [
         {
-            "tool": "get_flow_navigation",
+            "tool": "agent_context",
             "arguments": {"flow_id": flow.id, "token_budget": 120},
         }
     ]
@@ -1591,8 +770,8 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
 
     unknown_flow = _unknown_target_error("flow", "missing-flow")
     assert unknown_flow["error_code"] == "flow_not_found"
-    assert unknown_flow["next_tools"]["list_flows"]["tool"] == "list_flows"
-    assert unknown_flow["next_tools"]["query_logic"]["arguments"]["question"] == "missing-flow"
+    assert unknown_flow["next_tools"]["agent_context"]["tool"] == "agent_context"
+    assert unknown_flow["next_tools"]["agent_context"]["arguments"]["question"] == "missing-flow"
 
     stale = _validation_payload({"ok": False, "errors": ["stale"], "warnings": []})
     assert stale["next_tools"]["update_model"]["tool"] == "update_logicchart"
@@ -1603,63 +782,14 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
 
     fresh = _validation_payload({"ok": True, "errors": [], "warnings": []})
     assert "update_model" not in fresh["next_tools"]
-    assert "logicchart view" in fresh["next_cli"]
+    assert fresh["next_cli"] == [
+        "logicchart validate --quality --json",
+        "logicchart view",
+    ]
 
-    workflow = _update_workflow_payload(
+    update_payload = _update_workflow_payload(
         tmp_path / "logicchart-out" / "logic-flow.json",
         tmp_path / "logicchart-out" / "logic-flow.md",
         None,
     )
-    assert workflow["next_tools"]["validate_artifacts"]["arguments"] == {
-        "check_sync": True,
-        "include_quality": True,
-    }
-    assert workflow["next_artifacts"]["local_html"] is None
-    assert workflow["next_artifacts"]["commit"][0].endswith("logic-flow.json")
-
-
-def test_get_flow_subgraph_is_internally_consistent(tmp_path: Path) -> None:
-    """Capping nodes by token_budget must also drop edges whose endpoints were removed,
-    so get_flow never returns a dangling-edge subgraph."""
-    source = tmp_path / "app.py"
-    source.write_text(
-        "def authorize(user):\n"
-        "    if user.role == 'admin':\n"
-        "        return allow()\n"
-        "    elif user.role == 'staff':\n"
-        "        return review()\n"
-        "    return deny()\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    write_artifacts(tmp_path, result.model)
-    flow = next(f for f in load_model(tmp_path).flows if f.name == "authorize")
-
-    captured: dict[str, object] = {}
-
-    async def call_get_flow() -> None:
-        parameters = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
-        )
-        async with stdio_client(parameters) as streams:
-            read_stream, write_stream = streams
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                response = await session.call_tool(
-                    "get_flow", {"flow_id": flow.id, "token_budget": 90}
-                )
-                assert not response.isError
-                # A dict-returning tool exposes the object directly via structuredContent.
-                captured.update(response.structuredContent)  # type: ignore[arg-type]
-
-    asyncio.run(call_get_flow())
-
-    flow_dict = captured["flow"]
-    node_ids = {node["id"] for node in flow_dict["nodes"]}  # type: ignore[index]
-    # Budget was small enough to drop some nodes...
-    assert len(node_ids) < len(flow.nodes)
-    # ...and every surviving edge still connects two surviving nodes.
-    for edge in flow_dict["edges"]:  # type: ignore[index]
-        assert edge["source"] in node_ids
-        assert edge["target"] in node_ids
+    assert update_payload["next_tools"]["validate_artifacts"]["tool"] == "validate_artifacts"

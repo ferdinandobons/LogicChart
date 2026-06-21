@@ -49,24 +49,20 @@ def _flow(
 
 def _model(flow: Flow) -> ProjectModel:
     return ProjectModel(
-        schema_version="1.1",
+        schema_version="2.0",
         generated_at="x",
         root=".",
         flows=[flow],
-        findings=[],
     )
 
 
-def test_markdown_renders_flow_report_without_review_sections() -> None:
+def test_markdown_renders_flow_report() -> None:
     out = render_markdown(_model(_flow()))
 
     assert "# LogicChart Decision Flows" in out
     assert "## Project Map" in out
     assert "## Entry Point Flows" in out
     assert "flowchart TD" in out
-    assert "Review Signals" not in out
-    assert "finding id" not in out
-    assert "POTENTIAL_GAP" not in out
 
 
 def test_mermaid_node_label_injection_is_neutralized() -> None:
@@ -106,11 +102,10 @@ def test_flow_name_with_metacharacters_is_escaped_in_the_heading() -> None:
 def test_generated_at_and_root_cannot_break_the_header() -> None:
     flow = _flow()
     model = ProjectModel(
-        schema_version="1.1",
+        schema_version="2.0",
         generated_at="x`bad",
         root="root`bad",
         flows=[flow],
-        findings=[],
     )
     out = render_markdown(model)
 

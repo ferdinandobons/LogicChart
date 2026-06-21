@@ -67,7 +67,6 @@ def test_java_switch_values_and_missing_branch(tmp_path: Path) -> None:
         n for n in handle.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
     )
     assert {"ACTIVE", "SUSPENDED"} <= set(switch.metadata["values"])
-    assert model.findings == []
 
 
 def test_java_switch_try_finally_case_outcome_returns(tmp_path: Path) -> None:
@@ -152,4 +151,3 @@ def test_java_try_catch_log_only_swallow(tmp_path: Path) -> None:
     )
     labels = {b["label"] for b in error_decision.metadata["branches"]}
     assert {"Success", "Error"} <= labels
-    assert model.findings == []

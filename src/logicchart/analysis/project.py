@@ -245,11 +245,10 @@ class ProjectAnalyzer:
             for analysis in analyses
         ]
         model = ProjectModel(
-            schema_version="1.1",
+            schema_version="2.0",
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=".",
             flows=sorted(flows, key=lambda item: (not item.is_entrypoint, item.symbol)),
-            findings=[],
             files=files,
             metadata={
                 "languages": sorted({item.language for item in analyses}),

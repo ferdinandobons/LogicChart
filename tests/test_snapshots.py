@@ -1,229 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel, SourceLocation
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
 from logicchart.render.snapshot import (
-    render_flow_snapshot,
-    render_impact_snapshot,
     render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
-
-
-def test_flow_snapshot_renders_decision_flow_svg(tmp_path: Path) -> None:
-    source = tmp_path / "app.py"
-    source.write_text(
-        "def handle(user):\n"
-        "    if user.role == '<admin>':\n"
-        "        return allow()\n"
-        "    return deny()\n",
-        encoding="utf-8",
-    )
-    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
-    flow = next(item for item in model.flows if item.name == "handle")
-    decision = next(node for node in flow.nodes if node.kind.value == "decision")
-
-    snapshot = render_flow_snapshot(model, flow.id, highlight_node_ids={decision.id})
-
-    assert snapshot["format"] == "svg"
-    assert snapshot["flow_id"] == flow.id
-    assert decision.id in snapshot["highlighted_node_ids"]
-    svg = snapshot["svg"]
-    assert svg.startswith("<svg ")
-    assert "kind-decision highlight" in svg
-    assert "&lt;admin&gt;" in svg
-    assert "<admin>" not in svg
-    assert snapshot["layout"]["engine"] == "static-flow-snapshot-v1"
-    assert snapshot["layout"]["direction"] == "top_to_bottom"
-    assert snapshot["layout"]["orientation"] == "vertical"
-    assert snapshot["layout"]["canvas"]["width"] == 720
-    assert snapshot["layout"]["rendered_edge_count"] >= 1
-    assert snapshot["layout"]["node_positions"][0]["id"] == flow.nodes[0].id
-    assert snapshot["layout_quality"]["status"] == "complete"
-    assert snapshot["layout_quality"]["complete"] is True
-    assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 0
-    clarity = snapshot["layout_quality"]["clarity"]
-    assert clarity["status"] in {"clear", "needs_review"}
-    assert isinstance(clarity["clear"], bool)
-    assert clarity["counts"]["box_count"] == snapshot["rendered_node_count"]
-    assert clarity["counts"]["box_overlap_count"] >= 0
-    assert clarity["counts"]["canvas_overflow_count"] >= 0
-    assert clarity["counts"]["edge_obstacle_hit_count"] >= 0
-    assert clarity["minimum_box_gap"] > 0
-
-
-def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
-    nodes = [
-        FlowNode(
-            id=f"n{index}",
-            kind=NodeKind.ACTION,
-            label=f"node {index}",
-            location=SourceLocation(path="app.py", start_line=index + 1, end_line=index + 1),
-        )
-        for index in range(10)
-    ]
-    flow = Flow(
-        id="big-flow",
-        name="big flow",
-        symbol="big_flow",
-        language="python",
-        framework="generic",
-        entry_kind="function",
-        is_entrypoint=True,
-        location=SourceLocation(path="app.py", start_line=1, end_line=1),
-        nodes=nodes,
-    )
-    model = ProjectModel(
-        schema_version="1.1",
-        generated_at="2026-06-18T00:00:00+00:00",
-        root=".",
-        flows=[flow],
-    )
-
-    snapshot = render_flow_snapshot(
-        model,
-        flow.id,
-        highlight_node_ids={"n9"},
-        max_nodes=4,
-    )
-
-    assert snapshot["rendered_node_count"] == 4
-    assert snapshot["omitted_node_count"] == 6
-    assert snapshot["layout"]["compact"] is True
-    assert snapshot["layout_quality"]["status"] == "compact"
-    assert snapshot["layout_quality"]["complete"] is False
-    assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 6
-    assert snapshot["layout"]["omitted_edge_count"] == 0
-    snapshot_nodes = [nodes[0], nodes[1], nodes[2], nodes[9]]
-    assert [item["id"] for item in snapshot["layout"]["node_positions"]] == [
-        node.id for node in snapshot_nodes
-    ]
-    assert snapshot_nodes[-1].label == "node 9"
-    assert "node 9" in snapshot["svg"]
-    assert "6 additional nodes omitted" in snapshot["svg"]
-
-
-def test_flow_snapshot_layout_quality_reports_edge_obstacles() -> None:
-    nodes = [
-        FlowNode(
-            id=f"n{index}",
-            kind=NodeKind.ACTION,
-            label=f"node {index}",
-            location=SourceLocation(path="app.py", start_line=index + 1, end_line=index + 1),
-        )
-        for index in range(3)
-    ]
-    flow = Flow(
-        id="jump-flow",
-        name="jump flow",
-        symbol="jump_flow",
-        language="python",
-        framework="generic",
-        entry_kind="function",
-        is_entrypoint=True,
-        location=SourceLocation(path="app.py", start_line=1, end_line=3),
-        nodes=nodes,
-        edges=[FlowEdge(id="edge-n0-n2", source="n0", target="n2", label="skip middle")],
-    )
-    model = ProjectModel(
-        schema_version="1.1",
-        generated_at="2026-06-18T00:00:00+00:00",
-        root=".",
-        flows=[flow],
-    )
-
-    snapshot = render_flow_snapshot(model, flow.id)
-
-    assert snapshot["layout_quality"]["status"] == "complete"
-    clarity = snapshot["layout_quality"]["clarity"]
-    assert clarity["status"] == "needs_review"
-    assert clarity["clear"] is False
-    assert clarity["counts"]["edge_obstacle_hit_count"] == 1
-    assert clarity["samples"]["edge_obstacle_hits"] == [{"edge": "n0->n2", "obstacle": "n1"}]
-
-
-def test_impact_snapshot_renders_empty_state() -> None:
-    snapshot = render_impact_snapshot(
-        changed_files=["docs/readme.md"],
-        direct=[],
-        transitive=[],
-    )
-
-    assert snapshot["format"] == "svg"
-    assert snapshot["direct_flow_ids"] == []
-    assert snapshot["layout"]["engine"] == "static-impact-snapshot-v1"
-    assert snapshot["layout"]["direction"] == "top_to_bottom_sections"
-    assert snapshot["layout"]["orientation"] == "vertical"
-    assert snapshot["layout"]["columns"][0]["id"] == "direct"
-    assert snapshot["layout"]["columns"][0]["x"] == snapshot["layout"]["columns"][1]["x"]
-    assert snapshot["layout"]["columns"][0]["y"] < snapshot["layout"]["columns"][1]["y"]
-    assert snapshot["layout_quality"]["status"] == "complete"
-    assert snapshot["layout_quality"]["counts"]["direct_flow_count"] == 0
-    assert snapshot["layout_quality"]["clarity"]["status"] == "clear"
-    assert "No modeled flows are affected" in snapshot["svg"]
-
-
-def test_impact_snapshot_reports_targets_and_unresolved_targets() -> None:
-    snapshot = render_impact_snapshot(
-        changed_files=[],
-        direct=[],
-        transitive=[],
-        target_flow_ids=["missing-flow"],
-        target_dependency_paths=["backend/payments"],
-        unresolved_targets=[{"type": "flow", "value": "missing-flow", "reason": "not_found"}],
-        impact_reasons={},
-        subgraph_flow_ids=[],
-    )
-
-    assert snapshot["target_flow_ids"] == ["missing-flow"]
-    assert snapshot["target_dependency_paths"] == ["backend/payments"]
-    assert snapshot["layout"]["target_count"] == 2
-    assert snapshot["unresolved_targets"] == [
-        {"type": "flow", "value": "missing-flow", "reason": "not_found"}
-    ]
-    assert snapshot["subgraph_flow_ids"] == []
-    assert "Targets: flow:missing-flow, path:backend/payments" in snapshot["svg"]
-    assert "Unresolved targets: flow:missing-flow" in snapshot["svg"]
-    assert "No modeled flows matched the requested targets." in snapshot["svg"]
-
-
-def test_impact_snapshot_budget_reports_omitted_flows() -> None:
-    flows = [
-        Flow(
-            id=f"flow-{index}",
-            name=f"flow {index}",
-            symbol=f"flow_{index}",
-            language="python",
-            framework="generic",
-            entry_kind="function",
-            is_entrypoint=True,
-            location=SourceLocation(path=f"app{index}.py", start_line=1, end_line=1),
-        )
-        for index in range(4)
-    ]
-
-    snapshot = render_impact_snapshot(
-        changed_files=["app.py"],
-        direct=flows[:2],
-        transitive=flows[2:],
-        max_flows=1,
-    )
-
-    assert snapshot["rendered_direct_flow_ids"] == ["flow-0"]
-    assert snapshot["rendered_transitive_flow_ids"] == ["flow-2"]
-    assert snapshot["omitted_direct_flow_count"] == 1
-    assert snapshot["omitted_transitive_flow_count"] == 1
-    assert snapshot["layout"]["compact"] is True
-    assert snapshot["layout"]["direction"] == "top_to_bottom_sections"
-    assert snapshot["layout"]["orientation"] == "vertical"
-    assert snapshot["layout_quality"]["status"] == "compact"
-    assert snapshot["layout_quality"]["counts"]["omitted_direct_flow_count"] == 1
-    assert snapshot["layout_quality"]["counts"]["omitted_transitive_flow_count"] == 1
-    assert snapshot["layout"]["columns"][0]["rendered_flow_count"] == 1
-    assert snapshot["layout"]["columns"][1]["omitted_flow_count"] == 1
-    assert "1 direct and 1 caller flows omitted" in snapshot["svg"]
 
 
 def test_subgraph_snapshot_layout_quality_reports_compaction() -> None:
@@ -254,7 +35,7 @@ def test_subgraph_snapshot_layout_quality_reports_compaction() -> None:
         for index in range(3)
     ]
     model = ProjectModel(
-        schema_version="1.1",
+        schema_version="2.0",
         generated_at="2026-06-18T00:00:00+00:00",
         root=".",
         flows=flows,
@@ -279,19 +60,37 @@ def test_subgraph_snapshot_layout_quality_reports_compaction() -> None:
     assert snapshot["layout_quality"]["clarity"]["counts"]["box_overlap_count"] == 0
 
 
-def test_snapshot_target_errors_are_structured() -> None:
+def test_subgraph_snapshot_reports_unresolved_targets() -> None:
     model = ProjectModel(
-        schema_version="1.1",
+        schema_version="2.0",
         generated_at="2026-06-18T00:00:00+00:00",
         root=".",
     )
 
-    flow_error = render_flow_snapshot(model, "missing-flow")
+    snapshot = render_subgraph_snapshot(model, flow_ids=["missing-flow"])
 
-    assert flow_error["error"] == "Unknown flow: missing-flow"
-    assert flow_error["error_code"] == "snapshot_flow_not_found"
-    assert flow_error["target_type"] == "flow"
-    assert flow_error["recoverable"] is True
+    assert snapshot["requested_flow_ids"] == ["missing-flow"]
+    assert snapshot["flow_ids"] == []
+    assert snapshot["unresolved_targets"] == [
+        {"type": "flow", "value": "missing-flow", "reason": "not_found"}
+    ]
+    assert snapshot["layout_quality"]["counts"]["unresolved_target_count"] == 1
+    assert "Unresolved targets: flow:missing-flow" in snapshot["svg"]
+    assert "No valid flows matched the requested subgraph." in snapshot["svg"]
+
+
+def test_subgraph_snapshot_requires_flow_ids() -> None:
+    model = ProjectModel(
+        schema_version="2.0",
+        generated_at="2026-06-18T00:00:00+00:00",
+        root=".",
+    )
+
+    payload = render_subgraph_snapshot(model, flow_ids=[])
+
+    assert payload["error"] == "Subgraph snapshot requires at least one flow_id."
+    assert payload["error_code"] == "snapshot_subgraph_empty"
+    assert payload["recoverable"] is True
 
 
 def test_unsupported_snapshot_format_reports_supported_formats() -> None:

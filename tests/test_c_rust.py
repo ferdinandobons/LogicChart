@@ -63,7 +63,6 @@ def test_c_if_switch_static_and_calls(tmp_path: Path) -> None:
     handle = _flow(model, "handle")
     labels = {n.label for n in handle.nodes if n.kind is NodeKind.DECISION}
     assert "status == 1" in labels and "Switch on status" in labels
-    assert model.findings == []
     assert _flow(model, "persist").id in handle.calls
 
 
@@ -81,7 +80,6 @@ def test_cpp_class_methods_switch_static_and_main(tmp_path: Path) -> None:
     labels = {n.label for n in handle.nodes if n.kind is NodeKind.DECISION}
     assert "status == Status::Active" in labels
     assert "Switch on status" in labels
-    assert model.findings == []
 
 
 def test_cpp_local_static_variable_does_not_hide_public_function(tmp_path: Path) -> None:
@@ -107,7 +105,6 @@ def test_rust_if_match_and_visibility(tmp_path: Path) -> None:
     )
     assert {"Status::Active", "Status::Suspended"} <= set(match.metadata["values"])
     # Rust `match` is compiler-exhaustive, so no synthetic fallthrough branch is added.
-    assert model.findings == []
     assert not any(b["implicit"] for b in match.metadata["branches"])
 
 
@@ -172,7 +169,6 @@ def test_rust_wildcard_arm_is_default(tmp_path: Path) -> None:
     )
     pick = _flow(model, "pick")
     # the `_` arm is recognized as the explicit default, not a synthetic fallthrough
-    assert model.findings == []
     match = next(
         n for n in pick.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
     )

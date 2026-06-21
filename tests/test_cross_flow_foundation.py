@@ -16,7 +16,6 @@ def test_python_enum_table_is_harvested(tmp_path: Path) -> None:
     )
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     assert model.metadata["enums"]["python"]["Status"] == ["Status.ACTIVE", "Status.GONE"]
-    assert model.findings == []
 
 
 def test_typescript_enum_and_union_table(tmp_path: Path) -> None:
@@ -28,7 +27,6 @@ def test_typescript_enum_and_union_table(tmp_path: Path) -> None:
     enums = model.metadata["enums"]["typescript"]
     assert enums["Role"] == ["Role.ADMIN", "Role.MEMBER"]
     assert enums["Status"] == ["a", "b", "c"]
-    assert model.findings == []
 
 
 def test_enum_table_is_language_scoped(tmp_path: Path) -> None:
@@ -43,7 +41,6 @@ def test_enum_table_is_language_scoped(tmp_path: Path) -> None:
     enums = model.metadata["enums"]
     assert enums["python"]["Status"] == ["Status.ACTIVE"]
     assert enums["typescript"]["Status"] == ["active", "deleted"]
-    assert model.findings == []
 
 
 def test_effect_tags_and_auth_flag(tmp_path: Path) -> None:
@@ -61,7 +58,6 @@ def test_effect_tags_and_auth_flag(tmp_path: Path) -> None:
     assert handler.metadata["performs_auth_check"] is True
     assert "auth_check" in effects
     assert "db_write" in effects
-    assert model.findings == []
 
 
 def test_no_auth_flag_when_absent(tmp_path: Path) -> None:
@@ -72,7 +68,6 @@ def test_no_auth_flag_when_absent(tmp_path: Path) -> None:
     handler = next(f for f in model.flows if f.name == "handler")
 
     assert handler.metadata["performs_auth_check"] is False
-    assert model.findings == []
 
 
 def test_effect_tags_match_logger_methods_without_false_positives() -> None:
@@ -89,10 +84,9 @@ def test_ts_parenthesized_union_is_flattened(tmp_path: Path) -> None:
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     enums = model.metadata["enums"]["typescript"]
     assert enums["S"] == ["a", "b", "c"]
-    assert model.findings == []
 
 
-def test_project_schema_keeps_legacy_findings_field_empty(tmp_path: Path) -> None:
+def test_project_schema_version_tracks_current_artifact_contract(tmp_path: Path) -> None:
     (tmp_path / "svc.py").write_text(
         "def route(order):\n"
         "    if order.status == OrderStatus.PAID:\n        return a()\n"
@@ -101,5 +95,4 @@ def test_project_schema_keeps_legacy_findings_field_empty(tmp_path: Path) -> Non
     )
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
 
-    assert model.schema_version == "1.1"
-    assert model.findings == []
+    assert model.schema_version == "2.0"

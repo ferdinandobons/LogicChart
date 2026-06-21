@@ -22,7 +22,7 @@ def _analyze_shop_copy(tmp_path: Path) -> ProjectModel:
     return ProjectAnalyzer(tmp_path).analyze(full=True).model
 
 
-def test_shop_fixture_models_core_flows_without_review_findings(tmp_path: Path) -> None:
+def test_shop_fixture_models_core_flows(tmp_path: Path) -> None:
     model = _analyze_shop_copy(tmp_path)
     names = {flow.name for flow in model.flows}
 
@@ -35,9 +35,8 @@ def test_shop_fixture_models_core_flows_without_review_findings(tmp_path: Path) 
         "capture_payment",
         "purge_user",
     } <= names
-    assert model.findings == []
-    assert "finding_count" not in model.metadata
-    assert "finding_rules" not in model.metadata
+    assert model.schema_version == "2.0"
+    assert "quality" in model.metadata
 
 
 def test_shop_controls_remain_navigable(tmp_path: Path) -> None:
@@ -55,4 +54,3 @@ def test_shop_controls_remain_navigable(tmp_path: Path) -> None:
         ("backend/api/orders_routes.py", "request_refund"),
     }
     assert controls <= flow_keys
-    assert model.findings == []

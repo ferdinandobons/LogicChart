@@ -96,7 +96,6 @@ def test_go_switch_without_default_stays_in_flow_model(tmp_path: Path) -> None:
     model = _analyze(tmp_path)
     handle = _flow(model, "Handle")
     assert any(n.kind is NodeKind.DECISION and n.label == "Switch on status" for n in handle.nodes)
-    assert model.findings == []
 
 
 def test_go_same_package_call_resolves(tmp_path: Path) -> None:

@@ -14,7 +14,6 @@ import re
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.annotations import annotations_path, model_hash
 from logicchart.render.html import render_html
 from logicchart.render.payload import build_payload
 
@@ -45,62 +44,11 @@ def test_build_payload_has_flows(tmp_path: Path) -> None:
     assert payload["flows"]
 
 
-def test_render_html_embeds_only_matching_annotations(tmp_path: Path) -> None:
-    model = _model(tmp_path)
-    flow = model.flows[0]
-    annotations = annotations_path(tmp_path)
-    annotations.parent.mkdir(parents=True)
-    annotations.write_text(
-        json.dumps(
-            {
-                "schema_version": "1.0",
-                "model_hash": model_hash(model),
-                "flows": {flow.id: {"label": "Annotated handler"}},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    html = render_html(model, tmp_path)
-    match = re.search(
-        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    assert match is not None
-    payload = json.loads(match.group(1).replace("<\\/", "</"))
-    assert payload["annotations"]["flows"][flow.id]["label"] == "Annotated handler"
-    assert payload["metadata"]["annotations"]["status"] == "loaded"
-
-    annotations.write_text(
-        json.dumps(
-            {
-                "schema_version": "1.0",
-                "model_hash": "stale",
-                "flows": {flow.id: {"label": "Stale handler"}},
-            }
-        ),
-        encoding="utf-8",
-    )
-    stale_html = render_html(model, tmp_path)
-    stale_match = re.search(
-        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
-        stale_html,
-        re.DOTALL,
-    )
-    assert stale_match is not None
-    stale_payload = json.loads(stale_match.group(1).replace("<\\/", "</"))
-    assert "annotations" not in stale_payload
-    assert stale_payload["metadata"]["annotations"]["status"] == "stale"
-
-
 def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
     # The directory tree container the left rail renders into is wired up.
     assert 'id="tree"' in html
     # Codebase search and language filter are wired above the tree.
-    assert 'id="reviewFilter"' not in html
-    assert "Show only flows with review signals" not in html
     assert 'id="langFilter"' in html
     assert 'id="globalSearch"' in html
     assert "Find path, symbol, or flow" in html
@@ -247,11 +195,10 @@ def test_render_html_wires_framework_decision_expansion(tmp_path: Path) -> None:
 
 def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # The right rail is for model quality and source inspection, not a review queue.
+    # The right rail is for model quality and source inspection.
     assert 'id="source"' in html
     assert 'id="quality"' in html
     assert 'id="errors"' not in html
-    assert 'id="reviewQueueToggle"' not in html
     assert "data-collapsible-panel" in html
     assert 'id="qualityPanelToggle"' in html
     assert 'id="sourcePanelToggle"' in html
@@ -265,8 +212,6 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     assert "renderSource" in html
     assert "renderQuality" in html
     assert "renderErrors" not in html
-    assert "prioritizedFindings" not in html
-    assert "appendFindingDiagnostic" not in html
     assert "appendDiagnosticChart" not in html
     assert "diagnosticChartItems" not in html
     assert "diagnostic-grid" not in html
@@ -275,8 +220,6 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     assert "Focused diagnostic subgraph" not in html
     assert "data-diagnostic-chart-node" not in html
     assert "diagnostic-related" not in html
-    assert "contextForFinding" not in html
-    assert "finding_rules" not in html
     # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
     assert 'data-action="fullscreen"' in html
     assert 'id="detailButton"' in html
@@ -346,9 +289,6 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "Parse warnings" in html
     assert "Language attention" in html
     assert ".quality-metrics" in html
-
-    # The details rail no longer exposes review-signal row synchronization.
-    assert "finding.node_id === sel.nodeId" not in html
 
     # Full-screen canvas hides rails, so the rail menu must not remain as a no-op control.
     assert "body[data-fullscreen] #menuButton" in html
