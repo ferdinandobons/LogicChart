@@ -45,28 +45,26 @@
     <rect x="0" y="0" width="486" height="368" rx="34" fill="url(#panel)" stroke="#253044" stroke-width="2"/>
 
     <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="820">
-      <rect x="58" y="70" width="158" height="70" rx="18" fill="#151c2b" stroke="#6f93ff" stroke-width="3"/>
-      <text x="137" y="100" text-anchor="middle" fill="#edf2fb" font-size="23">code</text>
-      <text x="137" y="124" text-anchor="middle" fill="#8f9bb0" font-size="15">source files</text>
+      <rect x="148" y="38" width="190" height="68" rx="18" fill="#151c2b" stroke="#6f93ff" stroke-width="3"/>
+      <text x="243" y="68" text-anchor="middle" fill="#edf2fb" font-size="23">code</text>
+      <text x="243" y="91" text-anchor="middle" fill="#8f9bb0" font-size="15">source files</text>
 
-      <path d="M272 105l78-60 78 60-78 60z" fill="#2a220f" stroke="#f0b33f" stroke-width="3"/>
-      <text x="350" y="101" text-anchor="middle" fill="#edf2fb" font-size="20">workflow</text>
-      <text x="350" y="124" text-anchor="middle" fill="#f1c76b" font-size="15">slice</text>
+      <path d="M243 176l90-64 90 64-90 64z" fill="#2a220f" stroke="#f0b33f" stroke-width="3"/>
+      <text x="333" y="172" text-anchor="middle" fill="#edf2fb" font-size="20">workflow</text>
+      <text x="333" y="195" text-anchor="middle" fill="#f1c76b" font-size="15">slice</text>
 
-      <rect x="58" y="228" width="370" height="70" rx="18" fill="#101f24" stroke="#24d7e6" stroke-width="3"/>
-      <text x="243" y="258" text-anchor="middle" fill="#edf2fb" font-size="23">visual explanation</text>
-      <text x="243" y="282" text-anchor="middle" fill="#8f9bb0" font-size="15">deterministic, navigable, cited</text>
+      <rect x="58" y="278" width="370" height="68" rx="18" fill="#101f24" stroke="#24d7e6" stroke-width="3"/>
+      <text x="243" y="308" text-anchor="middle" fill="#edf2fb" font-size="23">visual explanation</text>
+      <text x="243" y="331" text-anchor="middle" fill="#8f9bb0" font-size="15">deterministic, navigable, cited</text>
 
       <g stroke="#8f9bb0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M216 105H272"/>
-        <path d="M350 165C350 198 300 210 246 228"/>
-        <path d="M137 140C137 182 176 202 218 228"/>
+        <path d="M243 106V136"/>
+        <path d="M333 240C333 258 300 270 264 278"/>
       </g>
 
       <g fill="#6f93ff">
-        <circle cx="235" cy="105" r="5"/>
-        <circle cx="326" cy="174" r="5"/>
-        <circle cx="168" cy="184" r="5"/>
+        <circle cx="243" cy="124" r="5"/>
+        <circle cx="305" cy="262" r="5"/>
       </g>
     </g>
   </g>
