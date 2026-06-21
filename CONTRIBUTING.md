@@ -6,7 +6,7 @@ code contributions.
 ## Development Setup
 
 ```bash
-uv sync --extra dev --extra mcp
+uv sync --extra dev
 uv run pytest
 ```
 

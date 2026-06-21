@@ -195,7 +195,7 @@ def test_render_html_wires_framework_decision_expansion(tmp_path: Path) -> None:
 
 def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # The right rail is for model quality and source inspection.
+    # The right rail is for analysis health and source inspection.
     assert 'id="source"' in html
     assert 'id="quality"' in html
     assert 'id="errors"' not in html
@@ -276,12 +276,14 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "humanizeIdentifier(" in html
 
     # The Source panel is meaningful only when a file/flow is selected; scope/root views
-    # keep the details rail focused on model quality instead of placeholder source content.
+    # keep the details rail focused on analysis health instead of placeholder source
+    # content.
     assert "sourcePanel.hidden = !flow" in html
 
-    # Project-quality metrics are surfaced in the details rail from generated metadata,
+    # Analysis-health metrics are surfaced in the details rail from generated metadata,
     # giving large-codebase exploration a visible analyzer coverage and precision snapshot.
     assert 'id="qualityPanel"' in html
+    assert "Analysis health" in html
     assert "model.metadata.quality" in html
     assert "qualityMetric(" in html
     assert "Call resolution" in html

@@ -1188,7 +1188,7 @@
       stroke: var(--violet);
     }
 
-    /* Inline L2: the expanded flow's decision flowchart, drawn under its node inside the
+    /* Inline L2: the expanded flow's workflow flowchart, drawn under its node inside the
        L1 canvas. The backing panel groups it; the connector ties it to the flow node. */
     .inline-flow-link {
       fill: none;
@@ -1197,7 +1197,7 @@
       stroke-dasharray: 4 5;
       opacity: .7;
     }
-    /* --- Right column: quality and source panels ----------------------------- */
+    /* --- Right column: analysis health and source panels --------------------- */
     /* The rail splits vertically into panels that each scroll independently, so a long
        snippet scrolls inside its panel and never pushes the others off-screen. */
     .right-rail .rail-inner { display: flex; flex-direction: column; min-height: 0; }

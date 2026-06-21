@@ -40,7 +40,7 @@ class LogicChartArgumentParser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = LogicChartArgumentParser(
         prog="logicchart",
-        description="Turn a polyglot codebase into navigable decision flowcharts.",
+        description="Turn a local codebase into source-grounded workflow flowcharts.",
         epilog=dedent(
             """\
             Quick start:
@@ -77,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
               logicchart setup-agent cursor --full
 
             After setup, ask your coding agent ordinary questions about code logic. Use
-            logicchart view when a human wants the manual decision-flowchart UI.
+            logicchart view when a human wants the manual workflow flowchart UI.
             """
         ),
     )
@@ -121,7 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     view = subparsers.add_parser(
         "view",
         help="Generate and serve the interactive flowchart.",
-        description="Open the local interactive decision-flowchart viewer.",
+        description="Open the local interactive workflow flowchart viewer.",
         epilog=dedent(
             """\
             Examples:
@@ -447,7 +447,7 @@ def _view(
     print(f"URL: {url}")
     _print_next_steps(
         [
-            "Use the browser to inspect the decision flowchart.",
+            "Use the browser to inspect the workflow flowchart.",
             "Press Ctrl+C in this terminal to stop the local server.",
         ]
     )

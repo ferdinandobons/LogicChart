@@ -1,4 +1,4 @@
-"""LogicChart turns source code into decision flowcharts."""
+"""LogicChart turns source code into source-grounded workflow flowcharts."""
 
 from importlib.metadata import PackageNotFoundError, version
 

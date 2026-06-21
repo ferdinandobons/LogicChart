@@ -2,7 +2,7 @@
 
 LogicChart is a local-first workflow navigator for code logic.
 
-It builds a deterministic decision-flowchart model of a local codebase and exposes that
+It builds a deterministic workflow flowchart model of a local codebase and exposes that
 model in two ways:
 
 - `logicchart view` for manual exploration of the complete graph.
@@ -17,10 +17,10 @@ inventing steps that are not in the graph.
 LogicChart is not a bug finder, a generic graph database, or an LLM enrichment service.
 The core workflow is deterministic, local, and offline. No LLM provider key is required.
 
-> Status: early alpha. The model is versioned, but schema and MCP payloads may evolve
+> Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
 >
-> Latest release: [v0.8.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.8.0)
+> Latest release: [v0.9.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.9.0)
 > · [Changelog](CHANGELOG.md)
 
 ## Why It Exists
@@ -39,7 +39,13 @@ LogicChart gives agents a deterministic navigation layer:
 
 ## Quick Start
 
-Install from this source checkout. MCP support is included by default:
+Install the release from GitHub. MCP support is included by default:
+
+```bash
+uv tool install "git+https://github.com/ferdinandobons/LogicChart.git@v0.9.0"
+```
+
+Or install from a source checkout:
 
 ```bash
 git clone https://github.com/ferdinandobons/LogicChart.git logicchart

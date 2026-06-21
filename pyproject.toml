@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logicchart"
-version = "0.8.0"
-description = "Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 11 languages, no API key."
+version = "0.9.0"
+description = "Local-first workflow navigator that turns code into visual, source-grounded flowcharts for humans and coding agents. Deterministic, MCP-first, no API key."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -14,8 +14,10 @@ authors = [
 ]
 keywords = [
   "static-analysis",
+  "code-comprehension",
+  "code-navigation",
   "flowchart",
-  "decision-tree",
+  "workflow",
   "mcp",
   "python",
   "typescript",
@@ -33,7 +35,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Documentation",
-  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
   "tomli>=2.0; python_version < '3.11'",
@@ -86,6 +88,8 @@ include = [
   "/tests",
   "/frontend",
   "/schema",
+  "/examples/demo",
+  "/examples/shop",
   "/package.json",
   "/package-lock.json",
   "/README.md",

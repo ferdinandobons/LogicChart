@@ -133,13 +133,13 @@ _HTML_TEMPLATE = r"""<!doctype html>
           </div>
           <button class="panel-close" id="detailsClose" type="button" title="Hide source and details" aria-label="Hide source and details">&times;</button>
         </div>
-        <section class="panel panel-quality" id="qualityPanel" aria-label="Project quality" data-collapsible-panel data-panel-state="quality">
+        <section class="panel panel-quality" id="qualityPanel" aria-label="Analysis health" data-collapsible-panel data-panel-state="quality">
           <div class="panel-head" data-panel-heading>
-            <button class="panel-collapse-toggle" id="qualityPanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="quality" title="Collapse Project quality" aria-label="Collapse Project quality"><span class="panel-chevron" aria-hidden="true"></span></button>
-            <h2 class="rail-title">Project quality</h2>
+            <button class="panel-collapse-toggle" id="qualityPanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="quality" title="Collapse Analysis health" aria-label="Collapse Analysis health"><span class="panel-chevron" aria-hidden="true"></span></button>
+            <h2 class="rail-title">Analysis health</h2>
             <span class="panel-count" id="qualityCount" aria-hidden="true"></span>
           </div>
-          <div class="panel-body quality-scroll" id="quality" role="region" aria-label="Analysis quality metrics"></div>
+          <div class="panel-body quality-scroll" id="quality" role="region" aria-label="Analysis health metrics"></div>
         </section>
         <section class="panel panel-source" id="sourcePanel" aria-label="Source" data-collapsible-panel data-panel-state="source">
           <div class="panel-head" data-panel-heading>

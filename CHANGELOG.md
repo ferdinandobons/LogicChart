@@ -6,14 +6,16 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.9.0 - 2026-06-21
+
 ### Changed
 
 - Reoriented LogicChart around code-logic comprehension instead of review findings:
   MCP workflow slices, agent instructions, Markdown artifacts, and the generated viewer
   now emphasize deterministic flows, decisions, calls, source anchors, visual snapshots,
   and manual exploration through `logicchart view`.
-- Moved MCP into the default runtime install so `uv tool install logicchart` includes the
-  primary agent surface without requiring an optional extra.
+- Moved MCP into the default runtime install so release and source-checkout installs include
+  the primary agent surface without requiring an optional extra.
 - Updated `logicchart setup-agent codex|claude|gemini|cursor` so setup writes only the
   requested target's instruction file and installs provider-native LogicChart skill
   guidance where supported.
