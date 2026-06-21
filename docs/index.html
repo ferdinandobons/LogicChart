@@ -75,49 +75,17 @@
       .brand {
         display: inline-flex;
         align-items: center;
-        gap: 14px;
+        gap: 12px;
         color: var(--text);
         text-decoration: none;
         font-size: 18px;
         font-weight: 800;
       }
 
-      .mark {
-        position: relative;
-        width: 34px;
-        height: 34px;
-      }
-
-      .mark::before,
-      .mark::after {
-        content: "";
-        position: absolute;
-        left: 5px;
-        width: 8px;
-        height: 8px;
-        border-radius: 999px;
-      }
-
-      .mark::before {
-        top: 2px;
-        background: var(--blue);
-        box-shadow: 0 22px 0 var(--gold);
-      }
-
-      .mark::after {
-        top: 13px;
-        left: 25px;
-        background: var(--cyan);
-      }
-
-      .mark span {
-        position: absolute;
-        left: 9px;
-        top: 10px;
-        width: 18px;
-        height: 14px;
-        border-left: 3px solid var(--muted);
-        border-bottom: 3px solid var(--muted);
+      .logo {
+        width: 24px;
+        height: 37px;
+        display: block;
       }
 
       .nav-links {
@@ -326,7 +294,7 @@
   <body>
     <header class="shell nav">
       <a class="brand" href="https://github.com/ferdinandobons/CodeDebrief">
-        <span class="mark" aria-hidden="true"><span></span></span>
+        <img class="logo" src="assets/codedebrief-logo.svg" alt="" aria-hidden="true" />
         CodeDebrief
       </a>
       <nav class="nav-links" aria-label="Project links">

@@ -19,8 +19,13 @@
   <circle cx="1120" cy="108" r="260" fill="#6f93ff" opacity="0.08"/>
   <circle cx="1010" cy="520" r="220" fill="#24d7e6" opacity="0.06"/>
 
-  <g transform="translate(86 88)">
-    <text x="0" y="88" fill="#edf2fb" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="86" font-weight="850">CodeDebrief</text>
+  <g transform="translate(86 84)">
+    <g transform="translate(0 0) scale(1.46)" aria-hidden="true">
+      <circle cx="13" cy="7.5" r="5.5" fill="#6f93ff"/>
+      <line x1="13" y1="17.5" x2="13" y2="21" stroke="#a78bfa" stroke-width="3" stroke-linecap="round"/>
+      <polygon points="13,25 19.5,31 13,37 6.5,31" fill="#f0b33f"/>
+    </g>
+    <text x="58" y="59" fill="#edf2fb" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="86" font-weight="850">CodeDebrief</text>
     <text x="4" y="146" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700">Source-grounded workflow diagrams</text>
     <text x="4" y="188" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700">for coding agents and codebase exploration.</text>
 
