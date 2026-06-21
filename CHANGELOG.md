@@ -6,11 +6,25 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.12.0 - 2026-06-21
+
 ### Added
 
 - Published the `codedebrief` package on PyPI and made `uv tool install codedebrief` the
   primary README install path.
 - Added a README screenshot for the manual `codedebrief view` canvas.
+
+### Changed
+
+- Updated generated agent guidance so workflow artifacts are refreshed after
+  workflow-relevant changes before finalizing or committing.
+- Made CodeDebrief workflow visuals vertical by default, with horizontal output reserved
+  for explicit compact-overview requests.
+
+### Fixed
+
+- Fixed the manual viewer details rail so the Analysis Health panel no longer leaves a
+  stale empty source panel when no flow source is selected.
 
 ## 0.11.0 - 2026-06-21
 
