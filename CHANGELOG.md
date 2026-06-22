@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.15.0 - 2026-06-22
+
 ### Added
 
 - Added `codedebrief setup <agent> --source <path> [...]` so initial setup can index only

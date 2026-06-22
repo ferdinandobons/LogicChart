@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codedebrief"
-version = "0.14.1"
+version = "0.15.0"
 description = "Visual code workflow explorer for coding agents. Builds deterministic, source-grounded Mermaid flowcharts via MCP, local-first, with no API key."
 readme = "README.md"
 requires-python = ">=3.10"
