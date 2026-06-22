@@ -1,0 +1,39 @@
+name: Usage question
+description: Ask about setup, workflow diagrams, MCP behavior, or the viewer.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for setup problems, agent workflow questions, or unclear diagram output.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to do with CodeDebrief?
+      placeholder: "Example: I want my coding agent to show a compact workflow for..."
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Related surface
+      options:
+        - Setup
+        - CLI
+        - MCP tools
+        - Agent skill or instructions
+        - Mermaid or visual output
+        - Viewer
+        - Generated artifacts
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include commands, prompts, or the shape of the project you are analyzing.
+    validations:
+      required: false

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://ferdinandobons.github.io/CodeDebrief/
+    about: Read the quick start and usage guide.

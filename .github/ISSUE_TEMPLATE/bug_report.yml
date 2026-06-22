@@ -1,0 +1,66 @@
+name: Bug report
+description: Report something that is broken or incorrect in CodeDebrief.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include enough context to reproduce the behavior locally.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the incorrect behavior and what you expected instead.
+      placeholder: "Example: `codedebrief update` fails when..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: List the smallest commands, files, or project shape that trigger the issue.
+      placeholder: |
+        1. Run `codedebrief setup-agent codex`
+        2. Run `codedebrief update`
+        3. Open `codedebrief view`
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - CLI
+        - MCP tools
+        - Agent skill or instructions
+        - Viewer
+        - Generated artifacts
+        - Packaging or installation
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: CodeDebrief version
+      description: Paste the output of `codedebrief --version`.
+      placeholder: "codedebrief 0.13.0"
+    validations:
+      required: false
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Doctor output
+      description: Paste the relevant output of `codedebrief doctor --json`, if available.
+      render: json
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Add terminal output, screenshots, or links that help explain the issue.
+    validations:
+      required: false
