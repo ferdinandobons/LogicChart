@@ -23,6 +23,7 @@ from codedebrief.artifacts import (
     write_artifacts,
 )
 from codedebrief.config import CodeDebriefConfig
+from codedebrief.errors import append_error_event
 from codedebrief.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel
 from codedebrief.query import (
     flow_navigation,
@@ -544,6 +545,19 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
                     )
                 model_store.replace(result.model)
         except (OSError, RuntimeError, SyntaxError, TimeoutError, ValueError) as error:
+            append_error_event(
+                project_root,
+                command="mcp.update_codedebrief",
+                phase="update",
+                code="update_failed",
+                message="Could not update CodeDebrief artifacts.",
+                detail=str(error),
+                next_steps=[
+                    "Check filesystem permissions.",
+                    "Run `codedebrief update --full` from the project root.",
+                ],
+                config=active_config,
+            )
             return {
                 "error": "Could not update CodeDebrief artifacts.",
                 "error_code": "update_failed",
@@ -2490,6 +2504,18 @@ def _write_snapshot_artifact(
             atomic_write_text(svg_path, svg, encoding="utf-8")
             atomic_write_text(html_path, _snapshot_artifact_html(svg, stem), encoding="utf-8")
     except OSError as exc:
+        append_error_event(
+            project_root,
+            command="mcp.snapshot_slice",
+            phase="snapshot_artifact",
+            code="snapshot_write_failed",
+            message="Could not write CodeDebrief snapshot artifact.",
+            detail=str(exc),
+            next_steps=[
+                "Check filesystem permissions for .codedebrief/snapshots.",
+                "Retry snapshot_slice or use the Mermaid artifact fallback.",
+            ],
+        )
         return {
             "written": False,
             "reason": "write_failed",
@@ -3037,9 +3063,24 @@ def _model_load_error(
     error: BaseException,
 ) -> dict[str, Any]:
     json_path, markdown_path, html_path = output_paths(project_root, config)
+    error_code = _model_load_error_code(error)
+    append_error_event(
+        project_root,
+        command="mcp",
+        phase="load_model",
+        code=error_code,
+        message="Could not load the CodeDebrief model.",
+        detail=str(error),
+        artifact=str(json_path),
+        next_steps=[
+            "Run `codedebrief update --full`.",
+            "Run `codedebrief validate --check-sync --json`.",
+        ],
+        config=config,
+    )
     return {
         "error": "Could not load the CodeDebrief model.",
-        "error_code": _model_load_error_code(error),
+        "error_code": error_code,
         "detail": str(error),
         "artifact": str(json_path),
         "related_artifacts": {

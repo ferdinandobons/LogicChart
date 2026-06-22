@@ -178,6 +178,7 @@ def test_update_nonexistent_path_errors_clearly(
     captured = capsys.readouterr()
     assert "does not exist" in captured.err
     assert "Analyzed 0 files" not in captured.out
+    assert not missing.exists()
 
 
 def test_cli_catches_oserror_instead_of_leaking_a_traceback(
@@ -196,7 +197,38 @@ def test_cli_catches_oserror_instead_of_leaking_a_traceback(
     output = capsys.readouterr().err
     assert "CodeDebrief command FAILED" in output
     assert "Error: Permission denied" in output
-    assert "Next steps:" in output
+    assert "codedebrief doctor --errors" in output
+    error_log = tmp_path / "codedebrief-out" / "codedebrief.errors.jsonl"
+    events = [json.loads(line) for line in error_log.read_text(encoding="utf-8").splitlines()]
+    assert events[-1]["command"] == "update"
+    assert events[-1]["code"] == "command_failed"
+    assert events[-1]["message"] == "Permission denied"
+
+
+def test_cli_doctor_can_show_and_clear_saved_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codedebrief.cli as cli_module
+
+    def boom(*_args: object, **_kwargs: object) -> int:
+        raise RuntimeError("bad generated model")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(cli_module, "_analyze", boom)
+        assert main(["update", str(tmp_path), "--full"]) == 1
+    capsys.readouterr()
+
+    assert main(["doctor", str(tmp_path), "--errors"]) == 0
+    output = capsys.readouterr().out
+    assert "CodeDebrief errors" in output
+    assert "bad generated model" in output
+    assert "update/command_failed" in output
+
+    assert main(["doctor", str(tmp_path), "--errors", "--clear"]) == 0
+    assert "errors cleared" in capsys.readouterr().out
+    assert main(["doctor", str(tmp_path), "--errors", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["count"] == 0
 
 
 def test_update_full_flag_dispatches_to_full_analysis(
@@ -219,6 +251,7 @@ def test_update_full_flag_dispatches_to_full_analysis(
             "full": True,
             "include_html": False,
             "profile": None,
+            "verbose": False,
         }
     ]
 
@@ -240,14 +273,11 @@ def authorize(user):
     assert (tmp_path / "codedebrief-out" / "codedebrief.hash.json").exists()
     output = capsys.readouterr().out
     assert "CodeDebrief update" in output
-    assert "Mode: full refresh" in output
-    assert "Progress:" in output
-    assert "- Analyzing source files and linking workflows..." in output
+    assert "Status: OK - refreshed" in output
     assert "Status: OK" in output
-    assert "Summary:" in output
-    assert "Artifacts:" in output
-    assert "codedebrief.hash.json" in output
-    assert "Next steps:" in output
+    assert "Cache:" in output
+    assert "Output:" in output
+    assert "Next: codedebrief view | codedebrief validate --check-sync" in output
     assert main(["update", str(tmp_path)]) == 0
     assert main(["view", str(tmp_path), "--render-only"]) == 0
     output = capsys.readouterr().out
@@ -507,7 +537,7 @@ def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture
     assert (tmp_path / "codedebrief-out" / "self" / "codedebrief.json").exists()
 
     assert main(["validate", str(tmp_path), "--profile", "self"]) == 0
-    assert "validation OK" in capsys.readouterr().out
+    assert "Status: OK - artifacts are valid." in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
@@ -592,17 +622,15 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     agents_text = (tmp_path / instruction_path).read_text(encoding="utf-8")
     _assert_current_agent_instructions(agents_text)
     output = capsys.readouterr().out
-    assert "Created" in output
-    assert "- Preparing config and selected source roots..." in output
-    assert "- Installing agent instructions, skills, and MCP config..." in output
-    assert "- Generating CodeDebrief artifacts..." in output
-    assert "- Checking local installation and runtime support..." in output
-    assert "- Validating generated artifacts..." in output
-    assert "Status: OK - CodeDebrief is ready for your coding agent." in output
+    assert "CodeDebrief setup" in output
+    assert f"Agent: {display}" in output
+    assert "- Config created:" in output
+    assert "- Agent integration updated:" in output
+    assert "- Artifacts refreshed:" in output
+    assert "- Runtime checked:" in output
+    assert "- Artifacts valid" in output
+    assert "Ready: CodeDebrief is configured for your coding agent." in output
     assert "Next steps:" in output
-    assert "CodeDebrief doctor OK" in output
-    assert "CodeDebrief validation OK" in output
-    assert f"CodeDebrief agent setup complete for {display}" in output
 
     assert main(["setup", agent, str(tmp_path), "--no-html"]) == 0
     assert "already up to date" in capsys.readouterr().out
@@ -633,8 +661,9 @@ def test_cli_setup_source_roots_limit_initial_analysis(
 
     assert 'source_roots = ["backend", "frontend"]' in config_text
     assert analyzed_paths == {"backend/api.py", "frontend/app.ts"}
-    assert "- Source roots: backend, frontend" in output
-    assert "Summary: 2 files" in output
+    assert "Sources: backend, frontend" in output
+    assert "- Source roots set: backend, frontend" in output
+    assert "- Artifacts refreshed: 2 files" in output
 
 
 def test_cli_setup_accepts_sibling_repo_source_roots(
@@ -671,8 +700,9 @@ def test_cli_setup_accepts_sibling_repo_source_roots(
 
     assert 'source_roots = ["../service-a", "../service-b"]' in config_text
     assert analyzed_paths == {"../service-a/extract.py", "../service-b/load.ts"}
-    assert "- Source roots: ../service-a, ../service-b" in output
-    assert "Summary: 2 files" in output
+    assert "Sources: ../service-a, ../service-b" in output
+    assert "- Source roots set: ../service-a, ../service-b" in output
+    assert "- Artifacts refreshed: 2 files" in output
 
 
 def test_cli_doctor_reports_active_install(capsys: pytest.CaptureFixture[str]) -> None:

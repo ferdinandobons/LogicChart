@@ -674,8 +674,12 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
 
     asyncio.run(call_with_missing_artifact())
 
+    error_log = tmp_path / "codedebrief-out" / "codedebrief.errors.jsonl"
+    assert error_log.exists()
+    assert '"code": "artifact_missing"' in error_log.read_text(encoding="utf-8")
+
     artifact = tmp_path / "codedebrief-out" / "codedebrief.json"
-    artifact.parent.mkdir(parents=True)
+    artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text("{", encoding="utf-8")
 
     async def call_with_malformed_artifact() -> None:

@@ -1,7 +1,7 @@
 {
   "artifact": "codedebrief.json",
-  "artifact_mtime_ns": 1782141101324444129,
-  "artifact_size": 6997914,
-  "model_hash": "27d70a7f89f1361055af052829709f264b0703393790599088487f5acbbadf0e",
+  "artifact_mtime_ns": 1782143150383705092,
+  "artifact_size": 7142362,
+  "model_hash": "4575db707554cbbaa9a6fb85d9eb4186564397202a976fc516f4f15455eacd58",
   "schema_version": "codedebrief_model_hash.v1"
 }

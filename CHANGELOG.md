@@ -11,11 +11,16 @@ The project follows Semantic Versioning.
 - Added `codedebrief clear` to remove CodeDebrief config, generated artifacts, installed
   skills, MCP server entries, and managed instruction blocks from the current project
   folder.
+- Added `codedebrief doctor --errors` and `codedebrief doctor --errors --clear` for
+  inspecting or clearing local CLI/MCP diagnostics saved in
+  `codedebrief-out/codedebrief.errors.jsonl`.
 
 ### Changed
 
 - New `codedebrief setup` runs keep project config in `codedebrief-out/codedebrief.toml`
   while preserving compatibility with legacy root `codedebrief.toml` files.
+- Made default `setup`, `update`, `validate`, and `doctor` output more compact while
+  preserving detailed progress behind `--verbose` and structured output behind `--json`.
 - Expanded default pruning for common cache, build, IDE, and binary output paths before
   analysis starts.
 - Auto-scale the default `agent_context` token budget on large broad requests while still

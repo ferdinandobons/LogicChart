@@ -27,6 +27,13 @@ from codedebrief.config import (
     legacy_config_path,
 )
 from codedebrief.doctor import doctor_report, render_doctor, render_doctor_json
+from codedebrief.errors import (
+    append_error_event,
+    clear_error_events,
+    error_report,
+    render_error_report,
+    render_error_report_json,
+)
 from codedebrief.install import (
     AGENT_INSTRUCTION_TARGETS,
     AGENT_SKILL_TARGETS,
@@ -112,6 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     update.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
     update.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
+    update.add_argument("--verbose", action="store_true", help="Show detailed progress output.")
     _add_profile_argument(update)
 
     view = subparsers.add_parser(
@@ -171,6 +179,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument(
         "--json", action="store_true", dest="json_output", help="Emit JSON output."
     )
+    validate.add_argument("--verbose", action="store_true", help="Show detailed progress output.")
     validate.add_argument(
         "--quality",
         action="store_true",
@@ -201,6 +210,18 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="Check the active CodeDebrief installation.")
     doctor.add_argument("path", nargs="?", default=".", help="Project folder to inspect.")
     doctor.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
+    doctor.add_argument("--verbose", action="store_true", help="Show detailed runtime output.")
+    doctor.add_argument(
+        "--errors",
+        action="store_true",
+        help="Show saved CodeDebrief error events from codedebrief-out.",
+    )
+    doctor.add_argument(
+        "--clear",
+        action="store_true",
+        dest="clear_errors",
+        help="With --errors, clear saved CodeDebrief error events.",
+    )
 
     clear = subparsers.add_parser(
         "clear",
@@ -272,6 +293,7 @@ def _add_setup_parser(
     )
     setup.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
     setup.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
+    setup.add_argument("--verbose", action="store_true", help="Show installed file paths.")
     setup.add_argument(
         "--source",
         nargs="+",
@@ -309,6 +331,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 include_html=not args.no_html,
                 profile=args.profile,
                 source_roots=args.source_roots,
+                verbose=args.verbose,
             )
         if args.command == "update":
             return _analyze(
@@ -316,6 +339,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 full=args.full,
                 include_html=not args.no_html,
                 profile=args.profile,
+                verbose=args.verbose,
             )
         if args.command == "view":
             return _view(
@@ -333,9 +357,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.quality,
                 _quality_thresholds(args),
                 args.profile,
+                verbose=args.verbose,
             )
         if args.command == "doctor":
-            return _doctor(Path(args.path), args.json_output)
+            return _doctor(
+                Path(args.path),
+                args.json_output,
+                errors=args.errors,
+                clear_errors=args.clear_errors,
+                verbose=args.verbose,
+            )
         if args.command == "clear":
             return _clear(Path(args.path), assume_yes=args.yes)
         if args.command == "mcp":
@@ -345,15 +376,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_mcp(Path(args.path), config)
             return 0
     except (OSError, RuntimeError, TimeoutError, ValueError, SyntaxError) as error:
+        command = str(getattr(args, "command", "unknown"))
+        saved_error_path = append_error_event(
+            _args_root(args),
+            command=command,
+            phase="command",
+            code="command_failed",
+            message=str(error),
+            next_steps=[
+                "Check the path and filesystem permissions.",
+                "Run `codedebrief doctor` if this looks like an install issue.",
+            ],
+        )
         # OSError subsumes FileNotFoundError/PermissionError, so a missing path or a
         # permission-denied write surfaces as a clean message instead of a raw traceback.
         print("CodeDebrief command FAILED", file=sys.stderr)
         print(f"Error: {error}", file=sys.stderr)
+        if saved_error_path is not None:
+            print(f"Saved: {saved_error_path}", file=sys.stderr)
         print("Next steps:", file=sys.stderr)
         print("- Check the path and filesystem permissions.", file=sys.stderr)
-        print("- Run `codedebrief doctor` if this looks like an install issue.", file=sys.stderr)
+        print("- Run `codedebrief doctor --errors` to inspect saved errors.", file=sys.stderr)
         return 1
     return 0
+
+
+def _args_root(args: argparse.Namespace) -> Path:
+    value = getattr(args, "path", ".")
+    try:
+        return Path(value).resolve()
+    except TypeError:
+        return Path(".").resolve()
 
 
 def _setup_agent(
@@ -364,6 +417,7 @@ def _setup_agent(
     include_html: bool,
     profile: str | None = None,
     source_roots: Sequence[str] | None = None,
+    verbose: bool = False,
 ) -> int:
     if not root.exists():
         raise FileNotFoundError(f"path does not exist: {root}")
@@ -374,69 +428,89 @@ def _setup_agent(
         "gemini": "Gemini",
         "cursor": "Cursor",
     }[agent]
-    print(f"CodeDebrief setup for {display}")
+    print("CodeDebrief setup")
     print(f"Project: {root}")
-    print("Progress:")
-    _print_progress("Preparing config and selected source roots")
+    print(f"Agent: {display}")
 
     normalized_source_roots = _normalize_source_roots(root, source_roots)
     config_path, created_config, updated_config = _ensure_config(root, normalized_source_roots)
-    print("")
-    print("Setup:")
     config_state = (
         "Created" if created_config else "Updated" if updated_config else "Already present"
     )
-    print(f"- Config: {config_state} ({config_path})")
+    print(f"Sources: {_format_source_roots(normalized_source_roots or ['.'])}")
+    print(f"Output: {config_path.parent}")
+    print("")
+    print("Status:")
+    print(f"- Config {config_state.lower()}: {config_path}")
     if normalized_source_roots:
-        print(f"- Source roots: {', '.join(normalized_source_roots)}")
+        print(f"- Source roots set: {', '.join(normalized_source_roots)}")
 
-    _print_progress("Installing agent instructions, skills, and MCP config")
     changed = install_agent_instructions(root, agent)
     changed.extend(install_agent_skill(root, agent))
     if agent in MCP_CONFIG_TARGETS:
         changed.extend(install_mcp_config(root, agent))
     if changed:
-        print(f"- Agent files: updated {len(changed)} file{'s' if len(changed) != 1 else ''}")
-        for path in changed:
-            print(f"  - {path}")
+        print(f"- Agent integration updated: {len(changed)} file{'s' if len(changed) != 1 else ''}")
+        if verbose:
+            for path in changed:
+                print(f"  - {path}")
     else:
-        print("- Agent files: already up to date")
+        print("- Agent integration already up to date")
 
-    print("")
-    _print_progress("Generating CodeDebrief artifacts")
     analyze_status = _analyze(
         root,
         full=full,
         include_html=include_html,
         profile=profile,
         show_next_steps=False,
+        quiet=True,
+        verbose=verbose,
     )
     if analyze_status != 0:
         return analyze_status
+    config = CodeDebriefConfig.load(root, profile=profile)
+    model = load_model(root, config)
+    print(f"- Artifacts refreshed: {len(model.files)} files, {len(model.flows)} flows")
+    skipped_files = model.metadata.get("skipped_files", [])
+    if isinstance(skipped_files, list) and skipped_files:
+        print(
+            f"- Analysis warnings: {len(skipped_files)} skipped file(s); "
+            "run `codedebrief doctor --errors`"
+        )
 
-    print("")
-    _print_progress("Checking local installation and runtime support")
-    doctor_status = _doctor(root, json_output=False, show_next_steps=False)
-    if doctor_status != 0:
-        return doctor_status
+    runtime = doctor_report(root)
+    if not runtime.ok:
+        print("- Runtime check failed")
+        print(_render_doctor_compact(runtime))
+        append_error_event(
+            root,
+            command="setup",
+            phase="doctor",
+            code="doctor_failed",
+            message="Runtime check failed during setup.",
+            next_steps=[runtime.repair_command, "Rerun `codedebrief setup <agent>`."],
+            config=config,
+        )
+        return 1
+    print(f"- Runtime checked: codedebrief {runtime.package_version}")
 
-    print("")
-    _print_progress("Validating generated artifacts")
-    validate_status = _validate(
+    validation = validate_codedebrief(
         root,
+        config=config,
         check_sync=False,
-        json_output=False,
         include_quality=False,
         quality_thresholds=None,
-        profile=profile,
-        show_next_steps=False,
     )
-    if validate_status != 0:
-        return validate_status
+    if not validation.ok:
+        print("- Artifact validation failed")
+        _log_validation_report(root, validation, config=config)
+        for error in validation.errors:
+            print(f"  Error: {error}", file=sys.stderr)
+        return 1
+    print("- Artifacts valid")
 
     print("")
-    print("Status: OK - CodeDebrief is ready for your coding agent.")
-    print(f"CodeDebrief agent setup complete for {display}.")
+    print("Ready: CodeDebrief is configured for your coding agent.")
     _print_next_steps(
         [
             "Ask your coding agent ordinary questions about the code logic.",
@@ -475,6 +549,8 @@ def _analyze(
     include_html: bool,
     profile: str | None = None,
     show_next_steps: bool = True,
+    quiet: bool = False,
+    verbose: bool = False,
 ) -> int:
     if not root.exists():
         raise FileNotFoundError(f"path does not exist: {root}")
@@ -482,16 +558,19 @@ def _analyze(
     config = CodeDebriefConfig.load(root, profile=profile)
     json_path, markdown_path, configured_html_path = output_paths(root, config)
     hash_path = model_hash_path(root, config)
-    print("CodeDebrief update")
-    print(f"Project: {root}")
-    print(f"Mode: {'full refresh' if full else 'incremental update with cache'}")
-    print(f"Source roots: {_format_source_roots(config.source_roots)}")
-    print(f"Output dir: {json_path.parent}")
-    print(f"HTML artifact: {'enabled' if include_html else 'disabled'}")
-    print("Progress:")
-    _print_progress("Waiting for the project update lock")
+    if not quiet:
+        print("CodeDebrief update")
+        print(f"Project: {root}")
+        if verbose:
+            print(f"Mode: {'full refresh' if full else 'incremental update with cache'}")
+            print(f"Source roots: {_format_source_roots(config.source_roots)}")
+            print(f"Output dir: {json_path.parent}")
+            print(f"HTML artifact: {'enabled' if include_html else 'disabled'}")
+            print("Progress:")
+            _print_progress("Waiting for the project update lock")
     with project_update_lock(root):
-        _print_progress("Analyzing source files and linking workflows")
+        if not quiet and verbose:
+            _print_progress("Analyzing source files and linking workflows")
         result = ProjectAnalyzer(root, config).analyze(full=full)
         if result.artifacts_unchanged and _artifacts_available(
             json_path,
@@ -499,50 +578,100 @@ def _analyze(
             configured_html_path if include_html else None,
             hash_path,
         ):
-            _print_progress("Reusing unchanged artifacts")
+            if not quiet and verbose:
+                _print_progress("Reusing unchanged artifacts")
             html_path = configured_html_path if include_html else None
         else:
             artifact_names = "JSON, Markdown, hash"
             if include_html:
                 artifact_names += ", and HTML"
-            _print_progress(f"Writing {artifact_names} artifacts")
+            if not quiet and verbose:
+                _print_progress(f"Writing {artifact_names} artifacts")
             json_path, markdown_path, html_path = write_artifacts(
                 root,
                 result.model,
                 include_html=include_html,
                 config=config,
             )
-    print("")
-    print("Status: OK - artifacts refreshed.")
-    print(f"Summary: {len(result.model.files)} files, {len(result.model.flows)} flows.")
-    print(
-        "Cache: "
-        f"{result.cache_hits} hits, {len(result.changed_files)} changed, "
-        f"{len(result.deleted_files)} deleted."
-    )
-    if result.skipped_files:
-        print(
-            f"Warning: skipped {len(result.skipped_files)} unparseable file(s):",
-            file=sys.stderr,
-        )
-        for relative, reason in result.skipped_files:
-            print(f"  - {relative}: {reason}", file=sys.stderr)
-    print("Artifacts:")
-    print(f"- JSON: {json_path}")
-    print(f"- Markdown: {markdown_path}")
-    print(f"- Hash: {hash_path}")
-    if html_path:
-        print(f"- HTML: {html_path}")
-    if show_next_steps:
-        steps = [
-            "Ask your coding agent questions about behavior, workflows, or changed-code context.",
-            "Run `codedebrief validate --check-sync` before committing generated artifacts.",
-        ]
-        if html_path:
-            steps.append("Open the manual UI with `codedebrief view`.")
+    if not quiet:
+        print("")
+        if verbose:
+            print("Status: OK - artifacts refreshed.")
+            print(f"Summary: {len(result.model.files)} files, {len(result.model.flows)} flows.")
         else:
-            steps.append("Generate/open the manual UI with `codedebrief view` when needed.")
-        _print_next_steps(steps)
+            print(
+                "Status: OK - refreshed "
+                f"{len(result.model.files)} files and {len(result.model.flows)} flows."
+            )
+        print(
+            "Cache: "
+            f"{result.cache_hits} hits, {len(result.changed_files)} changed, "
+            f"{len(result.deleted_files)} deleted."
+        )
+    if result.skipped_files:
+        append_error_event(
+            root,
+            command="update",
+            phase="analyze",
+            severity="warning",
+            code="skipped_files",
+            message=f"Skipped {len(result.skipped_files)} unparseable file(s).",
+            next_steps=[
+                "Run `codedebrief validate --quality` for analyzer-health details.",
+                "Inspect syntax or parser support for the skipped files.",
+            ],
+            context={
+                "skipped_files": [
+                    {"path": relative, "reason": reason}
+                    for relative, reason in result.skipped_files
+                ]
+            },
+            config=config,
+        )
+        if not quiet:
+            if verbose:
+                print(
+                    f"Warning: skipped {len(result.skipped_files)} unparseable file(s):",
+                    file=sys.stderr,
+                )
+                for relative, reason in result.skipped_files:
+                    print(f"  - {relative}: {reason}", file=sys.stderr)
+            else:
+                print(
+                    "Warning: skipped "
+                    f"{len(result.skipped_files)} unparseable file(s). "
+                    "Run `codedebrief doctor --errors` for details.",
+                    file=sys.stderr,
+                )
+    if not quiet:
+        if verbose:
+            print("Artifacts:")
+            print(f"- JSON: {json_path}")
+            print(f"- Markdown: {markdown_path}")
+            print(f"- Hash: {hash_path}")
+            if html_path:
+                print(f"- HTML: {html_path}")
+        else:
+            print(f"Output: {json_path.parent}")
+        if show_next_steps:
+            if verbose:
+                steps = [
+                    (
+                        "Ask your coding agent questions about behavior, workflows, "
+                        "or changed-code context."
+                    ),
+                    (
+                        "Run `codedebrief validate --check-sync` before committing "
+                        "generated artifacts."
+                    ),
+                ]
+                if html_path:
+                    steps.append("Open the manual UI with `codedebrief view`.")
+                else:
+                    steps.append("Generate/open the manual UI with `codedebrief view` when needed.")
+                _print_next_steps(steps)
+            else:
+                print("Next: codedebrief view | codedebrief validate --check-sync")
     return 0
 
 
@@ -599,14 +728,16 @@ def _validate(
     quality_thresholds: dict[str, float | int] | None,
     profile: str | None = None,
     show_next_steps: bool = True,
+    verbose: bool = False,
 ) -> int:
     root = root.resolve()
     config = CodeDebriefConfig.load(root, profile=profile)
     if not json_output:
         print("CodeDebrief validation")
         print(f"Project: {root}")
-        print("Progress:")
-        _print_progress("Loading artifact, schema, and sync metadata")
+        if verbose:
+            print("Progress:")
+            _print_progress("Loading artifact, schema, and sync metadata")
     report = validate_codedebrief(
         root,
         config=config,
@@ -614,24 +745,26 @@ def _validate(
         include_quality=include_quality,
         quality_thresholds=quality_thresholds,
     )
+    if report.errors or report.warnings:
+        _log_validation_report(root, report, config=config)
     if json_output:
         print(json.dumps(report.to_dict(), indent=2))
     else:
         status = "OK" if report.ok else "FAILED"
         print("")
-        print(f"CodeDebrief validation {status}: {report.artifact}")
-        print(
-            f"Status: {status} - "
-            f"{'artifacts are valid.' if report.ok else 'review the errors below.'}"
-        )
+        if verbose:
+            print(f"CodeDebrief validation {status}: {report.artifact}")
+        print(f"Status: {status} - {'artifacts are valid.' if report.ok else 'review errors.'}")
         for warning in report.warnings:
-            print(f"Warning: {warning}")
+            print(f"Warning: {warning}", file=sys.stderr)
         for error in report.errors:
             print(f"Error: {error}", file=sys.stderr)
         if report.quality is not None:
             print(render_quality(report.quality))
         if show_next_steps:
-            if report.ok:
+            if not verbose and report.ok:
+                print("Next: codedebrief update after source changes")
+            elif report.ok:
                 _print_next_steps(
                     [
                         "No repair needed.",
@@ -645,6 +778,7 @@ def _validate(
                 _print_next_steps(
                     [
                         "Run `codedebrief update` to refresh stale artifacts.",
+                        "Run `codedebrief doctor --errors` for saved diagnostics.",
                         "Fix any listed validation errors, then rerun `codedebrief validate`.",
                     ]
                 )
@@ -664,25 +798,116 @@ def _quality_thresholds(args: argparse.Namespace) -> dict[str, float | int]:
     return thresholds
 
 
-def _doctor(root: Path, json_output: bool, show_next_steps: bool = True) -> int:
+def _doctor(
+    root: Path,
+    json_output: bool,
+    show_next_steps: bool = True,
+    *,
+    errors: bool = False,
+    clear_errors: bool = False,
+    verbose: bool = False,
+) -> int:
+    root = root.resolve()
+    if errors:
+        if clear_errors:
+            path = clear_error_events(root)
+            payload = {
+                "schema_version": "codedebrief_errors_clear.v1",
+                "project": str(root),
+                "path": str(path),
+                "cleared": True,
+            }
+            print(
+                json.dumps(payload, indent=2)
+                if json_output
+                else f"CodeDebrief errors cleared: {path}"
+            )
+            return 0
+        report_payload = error_report(root)
+        print(
+            render_error_report_json(report_payload)
+            if json_output
+            else render_error_report(report_payload)
+        )
+        return 0
+
     report = doctor_report(root)
-    print(render_doctor_json(report) if json_output else render_doctor(report))
+    print(
+        render_doctor_json(report)
+        if json_output
+        else render_doctor(report)
+        if verbose
+        else _render_doctor_compact(report)
+    )
     if not json_output and show_next_steps:
         if report.ok:
-            _print_next_steps(
-                [
-                    "Run `codedebrief setup codex` once in a new project.",
-                    "Run `codedebrief update` in an already configured project.",
-                ]
-            )
+            if verbose:
+                _print_next_steps(
+                    [
+                        "Run `codedebrief setup codex` once in a new project.",
+                        "Run `codedebrief update` in an already configured project.",
+                    ]
+                )
+            else:
+                print("Next: codedebrief update | codedebrief doctor --errors")
         else:
             _print_next_steps(
                 [
                     f"Repair this interpreter with `{report.repair_command}`.",
+                    "Run `codedebrief doctor --errors` for saved diagnostics.",
                     "Rerun `codedebrief doctor` after repair.",
                 ]
             )
     return 0 if report.ok else 1
+
+
+def _render_doctor_compact(report: Any) -> str:
+    status = "OK" if report.ok else "FAILED"
+    lines = [
+        f"CodeDebrief doctor {status}",
+        f"Package: codedebrief {report.package_version}",
+        f"Python: {report.executable}",
+    ]
+    if report.missing_dependencies:
+        lines.append(
+            "Missing dependencies: "
+            + ", ".join(item.package for item in report.missing_dependencies)
+        )
+    if report.legacy_mcp_configs:
+        lines.append(f"Legacy MCP configs: {len(report.legacy_mcp_configs)}")
+    if report.ok:
+        capabilities = report.language_capabilities
+        lines.append(f"Languages: {len(capabilities.supported_languages)} supported")
+    return "\n".join(lines)
+
+
+def _log_validation_report(root: Path, report: Any, *, config: CodeDebriefConfig) -> None:
+    for error in report.errors:
+        append_error_event(
+            root,
+            command="validate",
+            phase="artifact",
+            code="validation_failed",
+            message=error,
+            artifact=str(report.artifact),
+            next_steps=[
+                "Run `codedebrief update` to refresh stale artifacts.",
+                "Rerun `codedebrief validate` after fixing the issue.",
+            ],
+            config=config,
+        )
+    for warning in report.warnings:
+        append_error_event(
+            root,
+            command="validate",
+            phase="artifact",
+            severity="warning",
+            code="validation_warning",
+            message=warning,
+            artifact=str(report.artifact),
+            next_steps=["Review the warning, then rerun `codedebrief validate`."],
+            config=config,
+        )
 
 
 @dataclass(frozen=True, slots=True)

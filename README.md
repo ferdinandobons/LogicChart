@@ -104,7 +104,8 @@ codedebrief-out/
 ├── codedebrief.html        local interactive full-project viewer
 ├── codedebrief.md          reviewable Mermaid flowcharts
 ├── codedebrief.json        canonical model for MCP, CI, scripts, and the viewer
-└── codedebrief.hash.json   model hash sidecar for faster MCP cold starts
+├── codedebrief.hash.json   model hash sidecar for faster MCP cold starts
+└── codedebrief.errors.jsonl saved CLI/MCP diagnostics, when errors occur
 ```
 
 Provider-required files still live where the client expects them, for example `.mcp.json`,
@@ -116,6 +117,16 @@ For explicit refresh during development:
 ```bash
 codedebrief update
 codedebrief validate --check-sync
+```
+
+The default CLI output is intentionally compact. Add `--verbose` to `setup`, `update`,
+`validate`, or `doctor` when you need detailed progress and file paths.
+
+To inspect saved local errors from failed CLI/MCP operations:
+
+```bash
+codedebrief doctor --errors
+codedebrief doctor --errors --clear
 ```
 
 To remove CodeDebrief from the current project folder:
@@ -319,6 +330,7 @@ Use `codedebrief view` for the manual UI. The CLI intentionally stays small:
 | --- | --- | --- |
 | `codedebrief.json` | Yes | Canonical model consumed by MCP, CI, scripts, and the viewer. |
 | `codedebrief.md` | Yes | Generated inspection artifact with Mermaid flowcharts. It is not a replacement for maintained project documentation. |
+| `codedebrief.errors.jsonl` | Usually no | Append-only local diagnostics for failed CLI/MCP operations. Inspect it with `codedebrief doctor --errors`. |
 | `codedebrief.html` | Usually no | Local interactive viewer generated from the model. |
 
 Commit `codedebrief.json` and `codedebrief.md` when CodeDebrief is part of the project
@@ -329,6 +341,10 @@ when a human needs the viewer.
 `codedebrief doctor` also reports legacy `logicchart` MCP server configs left from older
 installs. Re-run `codedebrief setup <target>` for the affected agent to replace them
 with project-scoped `codedebrief` MCP config.
+
+`codedebrief doctor --errors` shows recent saved diagnostics from
+`codedebrief-out/codedebrief.errors.jsonl`; use `codedebrief doctor --errors --clear` after
+you have resolved them.
 
 `codedebrief validate --quality` reports analyzer health. Its call-resolution rate is
 based on project calls only: deterministic runtime, standard-library, DOM/browser, and

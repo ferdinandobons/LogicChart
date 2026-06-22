@@ -64,6 +64,7 @@ pnpm-debug.log*
 .codedebrief/
 .logicchart/
 **/codedebrief-out/codedebrief.html
+**/codedebrief-out/codedebrief.errors.jsonl
 **/codedebrief-out/*/
 **/logicchart-out/
 **/logic-flow.html
