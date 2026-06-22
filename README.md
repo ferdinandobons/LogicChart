@@ -28,7 +28,7 @@ user explicitly asks for a compact overview.
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
 >
-> Latest release: [v0.15.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.15.0)
+> Latest release: [v0.16.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.16.0)
 > · [Website](https://ferdinandobons.github.io/CodeDebrief/)
 > · [Changelog](CHANGELOG.md)
 
@@ -99,7 +99,7 @@ codedebrief validate --check-sync
 To install a pinned GitHub release instead:
 
 ```bash
-uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.15.0"
+uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.16.0"
 ```
 
 Or install from a source checkout:

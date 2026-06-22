@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.16.0 - 2026-06-22
+
 ### Added
 
 - Allowed `source_roots` and `codedebrief setup --source` to point at sibling repositories,
